@@ -1,47 +1,40 @@
 from typing import Dict, Optional, Tuple, Union
-
-import numpy as np
-import torch
-import torchvision.transforms as transforms
-
+import jax
+import jax.numpy as jnp
 import source.utils as utils
-from source.utils import SmartDevice
 
 
-class Distribution(SmartDevice):
-    def __init__(self, name: str, device: Optional[str] = None) -> None:
+class Distribution:
+    def __init__(self, name: str) -> None:
         """
         Args:
             name: name of the mask
             device: device of the mask
         Distribution is an abstract class.
         """
-        super().__init__(device)
         self.name = name
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         raise NotImplementedError("Distribution is an abstract class")
 
 
 class DeterministicMask(Distribution):
     def __init__(
         self,
-        mask: torch.Tensor,
+        mask: jax.Array,
         name: str = "deterministic_mask",
-        device: Optional[str] = None,
     ) -> None:
         """
         Args:
             name: name of the mask
-            mask: value of the mask of shape `(N,C,H,W)`
-            device: device of the mask
+            mask: value of the mask of shape `(N,H,W,C)`
         puts a deterministic mask of value mask_value in the stream.
         """
-        super().__init__(name, device)
-        assert mask.ndim == 4, "mask is expected to be of shape (N,C,H,W)"
-        self.mask = mask.to(device)
+        super().__init__(name)
+        assert mask.ndim == 4, "mask is expected to be of shape (N,H,W,C)"
+        self.mask = mask
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         output = x
         output.update({self.name: self.mask})
         return output
@@ -52,23 +45,24 @@ class UniformMask(Distribution):
         self,
         shape: Tuple[int, int, int, int],
         name: str = "uniform_mask",
-        device: Optional[str] = None,
+        key: jax.random.KeyArray = jax.random.PRNGKey(0),
     ) -> None:
         """
         Args:
-            shape: shape of the mask which is of shape `(N,C,H,W)`
+            shape: shape of the mask which is of shape `(N,H,W,C)`
             name: name of the mask
-            device: device of the mask inferred if `None`
         samples a uniform mask of shape mask_shape.
         if mask_shape is None, then mask_shape is set to the shape of the input
         at the first call.
         """
-        super().__init__(name, device)
+        super().__init__(name)
         self.shape = shape
+        self.key = key
 
-    def __call__(self, x) -> Dict[str, torch.Tensor]:
+    def __call__(self, x):
+        self.key = jax.random.split(self.key)[0]
         output = x
-        output.update({self.name: torch.rand(size=self.shape, device=self.device)})
+        output.update({self.name: jax.random.uniform(self.key, shape=self.shape)})
         return output
 
 
@@ -77,25 +71,36 @@ class BernoulliMask(Distribution):
         self,
         shape: Tuple[int, int, int, int],
         name: str = "bernoulli_mask",
-        p: Union[float, torch.Tensor] = 0.5,
-        device: Optional[str] = None,
-    ) -> None:
+        p: Union[float, jax.Array] = 0.5,
+        key: jax.random.KeyArray = jax.random.PRNGKey(0),
+    ):
         """
         Args:
-            shape: shape of the mask which is of shape `(N,C,H,W)`
+            shape: shape of the mask which is of shape `(N,H,W,C)`
             name: name of the mask default to `bernoulli_mask`
             p: probability of the bernoulli distribution
-            device: device of the mask inferred if `None`
         samples a bernoulli mask of shape mask_shape.
         if mask_shape is None, then mask_shape is set to the shape of the input
         at the first call.
         """
-        super().__init__(name, device)
-        self.p = p if isinstance(p, torch.Tensor) else p * torch.ones(size=shape)
+        super().__init__(name)
+        self.p = p if isinstance(p, jax.Array) else p * jnp.ones(size=shape)
+        assert self.p.shape == shape, "p must be a float or of shape shape"
+        self.shape = shape
+        self.key = key
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
+        self.key = jax.random.split(self.key)[0]
         output = x
-        output.update({self.name: torch.bernoulli(self.p).to(self.device)})
+        output.update(
+            {
+                self.name: jax.random.bernoulli(
+                    self.key,
+                    self.p,
+                    shape=self.shape,
+                )
+            }
+        )
         return output
 
 
@@ -104,37 +109,45 @@ class OneHotCategoricalMask(Distribution):
         self,
         shape: Tuple[int, int, int, int],
         name: str = "negative_onehot_categorical_mask",
-        logits: Union[float, torch.Tensor] = 1.0,
-        device: Optional[str] = None,
+        logits: Union[float, jax.Array] = 1.0,
+        key: jax.random.KeyArray = jax.random.PRNGKey(0),
     ) -> None:
         """
         Args:
             name: name of the mask
-            shape: shape of the mask which is of shape `(N,C,H,W)`
+            shape: shape of the mask which is of shape `(N,H,W,C)`
             logits: log probability of the bernoulli distribution
-            device: device of the mask
         samples a negative one hot categorical mask of shape mask_shape.
         it is equivalent to sampling a one hot categorical mask and then
         inverting it.
         """
-        super().__init__(name, device)
+        super().__init__(name)
         assert (
             isinstance(logits, float) or logits.shape == shape
         ), "logits must be a float or of shape shape"
         self.shape = shape
         logits = (
             logits
-            if isinstance(logits, torch.Tensor)
-            else logits * torch.ones(size=self.shape)
+            if isinstance(logits, jax.Array)
+            else logits * jnp.ones(size=self.shape)
         )
-        logits = logits.view(1, -1)
-        self.distribution = torch.distributions.OneHotCategorical(logits=logits)
+        assert logits.shape == self.shape, "logits must be a float or of shape shape"
+        self.key = key
+        logits = logits.reshape(1, -1)
+        self.mask = jnp.zeros(shape=self.shape)
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
+        self.key = jax.random.split(self.key)[0]
         output = x
-        output.update(
-            {self.name: self.distribution.sample().view(self.shape).to(self.device)}
+        flat_index = jax.random.randint(
+            self.key,
+            shape=self.shape[0],
+            minval=0,
+            maxval=jnp.prod(self.shape[1:2]),
         )
+        x_index = flat_index // self.shape[1]
+        y_index = flat_index % self.shape[2]
+        output.update({self.name: self.mask.at[x_index,y_index,:].set(1)})
         return output
 
 
@@ -155,7 +168,7 @@ class NegativeMask(Distribution):
         super().__init__(name, device)
         self.target_name = target_name
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         assert self.target_name in x, f"{self.target_name} is not in the stream"
         output = x
         output.update({self.name: 1 - x[self.target_name]})
@@ -176,7 +189,7 @@ class NormalMask(Distribution):
     ) -> None:
         """
         Args:
-            shape: shape of the mask of shape `(N,C,H,W)`
+            shape: shape of the mask of shape `(N,H,W,C)`
             # noise_level: noise level of the mask (removed see paper for the reason)
             # input_scaling: if True, the noise level is scaled by the input `max - min` (removed see our paper for the reason)
             name: name of the mask
@@ -191,7 +204,7 @@ class NormalMask(Distribution):
         super().__init__(name, device)
         self.shape = shape
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         noise = torch.normal(0.0, 1.0, size=self.shape, device=self.device)
         output = x
         output.update({self.name: noise})
@@ -237,7 +250,7 @@ class ResizeMask(Distribution):
         self.mode = mode
         self.source_name = source_name
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         if self.target_shape is None:
             self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
         if x[self.source_name].shape[-2:] != self.target_shape:
@@ -295,7 +308,7 @@ class RandomCropMask(Distribution):
         else:
             self.crop = None
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         if self.target_shape is None:
             self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
             self.crop = transforms.RandomCrop(self.target_shape)
@@ -329,7 +342,7 @@ class BlurMask(Distribution):
         self.blur = transforms.GaussianBlur(kernel_size, sigma)
         self.source_name = source_name
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         mask = self.blur(x[self.source_name])
         output = x
         output.update({self.name: mask})
@@ -362,7 +375,7 @@ class ConvexCombination(Distribution):
         self.target_mask = target_mask
         self.alpha_mask = alpha_mask
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         assert (
             self.source_mask in x and self.target_mask in x and self.alpha_mask in x
         ), (
@@ -387,20 +400,22 @@ class ConvexCombination(Distribution):
         output.update(
             {
                 self.name: (1 - x[self.alpha_mask]) * x[self.source_mask]
-                +  x[self.alpha_mask]* x[self.target_mask]
+                + x[self.alpha_mask] * x[self.target_mask]
             },
         )
         return output
 
+
 class LinearCombination(Distribution):
-    def __init__(self,
-                 name: str = "linear_combination_mask",
-                 source_mask: str = "input",
-                 target_mask: str = "baseline",
-                 alpha_source: str = "source_alpha_mask",
-                 alpha_target: str = "target_alpha_mask",
-                 device: Optional[str] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        name: str = "linear_combination_mask",
+        source_mask: str = "input",
+        target_mask: str = "baseline",
+        alpha_source: str = "source_alpha_mask",
+        alpha_target: str = "target_alpha_mask",
+        device: Optional[str] = None,
+    ) -> None:
         """
         Args:
             name: name of the interpolated mask defaults to `interp_mask`
@@ -418,9 +433,12 @@ class LinearCombination(Distribution):
         self.alpha_source = alpha_source
         self.alpha_target = alpha_target
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         assert (
-            self.source_mask in x and self.target_mask in x and self.alpha_source in x and self.alpha_target in x
+            self.source_mask in x
+            and self.target_mask in x
+            and self.alpha_source in x
+            and self.alpha_target in x
         ), (
             "source_mask, target_mask, alpha_source and alpha_target should be in x",
             self.source_mask in x,
@@ -429,14 +447,18 @@ class LinearCombination(Distribution):
             self.alpha_target in x,
         )
         assert (
-            (x[self.source_mask].shape[-2:] == x[self.target_mask].shape[-2:])
-            or (x[self.target_mask].shape[-2:] == (1, 1))
-        ) and (
-            (x[self.alpha_source].shape[-2:] == x[self.source_mask].shape[-2:])
-            or (x[self.alpha_source].shape[-2:] == (1, 1))
-        ) and (
-            (x[self.alpha_target].shape[-2:] == x[self.target_mask].shape[-2:])
-            or (x[self.alpha_target].shape[-2:] == (1, 1))
+            (
+                (x[self.source_mask].shape[-2:] == x[self.target_mask].shape[-2:])
+                or (x[self.target_mask].shape[-2:] == (1, 1))
+            )
+            and (
+                (x[self.alpha_source].shape[-2:] == x[self.source_mask].shape[-2:])
+                or (x[self.alpha_source].shape[-2:] == (1, 1))
+            )
+            and (
+                (x[self.alpha_target].shape[-2:] == x[self.target_mask].shape[-2:])
+                or (x[self.alpha_target].shape[-2:] == (1, 1))
+            )
         ), (
             "source_mask, target_mask, alpha_source and alpha_target should have the same spatial shape",
             x[self.source_mask].shape,
@@ -448,10 +470,11 @@ class LinearCombination(Distribution):
         output.update(
             {
                 self.name: x[self.alpha_source] * x[self.source_mask]
-                +  x[self.alpha_target]* x[self.target_mask]
+                + x[self.alpha_target] * x[self.target_mask]
             },
         )
         return output
+
 
 class Compose(Distribution):
     def __init__(
@@ -470,7 +493,7 @@ class Compose(Distribution):
         super().__init__(name, device)
         self.distributions = distributions
 
-    def __call__(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
         for t in self.distributions:
             x = t(x)
         return x

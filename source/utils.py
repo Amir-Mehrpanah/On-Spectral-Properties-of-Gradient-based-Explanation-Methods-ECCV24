@@ -10,16 +10,6 @@ from torchvision import transforms
 from tqdm import tqdm
 
 
-class SmartDevice:
-    def __init__(self, device: Optional[str] = None) -> None:
-        if device is None:
-            device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        self.device = device
-
-    def to(self, x: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        return {k: v.to(self.device) for k, v in x.items()}
-
-
 class Statistic:
     def __init__(
         self,

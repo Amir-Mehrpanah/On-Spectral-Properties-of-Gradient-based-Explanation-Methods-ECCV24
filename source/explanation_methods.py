@@ -1,5 +1,5 @@
 import numpy as np
-import torch
+import jax
 
 from typing import Callable, Dict, List, Tuple
 from source.utils import Mean, Statistic, Statistics, get_device
@@ -29,7 +29,7 @@ from source.explainers import (
 class NoiseInterpolation(Aggregator):
     def __init__(
         self,
-        model: torch.nn.Module,
+        forward: Callable,
         input_shape: Tuple[int, int, int],
         prediction_stats: Dict[str, Statistic],
         explanation_stats: Dict[str, Statistic],
@@ -48,11 +48,10 @@ class NoiseInterpolation(Aggregator):
         An implementation of Noise Interpolation from a probabilistic perspective.
         """
         assert 0 <= alpha <= 1, "noise_level must be in (0,1)"
-        device = get_device(model)
         alpha_mask = alpha * torch.ones(1, 1, 1, 1)
         distribution = Compose(
             [
-                DeterministicMask(alpha_mask, name="alpha_mask", device=device),
+                DeterministicMask(alpha_mask, name="alpha_mask"),
                 NormalMask(
                     shape=(batch_size, *input_shape),
                     name="baseline",
