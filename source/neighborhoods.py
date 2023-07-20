@@ -2,6 +2,7 @@ from typing import Dict, Optional, Tuple, Union
 import jax
 import jax.numpy as jnp
 import source.utils as utils
+import tensorflow as tf
 
 
 class Distribution:
@@ -147,7 +148,7 @@ class OneHotCategoricalMask(Distribution):
         )
         x_index = flat_index // self.shape[1]
         y_index = flat_index % self.shape[2]
-        output.update({self.name: self.mask.at[x_index,y_index,:].set(1)})
+        output.update({self.name: self.mask.at[x_index, y_index, :].set(1)})
         return output
 
 
@@ -185,7 +186,7 @@ class NormalMask(Distribution):
         # noise_level: float = 0.15,
         # input_scaling: bool = False,
         name: str = "normal_mask",
-        device: Optional[str] = None,
+        key: jax.random.KeyArray = jax.random.PRNGKey(0),
     ) -> None:
         """
         Args:
@@ -201,11 +202,13 @@ class NormalMask(Distribution):
         in the original paper, where `z` input sample, but it can be shown that it is equivalent
         to having a different alpha mask. for more details see our paper.
         """
-        super().__init__(name, device)
+        super().__init__(name)
         self.shape = shape
+        self.key = key
 
     def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        noise = torch.normal(0.0, 1.0, size=self.shape, device=self.device)
+        self.key = jax.random.split(self.key)[0]
+        noise = jax.random.normal(self.key, shape=self.shape)
         output = x
         output.update({self.name: noise})
         return output
@@ -219,7 +222,6 @@ class ResizeMask(Distribution):
         target_shape: Optional[Tuple[int, int]] = None,
         target_name: Optional[str] = None,
         mode: str = "bilinear",
-        device: Optional[str] = None,
     ) -> None:
         """
         Args:
@@ -234,7 +236,7 @@ class ResizeMask(Distribution):
         at the first call.
         `taget_shape` and `target_name` cannot be both specified.
         """
-        super().__init__(name, device)
+        super().__init__(name)
         assert target_shape is None or target_name is None, (
             "target_shape and target_name cannot be both specified.",
             target_shape,
@@ -254,12 +256,10 @@ class ResizeMask(Distribution):
         if self.target_shape is None:
             self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
         if x[self.source_name].shape[-2:] != self.target_shape:
-            mask = torch.nn.functional.interpolate(
+            mask = tf.image.resize(
                 x[self.source_name],
                 size=self.target_shape,
-                mode=self.mode,
-                antialias=False,
-                align_corners=False,
+                method=self.mode,
             )
         else:
             mask = x[self.source_name]
@@ -268,85 +268,85 @@ class ResizeMask(Distribution):
         return output
 
 
-class RandomCropMask(Distribution):
-    def __init__(
-        self,
-        source_name: str,
-        name="cropped_mask",
-        target_shape: Optional[Tuple[int, int]] = None,
-        target_name: Optional[str] = None,
-        device: Optional[str] = None,
-    ) -> None:
-        """
-        Args:
-            source_name: name of the mask to be cropped
-            name: name of the cropped mask
-            target_shape: target shape of the mask to match the shape
-            target_name: name of the target mask to match the shape
-            device: device of the mask inferred if `None`
-        crops the mask to the specified `target_shape` or the shape of the `target_name`.
-        if `target_shape` is None, then `target_shape` is set to that of the `target_name`
-        at the first call.
-        `taget_shape` and `target_name` cannot be both specified.
-        """
-        super().__init__(name, device)
-        assert target_shape is None or target_name is None, (
-            "target_shape and target_name cannot be both specified.",
-            target_shape,
-            target_name,
-        )
-        assert target_shape is not None or target_name is not None, (
-            "target_shape and target_name cannot be both None.",
-            target_shape,
-            target_name,
-        )
-        self.target_shape = target_shape
-        self.target_name = target_name
-        self.source_name = source_name
-        if self.target_shape is not None:
-            self.crop = transforms.RandomCrop(self.target_shape)
-        else:
-            self.crop = None
+# class RandomCropMask(Distribution):
+#     def __init__(
+#         self,
+#         source_name: str,
+#         name="cropped_mask",
+#         target_shape: Optional[Tuple[int, int]] = None,
+#         target_name: Optional[str] = None,
+#         device: Optional[str] = None,
+#     ) -> None:
+#         """
+#         Args:
+#             source_name: name of the mask to be cropped
+#             name: name of the cropped mask
+#             target_shape: target shape of the mask to match the shape
+#             target_name: name of the target mask to match the shape
+#             device: device of the mask inferred if `None`
+#         crops the mask to the specified `target_shape` or the shape of the `target_name`.
+#         if `target_shape` is None, then `target_shape` is set to that of the `target_name`
+#         at the first call.
+#         `taget_shape` and `target_name` cannot be both specified.
+#         """
+#         super().__init__(name, device)
+#         assert target_shape is None or target_name is None, (
+#             "target_shape and target_name cannot be both specified.",
+#             target_shape,
+#             target_name,
+#         )
+#         assert target_shape is not None or target_name is not None, (
+#             "target_shape and target_name cannot be both None.",
+#             target_shape,
+#             target_name,
+#         )
+#         self.target_shape = target_shape
+#         self.target_name = target_name
+#         self.source_name = source_name
+#         if self.target_shape is not None:
+#             self.crop = transforms.RandomCrop(self.target_shape)
+#         else:
+#             self.crop = None
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        if self.target_shape is None:
-            self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
-            self.crop = transforms.RandomCrop(self.target_shape)
+#     def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
+#         if self.target_shape is None:
+#             self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
+#             self.crop = transforms.RandomCrop(self.target_shape)
 
-        mask = self.crop(x[self.source_name])  # type: ignore checked in __init__ via assert
-        output = x
-        output.update({self.name: mask})
-        return output
+#         mask = self.crop(x[self.source_name])  # type: ignore checked in __init__ via assert
+#         output = x
+#         output.update({self.name: mask})
+#         return output
 
 
-class BlurMask(Distribution):
-    def __init__(
-        self,
-        source_name: str,
-        name="blurred_mask",
-        kernel_size: int = 5,
-        sigma: Union[float, Tuple] = (0.1, 2.0),
-        device: Optional[str] = None,
-    ) -> None:
-        """
-        Args:
-            source_name: name of the mask to be blurred
-            name: name of the blurred mask
-            kernel_size: kernel size of the gaussian filter
-            sigma: sigma of the gaussian filter
-            device: device of the mask inferred if `None`
-        blurs the mask with a gaussian filter.
-        """
-        super().__init__(name, device)
-        self.kernel_size = kernel_size
-        self.blur = transforms.GaussianBlur(kernel_size, sigma)
-        self.source_name = source_name
+# class BlurMask(Distribution):
+#     def __init__(
+#         self,
+#         source_name: str,
+#         name="blurred_mask",
+#         kernel_size: int = 5,
+#         sigma: Union[float, Tuple] = (0.1, 2.0),
+#         device: Optional[str] = None,
+#     ) -> None:
+#         """
+#         Args:
+#             source_name: name of the mask to be blurred
+#             name: name of the blurred mask
+#             kernel_size: kernel size of the gaussian filter
+#             sigma: sigma of the gaussian filter
+#             device: device of the mask inferred if `None`
+#         blurs the mask with a gaussian filter.
+#         """
+#         super().__init__(name, device)
+#         self.kernel_size = kernel_size
+#         self.blur = transforms.GaussianBlur(kernel_size, sigma)
+#         self.source_name = source_name
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        mask = self.blur(x[self.source_name])
-        output = x
-        output.update({self.name: mask})
-        return output
+#     def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
+#         mask = self.blur(x[self.source_name])
+#         output = x
+#         output.update({self.name: mask})
+#         return output
 
 
 class ConvexCombination(Distribution):
