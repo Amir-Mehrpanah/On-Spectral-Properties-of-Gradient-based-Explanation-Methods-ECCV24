@@ -1,502 +1,290 @@
-from typing import Dict, Optional, Tuple, Union
+from typing import Callable, Dict, Optional, Tuple, Union
 import jax
 import jax.numpy as jnp
-import source.utils as utils
 import tensorflow as tf
+import chex
 
 
-class Distribution:
-    def __init__(self, name: str) -> None:
-        """
-        Args:
-            name: name of the mask
-            device: device of the mask
-        Distribution is an abstract class.
-        """
-        self.name = name
+def make_deterministic_mask(
+    *,
+    name: str,
+    mask: jnp.ndarray,
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        mask: mask to be used
+    returns:
+        A function that takes a stream and puts the deterministic mask in the stream.
+    """
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        raise NotImplementedError("Distribution is an abstract class")
+    assert (
+        mask.shape[0] == 1 and mask.ndim == 4
+    ), "mask should be a 4D array of shape (1,H,W,C)"
 
+    def deterministic_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update({name: mask})
+        return stream
 
-class DeterministicMask(Distribution):
-    def __init__(
-        self,
-        mask: jax.Array,
-        name: str = "deterministic_mask",
-    ) -> None:
-        """
-        Args:
-            name: name of the mask
-            mask: value of the mask of shape `(N,H,W,C)`
-        puts a deterministic mask of value mask_value in the stream.
-        """
-        super().__init__(name)
-        assert mask.ndim == 4, "mask is expected to be of shape (N,H,W,C)"
-        self.mask = mask
-
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        output = x
-        output.update({self.name: self.mask})
-        return output
+    return deterministic_mask
 
 
-class UniformMask(Distribution):
-    def __init__(
-        self,
-        shape: Tuple[int, int, int, int],
-        name: str = "uniform_mask",
-        key: jax.random.KeyArray = jax.random.PRNGKey(0),
-    ) -> None:
-        """
-        Args:
-            shape: shape of the mask which is of shape `(N,H,W,C)`
-            name: name of the mask
-        samples a uniform mask of shape mask_shape.
-        if mask_shape is None, then mask_shape is set to the shape of the input
-        at the first call.
-        """
-        super().__init__(name)
-        self.shape = shape
-        self.key = key
+def get_uniform_mask(
+    *,
+    name: str,
+    shape: Tuple,
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        shape: shape of the mask
+    returns:
+        A function that takes a stream and key and samples a mask from the uniform distribution
+        depending on the key provided and puts the sampled mask in the stream.
+    """
+    assert (
+        shape[0] == 1 and len(shape) == 4
+    ), "shape should be a 4D array of shape (1,H,W,C)"
 
-    def __call__(self, x):
-        self.key = jax.random.split(self.key)[0]
-        output = x
-        output.update({self.name: jax.random.uniform(self.key, shape=self.shape)})
-        return output
+    def uniform_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update({name: jax.random.uniform(key, shape=shape)})
+        return stream
+
+    return uniform_mask
 
 
-class BernoulliMask(Distribution):
-    def __init__(
-        self,
-        shape: Tuple[int, int, int, int],
-        name: str = "bernoulli_mask",
-        p: Union[float, jax.Array] = 0.5,
-        key: jax.random.KeyArray = jax.random.PRNGKey(0),
-    ):
-        """
-        Args:
-            shape: shape of the mask which is of shape `(N,H,W,C)`
-            name: name of the mask default to `bernoulli_mask`
-            p: probability of the bernoulli distribution
-        samples a bernoulli mask of shape mask_shape.
-        if mask_shape is None, then mask_shape is set to the shape of the input
-        at the first call.
-        """
-        super().__init__(name)
-        self.p = p if isinstance(p, jax.Array) else p * jnp.ones(size=shape)
-        assert self.p.shape == shape, "p must be a float or of shape shape"
-        self.shape = shape
-        self.key = key
+def get_bernoulli_mask(
+    *,
+    name: str,
+    shape: Tuple,
+    p: Union[float, jax.Array],
+) -> Callable:
+    assert (
+        shape[0] == 1 and len(shape) == 4
+    ), "shape should be a 4D array of shape (1,H,W,C)"
+    p = p if isinstance(p, jax.Array) else p * jnp.ones(size=shape)
+    assert all(0 <= p <= 1), "p should be between 0 and 1"
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        self.key = jax.random.split(self.key)[0]
-        output = x
-        output.update(
+    def bernoulli_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update({name: jax.random.bernoulli(key, p, shape=shape)})
+        return stream
+
+    return bernoulli_mask
+
+
+def get_onehot_categorical_mask(
+    *,
+    name: str,
+    shape: Tuple,
+    p: Union[float, jax.Array],
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        shape: shape of the mask
+        p: probability of the bernoulli distribution
+    returns:
+        A function that takes a stream and key and samples a mask from the one hot categorical distribution
+        depending on the key provided and puts the sampled mask in the stream.
+    """
+    assert (
+        shape[0] == 1 and len(shape) == 4
+    ), "shape should be a 4D array of shape (1,H,W,C)"
+    H, W = shape[1], shape[2]
+    p = p if isinstance(p, jax.Array) else p * jnp.ones(size=(H, W))
+    assert p.sum() == 1, "p should sum to 1"
+    p = p.flatten()
+    static_mask = jnp.zeros(shape=shape)
+
+    def onehot_categorical_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        flat_index = jax.random.categorical(key, p)
+        x_index, y_index = jnp.unravel_index(flat_index, shape=(H, W))
+        stream.update({name: static_mask.at[0, x_index, y_index, :].set(1.0)})
+        return stream
+
+    return onehot_categorical_mask
+
+
+def get_normal_mask(
+    *,
+    name: str,
+    shape: Tuple,
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        shape: shape of the mask
+    returns:
+        A function that takes a stream and key and samples a mask from the normal distribution
+        depending on the key provided and puts the sampled mask in the stream.
+    """
+    assert (
+        shape[0] == 1 and len(shape) == 4
+    ), "shape should be a 4D array of shape (1,H,W,C)"
+
+    def normal_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update({name: jax.random.normal(key, shape=shape)})
+        return stream
+
+    return normal_mask
+
+
+def get_resize_mask(
+    *,
+    name: str,
+    source_name: str,
+    shape: Tuple,
+    method: str = "bilinear",
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        source_name: name of the source mask
+        shape: shape of the mask
+        method: method of interpolation
+    returns:
+        A function that takes a stream and key and resizes the source mask
+        and puts the resized mask in the stream.
+    """
+    assert (
+        shape[0] == 1 and len(shape) == 4
+    ), "shape should be a 4D array of shape (1,H,W,C)"
+    H, W = shape[1], shape[2]
+
+    def resize_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update(
             {
-                self.name: jax.random.bernoulli(
-                    self.key,
-                    self.p,
-                    shape=self.shape,
+                name: tf.image.resize(
+                    stream[source_name],
+                    size=(H, W),
+                    method=method,
                 )
             }
         )
-        return output
+        return stream
+
+    return resize_mask
 
 
-class OneHotCategoricalMask(Distribution):
-    def __init__(
-        self,
-        shape: Tuple[int, int, int, int],
-        name: str = "negative_onehot_categorical_mask",
-        logits: Union[float, jax.Array] = 1.0,
-        key: jax.random.KeyArray = jax.random.PRNGKey(0),
-    ) -> None:
-        """
-        Args:
-            name: name of the mask
-            shape: shape of the mask which is of shape `(N,H,W,C)`
-            logits: log probability of the bernoulli distribution
-        samples a negative one hot categorical mask of shape mask_shape.
-        it is equivalent to sampling a one hot categorical mask and then
-        inverting it.
-        """
-        super().__init__(name)
-        assert (
-            isinstance(logits, float) or logits.shape == shape
-        ), "logits must be a float or of shape shape"
-        self.shape = shape
-        logits = (
-            logits
-            if isinstance(logits, jax.Array)
-            else logits * jnp.ones(size=self.shape)
-        )
-        assert logits.shape == self.shape, "logits must be a float or of shape shape"
-        self.key = key
-        logits = logits.reshape(1, -1)
-        self.mask = jnp.zeros(shape=self.shape)
+def get_convex_combination_mask(
+    *,
+    name: str,
+    source_name: str,
+    target_name: str,
+    alpha_name: str,
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        source_name: name of the source mask
+        target_name: name of the target mask
+        alpha_name: name of the alpha mask
+    returns:
+        A function that takes a stream and key and interpolates the source mask
+        and the target mask with the alpha mask provided and puts the interpolated
+        mask in the stream. `output = source*(1-alpha)+target*(alpha)` if alpha is
+        zero, the output is the source mask and when alpha is one, the output is
+        the target mask. all masks should have the same spatial shape or be scalars.
+    """
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        self.key = jax.random.split(self.key)[0]
-        output = x
-        flat_index = jax.random.randint(
-            self.key,
-            shape=self.shape[0],
-            minval=0,
-            maxval=jnp.prod(self.shape[1:2]),
-        )
-        x_index = flat_index // self.shape[1]
-        y_index = flat_index % self.shape[2]
-        output.update({self.name: self.mask.at[x_index, y_index, :].set(1)})
-        return output
-
-
-class NegativeMask(Distribution):
-    def __init__(
-        self,
-        target_name: str,
-        name: str = "deterministic_mask",
-        device: Optional[str] = None,
-    ) -> None:
-        """
-        Args:
-            name: name of the mask
-            target_name: name of the mask to be negated
-            device: device of the mask
-        negates a mask named target_mask in the stream. i.e. `mask = 1 - target_mask`
-        """
-        super().__init__(name, device)
-        self.target_name = target_name
-
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        assert self.target_name in x, f"{self.target_name} is not in the stream"
-        output = x
-        output.update({self.name: 1 - x[self.target_name]})
-        return output
-
-
-class NormalMask(Distribution):
-    def __init__(
-        self,
-        shape: Tuple[int, int, int, int],
-        # noise level is in the official implementation of the paper but
-        # it can be shown that it is equivalent to having a different alpha mask
-        # for more details see our paper
-        # noise_level: float = 0.15,
-        # input_scaling: bool = False,
-        name: str = "normal_mask",
-        key: jax.random.KeyArray = jax.random.PRNGKey(0),
-    ) -> None:
-        """
-        Args:
-            shape: shape of the mask of shape `(N,H,W,C)`
-            # noise_level: noise level of the mask (removed see paper for the reason)
-            # input_scaling: if True, the noise level is scaled by the input `max - min` (removed see our paper for the reason)
-            name: name of the mask
-            device: device of the mask
-        samples a standard normal mask of shape mask_shape.
-        if mask_shape is None, then mask_shape is set to the shape of the input
-        at the first call.
-        the variance of the normal distribution is set to `noise_level * (max(z) - min(z))`
-        in the original paper, where `z` input sample, but it can be shown that it is equivalent
-        to having a different alpha mask. for more details see our paper.
-        """
-        super().__init__(name)
-        self.shape = shape
-        self.key = key
-
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        self.key = jax.random.split(self.key)[0]
-        noise = jax.random.normal(self.key, shape=self.shape)
-        output = x
-        output.update({self.name: noise})
-        return output
-
-
-class ResizeMask(Distribution):
-    def __init__(
-        self,
-        source_name: str,
-        name="resized_mask",
-        target_shape: Optional[Tuple[int, int]] = None,
-        target_name: Optional[str] = None,
-        mode: str = "bilinear",
-    ) -> None:
-        """
-        Args:
-            source_name: name of the mask to be resized
-            name: name of the resized mask
-            target_shape: target shape of the mask to match the shape
-            target_name: name of the target mask to match the shape
-            mode: mode of the interpolation defaults to `bilinear`
-            device: device of the mask inferred if `None`
-        resizes the mask to the specified `target_shape` or the shape of the `target_name`.
-        if `target_shape` is None, then `target_shape` is set to that of the `target_name`
-        at the first call.
-        `taget_shape` and `target_name` cannot be both specified.
-        """
-        super().__init__(name)
-        assert target_shape is None or target_name is None, (
-            "target_shape and target_name cannot be both specified.",
-            target_shape,
-            target_name,
-        )
-        assert target_shape is not None or target_name is not None, (
-            "target_shape and target_name cannot be both None.",
-            target_shape,
-            target_name,
-        )
-        self.target_shape = target_shape
-        self.target_name = target_name
-        self.mode = mode
-        self.source_name = source_name
-
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        if self.target_shape is None:
-            self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
-        if x[self.source_name].shape[-2:] != self.target_shape:
-            mask = tf.image.resize(
-                x[self.source_name],
-                size=self.target_shape,
-                method=self.mode,
-            )
-        else:
-            mask = x[self.source_name]
-        output = x
-        output.update({self.name: mask})
-        return output
-
-
-# class RandomCropMask(Distribution):
-#     def __init__(
-#         self,
-#         source_name: str,
-#         name="cropped_mask",
-#         target_shape: Optional[Tuple[int, int]] = None,
-#         target_name: Optional[str] = None,
-#         device: Optional[str] = None,
-#     ) -> None:
-#         """
-#         Args:
-#             source_name: name of the mask to be cropped
-#             name: name of the cropped mask
-#             target_shape: target shape of the mask to match the shape
-#             target_name: name of the target mask to match the shape
-#             device: device of the mask inferred if `None`
-#         crops the mask to the specified `target_shape` or the shape of the `target_name`.
-#         if `target_shape` is None, then `target_shape` is set to that of the `target_name`
-#         at the first call.
-#         `taget_shape` and `target_name` cannot be both specified.
-#         """
-#         super().__init__(name, device)
-#         assert target_shape is None or target_name is None, (
-#             "target_shape and target_name cannot be both specified.",
-#             target_shape,
-#             target_name,
-#         )
-#         assert target_shape is not None or target_name is not None, (
-#             "target_shape and target_name cannot be both None.",
-#             target_shape,
-#             target_name,
-#         )
-#         self.target_shape = target_shape
-#         self.target_name = target_name
-#         self.source_name = source_name
-#         if self.target_shape is not None:
-#             self.crop = transforms.RandomCrop(self.target_shape)
-#         else:
-#             self.crop = None
-
-#     def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-#         if self.target_shape is None:
-#             self.target_shape = x[self.target_name].shape[-2:]  # type: ignore checked in __init__ via assert
-#             self.crop = transforms.RandomCrop(self.target_shape)
-
-#         mask = self.crop(x[self.source_name])  # type: ignore checked in __init__ via assert
-#         output = x
-#         output.update({self.name: mask})
-#         return output
-
-
-# class BlurMask(Distribution):
-#     def __init__(
-#         self,
-#         source_name: str,
-#         name="blurred_mask",
-#         kernel_size: int = 5,
-#         sigma: Union[float, Tuple] = (0.1, 2.0),
-#         device: Optional[str] = None,
-#     ) -> None:
-#         """
-#         Args:
-#             source_name: name of the mask to be blurred
-#             name: name of the blurred mask
-#             kernel_size: kernel size of the gaussian filter
-#             sigma: sigma of the gaussian filter
-#             device: device of the mask inferred if `None`
-#         blurs the mask with a gaussian filter.
-#         """
-#         super().__init__(name, device)
-#         self.kernel_size = kernel_size
-#         self.blur = transforms.GaussianBlur(kernel_size, sigma)
-#         self.source_name = source_name
-
-#     def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-#         mask = self.blur(x[self.source_name])
-#         output = x
-#         output.update({self.name: mask})
-#         return output
-
-
-class ConvexCombination(Distribution):
-    def __init__(
-        self,
-        name: str = "convex_combination_mask",
-        source_mask: str = "input",
-        target_mask: str = "baseline",
-        alpha_mask: str = "alpha_mask",
-        device: Optional[str] = None,
-    ) -> None:
-        """
-        Args:
-            name: name of the interpolated mask defaults to `interp_mask`
-            source_mask: name of the source mask defaults to `input`
-            target_mask: name of the target mask defaults to `baseline`
-            alpha_mask: name of the alpha mask defaults to `alpha_mask`
-            device: device of the mask
-        interpolates the source mask and the target mask with the alpha mask
-        `output = (1-alpha_mask)*source_mask+alpha_mask*target_mask`.
-        when alpha is zero, the output is the source mask and when alpha is one,
-        the output is the target mask. all masks should have the same spatial shape.
-        """
-        super().__init__(name, device)
-        self.source_mask = source_mask
-        self.target_mask = target_mask
-        self.alpha_mask = alpha_mask
-
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        assert (
-            self.source_mask in x and self.target_mask in x and self.alpha_mask in x
-        ), (
-            "source_mask, target_mask and alpha_mask should be in x",
-            self.source_mask in x,
-            self.target_mask in x,
-            self.alpha_mask in x,
-        )
-        assert (
-            (x[self.source_mask].shape[-2:] == x[self.target_mask].shape[-2:])
-            or (x[self.target_mask].shape[-2:] == (1, 1))
-        ) and (
-            (x[self.alpha_mask].shape[-2:] == x[self.target_mask].shape[-2:])
-            or (x[self.alpha_mask].shape[-2:] == (1, 1))
-        ), (
-            "source_mask, target_mask and alpha_mask should have the same spatial shape",
-            x[self.source_mask].shape,
-            x[self.target_mask].shape,
-            x[self.alpha_mask].shape,
-        )
-        output = x
-        output.update(
+    def convex_combination_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update(
             {
-                self.name: (1 - x[self.alpha_mask]) * x[self.source_mask]
-                + x[self.alpha_mask] * x[self.target_mask]
-            },
+                name: (1 - stream[alpha_name]) * stream[source_name]
+                + stream[alpha_name] * stream[target_name]
+            }
         )
-        return output
+        return stream
+
+    return convex_combination_mask
 
 
-class LinearCombination(Distribution):
-    def __init__(
-        self,
-        name: str = "linear_combination_mask",
-        source_mask: str = "input",
-        target_mask: str = "baseline",
-        alpha_source: str = "source_alpha_mask",
-        alpha_target: str = "target_alpha_mask",
-        device: Optional[str] = None,
-    ) -> None:
-        """
-        Args:
-            name: name of the interpolated mask defaults to `interp_mask`
-            source_mask: name of the source mask defaults to `input`
-            target_mask: name of the target mask defaults to `baseline`
-            alpha_source: name of the source alpha mask defaults to `source_alpha_mask`
-            alpha_target: name of the target alpha mask defaults to `target_alpha_mask`
-            device: device of the mask
-        interpolates the source mask and the target mask with the alpha mask
-        `output = alpha_source*source_mask+alpha_target*target_mask`.
-        """
-        super().__init__(name, device)
-        self.source_mask = source_mask
-        self.target_mask = target_mask
-        self.alpha_source = alpha_source
-        self.alpha_target = alpha_target
+def get_linear_combination_mask(
+    *,
+    name: str,
+    source_name: str,
+    target_name: str,
+    alpha_source_name: str,
+    alpha_target_name: str,
+) -> Callable:
+    """
+    Args:
+        name: name of the mask
+        source_name: name of the source mask
+        target_name: name of the target mask
+        alpha_source_name: name of the source alpha mask
+        alpha_target_name: name of the target alpha mask
+    returns:
+        A function that takes a stream and key and computes the linear combination of
+        the source mask and the target mask with the alpha mask provided and puts the
+        resulting mask in the stream. `output = alpha_source*source_mask+alpha_target*target_mask`.
+        all masks should have the same spatial shape or be scalars.
+    """
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        assert (
-            self.source_mask in x
-            and self.target_mask in x
-            and self.alpha_source in x
-            and self.alpha_target in x
-        ), (
-            "source_mask, target_mask, alpha_source and alpha_target should be in x",
-            self.source_mask in x,
-            self.target_mask in x,
-            self.alpha_source in x,
-            self.alpha_target in x,
-        )
-        assert (
-            (
-                (x[self.source_mask].shape[-2:] == x[self.target_mask].shape[-2:])
-                or (x[self.target_mask].shape[-2:] == (1, 1))
-            )
-            and (
-                (x[self.alpha_source].shape[-2:] == x[self.source_mask].shape[-2:])
-                or (x[self.alpha_source].shape[-2:] == (1, 1))
-            )
-            and (
-                (x[self.alpha_target].shape[-2:] == x[self.target_mask].shape[-2:])
-                or (x[self.alpha_target].shape[-2:] == (1, 1))
-            )
-        ), (
-            "source_mask, target_mask, alpha_source and alpha_target should have the same spatial shape",
-            x[self.source_mask].shape,
-            x[self.target_mask].shape,
-            x[self.alpha_source].shape,
-            x[self.alpha_target].shape,
-        )
-        output = x
-        output.update(
+    def linear_combination_mask(
+        *,
+        stream: Dict[str, jax.Array],
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream.update(
             {
-                self.name: x[self.alpha_source] * x[self.source_mask]
-                + x[self.alpha_target] * x[self.target_mask]
-            },
+                name: stream[alpha_source_name] * stream[source_name]
+                + stream[alpha_target_name] * stream[target_name]
+            }
         )
-        return output
+        return stream
+
+    return linear_combination_mask
 
 
-class Compose(Distribution):
-    def __init__(
-        self,
-        distributions: list[Distribution],
-        name: str = "compose",
-        device: Optional[str] = None,
-    ) -> None:
-        """
-        Args:
-            distributions: list of distributions
-            name: name of the mask
-            device: device of the mask
-        composes a list of distributions.
-        """
-        super().__init__(name, device)
-        self.distributions = distributions
+def get_explanation_stream(
+    stream_head: Dict[str, jax.Array],
+    *args: Callable,
+):
+    """
+    Args:
+        stream_head: the head of the stream
+        args: a list of functions that have a standardized signature
+        which take a stream and key and put a mask in the stream.
+    returns:
+        A function that takes a key and returns a stream with the masks in it.
+    """
 
-    def __call__(self, x: Dict[str, jax.Array]) -> Dict[str, jax.Array]:
-        for t in self.distributions:
-            x = t(x)
-        return x
+    def explanation_stream(
+        *,
+        key: jax.random.KeyArray,
+    ) -> Dict[str, jax.Array]:
+        stream = stream_head
+        for arg in args:
+            stream = arg(stream=stream, key=key)
+        return stream
 
-    def __getitem__(self, index: int) -> Distribution:
-        return self.distributions[index]
+    return explanation_stream
