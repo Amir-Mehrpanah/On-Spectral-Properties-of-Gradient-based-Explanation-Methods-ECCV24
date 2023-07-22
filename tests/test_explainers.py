@@ -18,35 +18,7 @@ from source import labels
 img_size = 224
 img_channels = 3
 
-
-# functions copied from https://github.com/matthias-wright/flaxmodels/blob/main/training/resnet/training.py
-def train_prerocess(x):
-    x = tf.image.random_crop(x, size=(img_size, img_size, img_channels))
-    x = tf.image.random_flip_up_down(x)
-    x = tf.image.random_flip_left_right(x)
-    # Cast to float because if the image has data type int, the following augmentations will convert it
-    # to float then apply the transformations and convert it back to int.
-    x = tf.cast(x, dtype="float32")
-    x = tf.image.random_brightness(x, max_delta=0.5)
-    x = tf.image.random_contrast(x, lower=0.1, upper=1.0)
-    x = tf.image.random_hue(x, max_delta=0.5)
-    x = (x - 127.5) / 127.5
-    return x
-
-
-def val_prerocess(x):
-    x = tf.expand_dims(x, axis=0)
-    # x = tf.keras.layers.experimental.preprocessing.CenterCrop(
-    #     height=img_size, width=img_size
-    # )(x)
-    x = tf.image.random_crop(x, size=(x.shape[0], img_size, img_size, img_channels))
-    x = tf.squeeze(x, axis=0)
-    x = tf.cast(x, dtype="float32")
-    x = (x - 127.5) / 127.5
-    return x
-
-
-def val_process_simple(x):
+def preprocess(x):
     x = tf.keras.layers.experimental.preprocessing.CenterCrop(
         height=img_size,
         width=img_size,
@@ -68,7 +40,7 @@ class TestAssests:
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00048840.JPEG"
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00048864.JPEG"
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00049585.JPEG"
-    transforms = val_process_simple
+    transforms = preprocess
     images: Dict[int, jax.Array] = {
         95: transforms(Image.open("tests/assets/ILSVRC2012_val_00048840.JPEG")),
         96: transforms(Image.open("tests/assets/ILSVRC2012_val_00048864.JPEG")),

@@ -2,7 +2,7 @@ import numpy as np
 import jax
 
 from typing import Callable, Dict, List, Tuple
-from source.utils import Mean, Statistic, Statistics, get_device
+from source.operations import Mean, Statistic, Statistics, get_device
 from source.neighborhoods import (
     BernoulliMask,
     Distribution,
