@@ -1,16 +1,34 @@
-from typing import Dict, List, Callable, Tuple
+from functools import partial
+import inspect
+import functools
+from typing import Any, Dict, List, Callable, Tuple
 import jax
 
 
+class PartialCompile:
+    def __init__(self, func) -> None:
+        self.func = func
+        self.params = {}
+
+    def update_params(self, **kwargs):
+        self.params.update(kwargs)
+        return self
+
+    def compile(self):
+        return jax.jit(partial(self.func, **self.params))
+
+
+@PartialCompile
 def make_explanation_stream(
     *,
+    stream: Dict[str, jax.Array] = {},
     stream_processes: List[Callable],
-    stream_head: Dict[str, jax.Array] = {},
+    key: jax.random.KeyArray,
 ):
     """
     args:
         stream_processes: a list of functions that have a standardized signature (key, stream)
-        stream_head: the head of the stream
+        stream: the the stream to be processed
         which take a stream and key and put a mask in the stream.
     returns:
         A function that takes a key and returns a stream with all processes applied.
@@ -19,25 +37,20 @@ def make_explanation_stream(
 
     all functions in stream_processes should be stateless only depend on the stream and key.
     """
-    stream = stream_head.copy()
-
-    def explanation_stream(
-        *,
-        key: jax.random.KeyArray,
-    ) -> Dict[str, jax.Array]:
-        for process in stream_processes:
-            process(stream=stream, key=key)
-        return stream
-
-    return explanation_stream
+    for process in stream_processes:
+        process(key=key)
+    return stream
 
 
-def make_resize_mask(
+@PartialCompile
+def resize_mask(
     *,
     name: str,
+    stream: Dict[str, jax.Array],
     source_name: str,
     shape: Tuple,
     method: jax.image.ResizeMethod = jax.image.ResizeMethod.LINEAR,
+    key: jax.random.KeyArray,
 ) -> None:
     """
     args:
@@ -53,29 +66,24 @@ def make_resize_mask(
         shape[0] == 1 and len(shape) == 4
     ), "shape should be a 4D array of shape (1,H,W,C)"
 
-    def resize_mask(
-        *,
-        stream: Dict[str, jax.Array],
-        key: jax.random.KeyArray,
-    ) -> Dict[str, jax.Array]:
-        stream.update(
-            {
-                name: jax.image.resize(
-                    stream[source_name],
-                    shape=shape,
-                    method=method,
-                )
-            }
-        )
-
-    return resize_mask
+    stream.update(
+        {
+            name: jax.image.resize(
+                stream[source_name],
+                shape=shape,
+                method=method,
+            )
+        }
+    )
 
 
-def make_multiply_masks(
+def multiply_masks(
     *,
     name: str,
+    stream: Dict[str, jax.Array],
     source_name: str,
     target_name: str,
+    key: jax.random.KeyArray,
 ) -> None:
     """
     args:
@@ -87,19 +95,13 @@ def make_multiply_masks(
         and the target mask and puts the multiplied mask in the stream.
     """
 
-    def multiply_masks(
-        *,
-        stream: Dict[str, jax.Array],
-        key: jax.random.KeyArray,
-    ) -> Dict[str, jax.Array]:
-        stream.update({name: stream[source_name] * stream[target_name]})
-
-    return multiply_masks
+    stream.update({name: stream[source_name] * stream[target_name]})
 
 
 def make_add_masks(
     *,
     name: str,
+    stream: Dict[str, jax.Array],
     source_name: str,
     target_name: str,
 ) -> None:
@@ -114,8 +116,6 @@ def make_add_masks(
     """
 
     def add_masks(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         stream.update({name: stream[source_name] + stream[target_name]})
@@ -126,6 +126,7 @@ def make_add_masks(
 def make_convex_combination_mask(
     *,
     name: str,
+    stream: Dict[str, jax.Array],
     source_name: str,
     target_name: str,
     alpha_name: str,
@@ -143,18 +144,57 @@ def make_convex_combination_mask(
         zero, the output is the source mask and when alpha is one, the output is
         the target mask. all masks should have the same spatial shape or be scalars.
     """
+    negative_alpha = make_multiply_masks(
+        name=f"{name}_negative_alpha",
+        stream=stream,
+        source_name=alpha_name,
+        target_name=-1,
+    )
+    one_minus_alpha = make_add_masks(
+        name=f"{name}_one_minus_alpha",
+        stream=stream,
+        source_name=1,
+        target_name=f"{name}_negative_alpha",
+    )
+
+    multiplicative_term_1 = make_multiply_masks(
+        name=f"{name}_multiplicative_term_1",
+        stream=stream,
+        source_name=source_name,
+        target_name=f"{name}_one_minus_alpha",
+    )
+    multiplicative_term_2 = make_multiply_masks(
+        name=f"{name}_multiplicative_term_2",
+        stream=stream,
+        source_name=target_name,
+        target_name=alpha_name,
+    )
+    additive_term = make_add_masks(
+        name=f"{name}_additive_term",
+        stream=stream,
+        source_name=f"{name}_multiplicative_term_1",
+        target_name=f"{name}_multiplicative_term_2",
+    )
 
     def convex_combination_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
-        stream.update(
-            {
-                name: (1 - stream[alpha_name]) * stream[source_name]
-                + stream[alpha_name] * stream[target_name]
-            }
-        )
+        negative_alpha(key=key)
+        one_minus_alpha(key=key)
+        multiplicative_term_1(key=key)
+        multiplicative_term_2(key=key)
+        additive_term(key=key)
+        stream.update({name: stream[f"{name}_additive_term"]})
+
+    # def convex_combination_mask(
+    #     key: jax.random.KeyArray,
+    # ) -> Dict[str, jax.Array]:
+    #     stream.update(
+    #         {
+    #             name: (1 - stream[alpha_name]) * stream[source_name]
+    #             + stream[alpha_name] * stream[target_name]
+    #         }
+    #     )
 
     return convex_combination_mask
 
@@ -162,6 +202,7 @@ def make_convex_combination_mask(
 def make_linear_combination_mask(
     *,
     name: str,
+    stream: Dict[str, jax.Array],
     source_name: str,
     target_name: str,
     alpha_source_name: str,
@@ -182,8 +223,6 @@ def make_linear_combination_mask(
     """
 
     def linear_combination_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         stream.update(

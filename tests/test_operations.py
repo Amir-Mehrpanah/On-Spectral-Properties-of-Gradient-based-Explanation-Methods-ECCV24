@@ -9,46 +9,59 @@ from source import neighborhoods
 from source import operations
 
 
+def test_partial_compile():
+    @operations.PartialCompile
+    def func(*, x, y, z):
+        return x + y + z
+
+    func.update_params(x=1, y=2)
+    compiled_func = func.compile()
+    assert compiled_func(z=3) == 6
+
+
 def test_stream_sampling():
     base_stream = {}
     base_key = key
     num_samples = 10
     keys = jax.random.split(base_key, num=num_samples)
     neighborhoods.make_deterministic_mask(
-        name="alpha_mask",
-        mask=0.5 * jnp.ones(shape=(1, 1, 1, 1)),
-    )(stream=base_stream, key=keys[0])
+        name="alpha_mask", mask=0.5 * jnp.ones(shape=(1, 1, 1, 1)), stream=base_stream
+    )(key=keys[0])
 
-    stream_processes = [
+    stream_processes = lambda stream: [
         neighborhoods.make_uniform_mask(
             name="uniform_mask",
             shape=(1, 224, 224, 3),
+            stream=stream,
         ),
         neighborhoods.make_bernoulli_mask(
             name="bernoulli_mask",
             shape=(1, 10, 10, 1),
             p=0.5,
+            stream=stream,
         ),
         operations.make_resize_mask(
             name="bernoulli_mask_resized",
             source_name="bernoulli_mask",
             shape=(1, 224, 224, 1),
+            stream=stream,
         ),
         operations.make_convex_combination_mask(
             name="convex_combination_mask",
             source_name="uniform_mask",
             target_name="bernoulli_mask_resized",
             alpha_name="alpha_mask",
+            stream=stream,
         ),
     ]
     explanation_stream = operations.make_explanation_stream(
-        stream_head=base_stream,
+        stream=base_stream,
         stream_processes=stream_processes,
     )
 
     expected_stream = base_stream.copy()
     for process in stream_processes:
-        process(stream=expected_stream, key=keys[0])
+        process(key=keys[0])
     stream_0 = explanation_stream(key=keys[0])
 
     assert stream_0 is not expected_stream

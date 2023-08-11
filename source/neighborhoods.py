@@ -8,6 +8,7 @@ import chex
 def make_deterministic_mask(
     *,
     name: str,
+    stream=Dict[str, jax.Array],
     mask: jnp.ndarray,
 ) -> None:
     """
@@ -23,8 +24,6 @@ def make_deterministic_mask(
     ), "mask should be a 4D array of shape (1,H,W,C)"
 
     def deterministic_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         stream.update({name: mask})
@@ -35,6 +34,7 @@ def make_deterministic_mask(
 def make_uniform_mask(
     *,
     name: str,
+    stream=Dict[str, jax.Array],
     shape: Tuple,
 ) -> None:
     """
@@ -50,8 +50,6 @@ def make_uniform_mask(
     ), "shape should be a 4D array of shape (1,H,W,C)"
 
     def uniform_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         stream.update({name: jax.random.uniform(key, shape=shape)})
@@ -62,6 +60,7 @@ def make_uniform_mask(
 def make_bernoulli_mask(
     *,
     name: str,
+    stream=Dict[str, jax.Array],
     shape: Tuple,
     p: Union[float, jax.Array],
 ) -> None:
@@ -82,8 +81,6 @@ def make_bernoulli_mask(
     assert ((0 <= p) & (p <= 1)).all(), "p should be between 0 and 1"
 
     def bernoulli_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         stream.update({name: jax.random.bernoulli(key, p, shape=shape)})
@@ -94,6 +91,7 @@ def make_bernoulli_mask(
 def make_onehot_categorical_mask(
     *,
     name: str,
+    stream=Dict[str, jax.Array],
     shape: Tuple,
     p: Union[float, jax.Array] = None,
 ) -> None:
@@ -130,8 +128,6 @@ def make_onehot_categorical_mask(
     static_mask = jnp.zeros(shape=shape)
 
     def onehot_categorical_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         flat_index = jax.random.categorical(key, logits)
@@ -144,6 +140,7 @@ def make_onehot_categorical_mask(
 def make_normal_mask(
     *,
     name: str,
+    stream=Dict[str, jax.Array],
     shape: Tuple,
 ) -> None:
     """
@@ -159,8 +156,6 @@ def make_normal_mask(
     ), "shape should be a 4D array of shape (1,H,W,C)"
 
     def normal_mask(
-        *,
-        stream: Dict[str, jax.Array],
         key: jax.random.KeyArray,
     ) -> Dict[str, jax.Array]:
         stream.update({name: jax.random.normal(key, shape=shape)})
