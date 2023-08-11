@@ -77,6 +77,7 @@ def resize_mask(
     )
 
 
+@PartialCompile
 def multiply_masks(
     *,
     name: str,
@@ -98,12 +99,14 @@ def multiply_masks(
     stream.update({name: stream[source_name] * stream[target_name]})
 
 
-def make_add_masks(
+@PartialCompile
+def add_masks(
     *,
     name: str,
     stream: Dict[str, jax.Array],
     source_name: str,
     target_name: str,
+    key: jax.random.KeyArray,
 ) -> None:
     """
     args:
@@ -115,14 +118,10 @@ def make_add_masks(
         and the target mask and puts the added masks in the stream.
     """
 
-    def add_masks(
-        key: jax.random.KeyArray,
-    ) -> Dict[str, jax.Array]:
-        stream.update({name: stream[source_name] + stream[target_name]})
-
-    return add_masks
+    stream.update({name: stream[source_name] + stream[target_name]})
 
 
+@PartialCompile
 def make_convex_combination_mask(
     *,
     name: str,
@@ -130,6 +129,7 @@ def make_convex_combination_mask(
     source_name: str,
     target_name: str,
     alpha_name: str,
+    key: jax.random.KeyArray,
 ) -> None:
     """
     args:
@@ -144,62 +144,16 @@ def make_convex_combination_mask(
         zero, the output is the source mask and when alpha is one, the output is
         the target mask. all masks should have the same spatial shape or be scalars.
     """
-    negative_alpha = make_multiply_masks(
-        name=f"{name}_negative_alpha",
-        stream=stream,
-        source_name=alpha_name,
-        target_name=-1,
-    )
-    one_minus_alpha = make_add_masks(
-        name=f"{name}_one_minus_alpha",
-        stream=stream,
-        source_name=1,
-        target_name=f"{name}_negative_alpha",
+    stream.update(
+        {
+            name: (1 - stream[alpha_name]) * stream[source_name]
+            + stream[alpha_name] * stream[target_name]
+        }
     )
 
-    multiplicative_term_1 = make_multiply_masks(
-        name=f"{name}_multiplicative_term_1",
-        stream=stream,
-        source_name=source_name,
-        target_name=f"{name}_one_minus_alpha",
-    )
-    multiplicative_term_2 = make_multiply_masks(
-        name=f"{name}_multiplicative_term_2",
-        stream=stream,
-        source_name=target_name,
-        target_name=alpha_name,
-    )
-    additive_term = make_add_masks(
-        name=f"{name}_additive_term",
-        stream=stream,
-        source_name=f"{name}_multiplicative_term_1",
-        target_name=f"{name}_multiplicative_term_2",
-    )
 
-    def convex_combination_mask(
-        key: jax.random.KeyArray,
-    ) -> Dict[str, jax.Array]:
-        negative_alpha(key=key)
-        one_minus_alpha(key=key)
-        multiplicative_term_1(key=key)
-        multiplicative_term_2(key=key)
-        additive_term(key=key)
-        stream.update({name: stream[f"{name}_additive_term"]})
-
-    # def convex_combination_mask(
-    #     key: jax.random.KeyArray,
-    # ) -> Dict[str, jax.Array]:
-    #     stream.update(
-    #         {
-    #             name: (1 - stream[alpha_name]) * stream[source_name]
-    #             + stream[alpha_name] * stream[target_name]
-    #         }
-    #     )
-
-    return convex_combination_mask
-
-
-def make_linear_combination_mask(
+@PartialCompile
+def linear_combination_mask(
     *,
     name: str,
     stream: Dict[str, jax.Array],
@@ -207,6 +161,7 @@ def make_linear_combination_mask(
     target_name: str,
     alpha_source_name: str,
     alpha_target_name: str,
+    key: jax.random.KeyArray,
 ) -> None:
     """
     args:
@@ -222,14 +177,9 @@ def make_linear_combination_mask(
         all masks should have the same spatial shape or be scalars.
     """
 
-    def linear_combination_mask(
-        key: jax.random.KeyArray,
-    ) -> Dict[str, jax.Array]:
-        stream.update(
-            {
-                name: stream[alpha_source_name] * stream[source_name]
-                + stream[alpha_target_name] * stream[target_name]
-            }
-        )
-
-    return linear_combination_mask
+    stream.update(
+        {
+            name: stream[alpha_source_name] * stream[source_name]
+            + stream[alpha_target_name] * stream[target_name]
+        }
+    )
