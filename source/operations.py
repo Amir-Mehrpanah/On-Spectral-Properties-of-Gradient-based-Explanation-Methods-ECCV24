@@ -68,30 +68,34 @@ def sequential_call(key, stream, *, concrete_processes):
 # jax.grad does not support kwargs this makes our code less elegant
 # otherwise we could have used **kwargs in the abstract processes
 @AbstractProcess
-def forward_with_projection(inputs, *, name, projection_name, forward, stream, key):
+def forward_with_projection(inputs, stream, *, forward, projection_name):
     assert inputs.ndim == 4, "x should be a batch of images"
     log_prob = forward(inputs)
-    results = (log_prob @ stream[projection_name]).squeeze()
-    stream.update({name: results})
-    return results, log_prob
+    results_at_projection = (log_prob @ stream[projection_name]).squeeze()
+    return results_at_projection, (results_at_projection, log_prob)
 
 
 @AbstractProcess
 def vanilla_gradient(
     *,
-    name,
-    source_name,
-    concrete_projection,
-    has_aux=False,
-    stream,
-    key,
+    name: str,
+    source_name: str,
+    concrete_forward_with_projection: Callable,
+    stream: Dict[str, jax.Array],
+    key: jax.random.KeyArray,
 ):
     assert stream[source_name].ndim == 4, "x should be a batch of images"
-    grads = jax.grad(
-        concrete_projection,
-        has_aux=has_aux,
-    )(stream[source_name], stream=stream, key=key)
-    stream.update({name: grads})
+    grads, (results_at_projection, log_probs) = jax.grad(
+        concrete_forward_with_projection,
+        has_aux=True,
+    )(stream[source_name], stream)
+    stream.update(
+        {
+            name: grads,
+            f"log_probs@projection": results_at_projection,
+            f"log_probs": log_probs,
+        }
+    )
 
 
 @AbstractProcess
@@ -127,7 +131,6 @@ def resize_mask(
             )
         }
     )
-    return stream
 
 
 @AbstractProcess
@@ -150,7 +153,6 @@ def multiply_masks(
     """
 
     stream.update({name: stream[source_name] * stream[target_name]})
-    return stream
 
 
 @AbstractProcess
@@ -173,7 +175,6 @@ def add_masks(
     """
 
     stream.update({name: stream[source_name] + stream[target_name]})
-    return stream
 
 
 @AbstractProcess
@@ -205,7 +206,6 @@ def convex_combination_mask(
             + stream[alpha_name] * stream[target_name]
         }
     )
-    return stream
 
 
 @AbstractProcess
@@ -239,4 +239,3 @@ def linear_combination_mask(
             + stream[alpha_target_name] * stream[target_name]
         }
     )
-    return stream

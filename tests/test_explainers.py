@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 from typing import Dict
@@ -8,9 +9,12 @@ import jax.numpy as jnp
 import flaxmodels as fm
 from PIL import Image
 
+jax.config.update("jax_log_compiles", True)
+
 sys.path.append(os.getcwd())
 from source import labels
 from source import operations
+from test_operations import get_abstract_stream_sampler
 
 
 class TestAssests:
@@ -66,55 +70,107 @@ class TestWithResnet50(TestAssests):
         assert log_prob.shape == (1, 1000)
         assert np.exp(projected_log_prob) > 0.9
 
-    # def test_grad_shape(self):
-    #     grad_fn = jax.grad(
-    #         static_project,
-    #         argnums=1,
-    #         has_aux=True,
-    #     )
+    def test_grad_shape(self):
+        concrete_forward_with_projection = operations.forward_with_projection(
+            name="test",
+            projection_name="proj_test",
+            forward=self.forward,
+            stream={"proj_test": self.projection},
+        ).concretize()
+        grad_fn = jax.grad(
+            concrete_forward_with_projection,
+            has_aux=True,
+        )
 
-    #     grad, log_probs = grad_fn(
-    #         self.forward,
-    #         self.images[95],
-    #         self.projection,
-    #     )
-    #     assert grad.shape == self.images[95].shape
+        grad, log_probs = grad_fn(
+            self.images[95],
+        )
+        assert grad.shape == self.images[95].shape
 
-    # def test_grad_shape_batch(self):
-    #     vgrad_fn = jax.vmap(
-    #         jax.grad(
-    #             forward_and_project,
-    #             argnums=1,
-    #             has_aux=True,
-    #         ),
-    #         in_axes=(None, 0, None),
-    #     )
-    #     vgrad, vlog_prob = vgrad_fn(
-    #         self.forward,
-    #         jnp.expand_dims(self.batch, axis=1),
-    #         self.projection,
-    #     )
+    def test_grad_shape_batch(self):
+        concrete_forward_with_projection = operations.forward_with_projection(
+            projection_name="test_proj",  # static projection
+            forward=self.forward,
+        ).concretize()
+        vgrad_fn = jax.jit(
+            jax.vmap(
+                jax.grad(
+                    concrete_forward_with_projection,
+                    has_aux=True,
+                ),
+                in_axes=(0, None),
+            )
+        )
+        vgrad, (_, log_prob) = vgrad_fn(
+            jnp.expand_dims(self.batch, axis=1),
+            {"test_proj": self.projection},
+        )
+        vgrad = jnp.squeeze(vgrad, axis=1)
+        assert vgrad.shape == self.batch.shape
 
-    #     vgrad = jnp.squeeze(vgrad, axis=1)
-    #     vlog_prob = jnp.squeeze(vlog_prob, axis=1)
+    def get_concrete_grad_stream_sampler(self, base_stream, keys):
+        base_stream["proj_test"] = self.projection
+        base_abstract_processes = get_abstract_stream_sampler(base_stream, keys)
+        concrete_forward_with_projection = operations.forward_with_projection(
+            forward=self.forward,
+            projection_name="proj_test",
+        ).concretize()
+        base_abstract_processes.append(
+            operations.vanilla_gradient(
+                name="vanilla_grad_mask",
+                source_name="convex_combination_mask",
+                concrete_forward_with_projection=concrete_forward_with_projection,
+            )
+        )
+        concrete_processes = operations.concretize(
+            abstract_processes=base_abstract_processes
+        )
+        # create a concrete sequential process
+        concrete_sequential_process = operations.sequential_call(
+            concrete_processes=concrete_processes
+        ).concretize()
+        return concrete_sequential_process
 
-    #     assert vgrad.shape == self.batch.shape
-    #     assert vlog_prob.shape == (self.batch.shape[0], 1000)
+    def test_grad_stream_sampling(self):
+        base_stream = {}
+        num_samples = 10
+        keys = jax.random.split(self.key, num=num_samples)
 
-    # def get_concrete_grad_stream_sampler(base_stream, keys):
-    #     base_abstract_processes = get_abstract_stream_sampler(base_stream, keys)
-    #     base_abstract_processes.append(
-    #         operations.vanilla_grad(
-    #             name="vanilla_grad_mask",
-    #             source_name="convex_combination_mask",
-    #             forward=model.apply,
-    #         )
-    #     )
-    #     concrete_processes = operations.concretize(
-    #         abstract_processes=base_abstract_processes
-    #     )
-    #     # create a concrete sequential process
-    #     concrete_sequential_process = operations.sequential_call(
-    #         concrete_processes=concrete_processes
-    #     ).concretize()
-    #     return concrete_sequential_process
+        concrete_sequential_process = self.get_concrete_grad_stream_sampler(
+            base_stream, keys
+        )
+
+        # compute the expected stream
+        expected_stream = copy.deepcopy(base_stream)
+        concrete_sequential_process(keys[0], expected_stream)
+
+        # vmap the concrete sequential process
+        vmap_concrete_sequential_process = jax.vmap(
+            concrete_sequential_process, in_axes=(0, None)
+        )
+
+        # count the number of compilations
+        vmap_concrete_sequential_process = operations.count_compilations(
+            vmap_concrete_sequential_process
+        )
+        # compile the concrete sequential process and call it
+        compiled_concrete_sequential_process = jax.jit(vmap_concrete_sequential_process)
+        result_stream = compiled_concrete_sequential_process(keys, base_stream)
+
+        assert vmap_concrete_sequential_process.number_of_compilations == 1
+        assert base_stream is not result_stream
+        assert result_stream.keys() == expected_stream.keys()
+        assert (
+            result_stream["vanilla_grad_mask"][0]
+            != result_stream["vanilla_grad_mask"][1]
+        ).all()
+        assert result_stream["vanilla_grad_mask"].shape[0] == num_samples
+        assert (
+            result_stream["vanilla_grad_mask"].shape[1:]
+            == expected_stream["vanilla_grad_mask"].shape
+        )
+        np.testing.assert_allclose(
+            result_stream["vanilla_grad_mask"][0],
+            expected_stream["vanilla_grad_mask"],
+            atol=1e-2,
+        )

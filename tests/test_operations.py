@@ -163,48 +163,6 @@ def test_stream_sampling():
     ).all()
 
 
-def test_grad_stream_sampling():
-    base_stream = {}
-    num_samples = 10
-    keys = jax.random.split(key, num=num_samples)
-
-    concrete_sequential_process = get_abstract_stream_sampler(base_stream, keys)
-
-    # compute the expected stream
-    expected_stream = copy.deepcopy(base_stream)
-    concrete_sequential_process(keys[0], expected_stream)
-
-    # vmap the concrete sequential process
-    vmap_concrete_sequential_process = jax.vmap(
-        concrete_sequential_process, in_axes=(0, None)
-    )
-
-    # count the number of compilations
-    vmap_concrete_sequential_process = operations.count_compilations(
-        vmap_concrete_sequential_process
-    )
-    # compile the concrete sequential process and call it
-    compiled_concrete_sequential_process = jax.jit(vmap_concrete_sequential_process)
-    result_stream = compiled_concrete_sequential_process(keys, base_stream)
-
-    assert vmap_concrete_sequential_process.number_of_compilations == 1
-    assert base_stream is not result_stream
-    assert result_stream.keys() == expected_stream.keys()
-    assert (
-        result_stream["convex_combination_mask"][0]
-        != result_stream["convex_combination_mask"][1]
-    ).all()
-    assert result_stream["convex_combination_mask"].shape[0] == num_samples
-    assert (
-        result_stream["convex_combination_mask"].shape[1:]
-        == expected_stream["convex_combination_mask"].shape
-    )
-    assert (
-        result_stream["convex_combination_mask"][0]
-        == expected_stream["convex_combination_mask"]
-    ).all()
-
-
 def test_resize_mask():
     resize = operations.resize_mask(
         name="test_mask",
