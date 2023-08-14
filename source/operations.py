@@ -26,18 +26,6 @@ def concretize(*, abstract_processes):
     return [process.concretize() for process in abstract_processes]
 
 
-def bind_all(*, abstract_processes, **parameters):
-    """
-    args:
-        processes: a list of abstract processes.
-        parameters: a dictionary of parameters to be bound to the processes.
-
-    returns:
-        a list of abstract processes that their arguments bound to the specified arguments.
-    """
-    return [process(**parameters) for process in abstract_processes]
-
-
 def count_compilations(func):
     def wrapper(*args, **kwargs):
         wrapper.number_of_compilations += 1

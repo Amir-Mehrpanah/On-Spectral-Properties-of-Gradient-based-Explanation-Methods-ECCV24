@@ -187,11 +187,11 @@ def test_convex_combination_mask():
     alpha = jax.random.uniform(key_3)
     expected = (1 - alpha) * input + (alpha) * target
     out = {"input": input, "target": target, "alpha": alpha}
-    convex_combination.update_params(
+    convex_combination(
         stream=out,
     )
-    convex_combination_compiled = convex_combination.compile()
-    out = convex_combination_compiled(key=key)
+    concrete_convex_combination = convex_combination.concretize()
+    out = concrete_convex_combination(key=key)
     assert out["test_mask"].shape == in_shape
     assert (out["test_mask"] == expected).all()
 
@@ -216,11 +216,11 @@ def test_linear_combination_mask():
         "alpha_source": alpha_source,
         "alpha_target": alpha_target,
     }
-    linear_combination.update_params(
+    linear_combination(
         stream=out,
     )
-    linear_combination_compiled = linear_combination.compile()
-    out = linear_combination_compiled(key=key)
+    concrete_linear_combination = linear_combination.concretize()
+    out = concrete_linear_combination(key=key)
 
     assert out["test_mask"].shape == in_shape
     assert (out["test_mask"] == expected).all()
