@@ -1,48 +1,71 @@
-from functools import partial
-import inspect
-import functools
+from functools import partial, update_wrapper
 from typing import Any, Dict, List, Callable, Tuple
 import jax
 
 
-class PartialCompile:
+class AbstractProcess:
     def __init__(self, func) -> None:
         self.func = func
         self.params = {}
+        update_wrapper(self, func)
 
-    def update_params(self, **kwargs):
+    def __call__(self, **kwargs):
         self.params.update(kwargs)
         return self
 
-    def compile(self):
-        return jax.jit(partial(self.func, **self.params))
+    def concretize(self):
+        return partial(self.func, **self.params)
 
 
-@PartialCompile
-def make_explanation_stream(
-    *,
-    stream: Dict[str, jax.Array] = {},
-    stream_processes: List[Callable],
-    key: jax.random.KeyArray,
-):
+def concretize(*, abstract_processes):
     """
     args:
-        stream_processes: a list of functions that have a standardized signature (key, stream)
-        stream: the the stream to be processed
-        which take a stream and key and put a mask in the stream.
-    returns:
-        A function that takes a key and returns a stream with all processes applied.
-    the stream is a dictonary of stateless objects shared between all processes and
-    accross different runs of the returned explanation stream for better performance.
-
-    all functions in stream_processes should be stateless only depend on the stream and key.
+        abstract_processes: a list of abstract processes that have specified arguments except key.
     """
-    for process in stream_processes:
-        process(key=key)
+
+    return [process.concretize() for process in abstract_processes]
+
+
+def bind_all(*, abstract_processes, **parameters):
+    """
+    args:
+        processes: a list of abstract processes.
+        parameters: a dictionary of parameters to be bound to the processes.
+
+    returns:
+        a list of abstract processes that their arguments bound to the specified arguments.
+    """
+    return [process(**parameters) for process in abstract_processes]
+
+
+def count_compilations(func):
+    def wrapper(*args, **kwargs):
+        wrapper.number_of_compilations += 1
+        return func(*args, **kwargs)
+
+    wrapper.number_of_compilations = 0
+
+    return wrapper
+
+
+# jax vmap does not support kwargs this makes our code less elegant
+# otherwise we could have used **kwargs in the abstract processes
+@AbstractProcess
+def sequential_call(key, stream, *, concrete_processes):
+    """
+    args:
+        key: key to be used for sampling
+        stream: stream to be used
+        concrete_processes: a list of concrete processes that have specified arguments except key.
+    returns:
+        the resulting stream
+    """
+    for concrete_process in concrete_processes:
+        concrete_process(stream=stream, key=key)
     return stream
 
 
-@PartialCompile
+@AbstractProcess
 def resize_mask(
     *,
     name: str,
@@ -51,7 +74,7 @@ def resize_mask(
     shape: Tuple,
     method: jax.image.ResizeMethod = jax.image.ResizeMethod.LINEAR,
     key: jax.random.KeyArray,
-) -> None:
+) -> Dict[str, jax.Array]:
     """
     args:
         name: name of the mask
@@ -75,9 +98,10 @@ def resize_mask(
             )
         }
     )
+    return stream
 
 
-@PartialCompile
+@AbstractProcess
 def multiply_masks(
     *,
     name: str,
@@ -85,7 +109,7 @@ def multiply_masks(
     source_name: str,
     target_name: str,
     key: jax.random.KeyArray,
-) -> None:
+) -> Dict[str, jax.Array]:
     """
     args:
         name: name of the mask
@@ -97,9 +121,10 @@ def multiply_masks(
     """
 
     stream.update({name: stream[source_name] * stream[target_name]})
+    return stream
 
 
-@PartialCompile
+@AbstractProcess
 def add_masks(
     *,
     name: str,
@@ -107,7 +132,7 @@ def add_masks(
     source_name: str,
     target_name: str,
     key: jax.random.KeyArray,
-) -> None:
+) -> Dict[str, jax.Array]:
     """
     args:
         name: name of the mask
@@ -119,10 +144,11 @@ def add_masks(
     """
 
     stream.update({name: stream[source_name] + stream[target_name]})
+    return stream
 
 
-@PartialCompile
-def make_convex_combination_mask(
+@AbstractProcess
+def convex_combination_mask(
     *,
     name: str,
     stream: Dict[str, jax.Array],
@@ -130,7 +156,7 @@ def make_convex_combination_mask(
     target_name: str,
     alpha_name: str,
     key: jax.random.KeyArray,
-) -> None:
+) -> Dict[str, jax.Array]:
     """
     args:
         name: name of the mask
@@ -150,9 +176,10 @@ def make_convex_combination_mask(
             + stream[alpha_name] * stream[target_name]
         }
     )
+    return stream
 
 
-@PartialCompile
+@AbstractProcess
 def linear_combination_mask(
     *,
     name: str,
@@ -162,7 +189,7 @@ def linear_combination_mask(
     alpha_source_name: str,
     alpha_target_name: str,
     key: jax.random.KeyArray,
-) -> None:
+) -> Dict[str, jax.Array]:
     """
     args:
         name: name of the mask
@@ -183,3 +210,4 @@ def linear_combination_mask(
             + stream[alpha_target_name] * stream[target_name]
         }
     )
+    return stream

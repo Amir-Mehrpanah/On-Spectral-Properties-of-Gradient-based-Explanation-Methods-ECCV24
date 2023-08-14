@@ -1,6 +1,9 @@
+import copy
+from functools import wraps
 import os
 import sys
 import jax
+
 import jax.numpy as jnp
 
 sys.path.append(os.getcwd())
@@ -9,90 +12,155 @@ from source import neighborhoods
 from source import operations
 
 
+def test_partial_call():
+    @operations.AbstractProcess
+    def func(*, idict, y):
+        """
+        test docstring
+        """
+        idict.update({"y": idict["x"] + y})
+        return idict
+
+    func(y=2)
+    concrete_func = func.concretize()
+    idict = {"x": 5}
+    result = concrete_func(idict=idict)
+
+    complied_func = jax.jit(concrete_func)
+    compiled_result = complied_func(idict=idict)
+
+    assert id(result) == id(idict)
+    assert id(result) != id(compiled_result)  # jitted function returns a new dict
+    assert result["y"] == 7
+    assert compiled_result["y"] == 7
+
+
 def test_partial_compile():
-    @operations.PartialCompile
+    @operations.AbstractProcess
     def func(*, x, y, z):
+        """
+        test docstring
+        """
         return x + y + z
 
-    func.update_params(x=1, y=2)
-    compiled_func = func.compile()
+    func(x=1, y=2)
+    compiled_func = func.concretize()
     assert compiled_func(z=3) == 6
+
+
+def test_concrete_process_compilation_count():
+    @operations.AbstractProcess
+    def func(*, x, y, z):
+        """
+        test docstring
+        """
+        return x + y + z
+
+    func(x=1)
+    concrete_func = func.concretize()
+    concrete_func = operations.count_compilations(concrete_func)
+    compiled_func = jax.jit(concrete_func, static_argnames=("x", "y"))
+
+    assert compiled_func(y=1, z=3) == 5
+    assert concrete_func.number_of_compilations == 1
+
+    assert compiled_func(y=1, z=4) == 6
+    assert concrete_func.number_of_compilations == 1
+
+    assert compiled_func(y=2, z=4) == 7  # force recompilation
+    assert concrete_func.number_of_compilations == 2
 
 
 def test_stream_sampling():
     base_stream = {}
-    base_key = key
     num_samples = 10
-    keys = jax.random.split(base_key, num=num_samples)
-    neighborhoods.make_deterministic_mask(
-        name="alpha_mask", mask=0.5 * jnp.ones(shape=(1, 1, 1, 1)), stream=base_stream
-    )(key=keys[0])
+    keys = jax.random.split(key, num=num_samples)
 
-    stream_processes = lambda stream: [
-        neighborhoods.make_uniform_mask(
+    # initialize a static mask in the stream that does not depend on the key
+    concrete_process = neighborhoods.deterministic_mask(
+        name="alpha_mask",
+        mask=0.5 * jnp.ones(shape=(1, 1, 1, 1)),
+        stream=base_stream,
+        key=keys[0],
+    ).concretize()
+    # put the static mask in the stream
+    concrete_process()
+
+    # initialize other masks that depend on the key with tailored inputs
+    base_abstract_processes = [
+        neighborhoods.uniform_mask(
             name="uniform_mask",
             shape=(1, 224, 224, 3),
-            stream=stream,
         ),
-        neighborhoods.make_bernoulli_mask(
+        neighborhoods.bernoulli_mask(
             name="bernoulli_mask",
             shape=(1, 10, 10, 1),
             p=0.5,
-            stream=stream,
         ),
-        operations.make_resize_mask(
+        operations.resize_mask(
             name="bernoulli_mask_resized",
             source_name="bernoulli_mask",
             shape=(1, 224, 224, 1),
-            stream=stream,
         ),
-        operations.make_convex_combination_mask(
+        operations.convex_combination_mask(
             name="convex_combination_mask",
             source_name="uniform_mask",
             target_name="bernoulli_mask_resized",
             alpha_name="alpha_mask",
-            stream=stream,
         ),
     ]
-    explanation_stream = operations.make_explanation_stream(
-        stream=base_stream,
-        stream_processes=stream_processes,
+
+    # check that the result stream is as expected with jit
+    # # bind the base stream to the abstract processes
+    concrete_processes = operations.concretize(
+        abstract_processes=base_abstract_processes
+    )
+    # create a concrete sequential process
+    concrete_sequential_process = operations.sequential_call(
+        concrete_processes=concrete_processes
+    ).concretize()
+
+    # compute the expected stream
+    expected_stream = copy.deepcopy(base_stream)
+    concrete_sequential_process(keys[0], expected_stream)
+
+    # vmap the concrete sequential process
+    vmap_concrete_sequential_process = jax.vmap(
+        concrete_sequential_process, in_axes=(0, None)
     )
 
-    expected_stream = base_stream.copy()
-    for process in stream_processes:
-        process(key=keys[0])
-    stream_0 = explanation_stream(key=keys[0])
+    # count the number of compilations
+    vmap_concrete_sequential_process = operations.count_compilations(
+        vmap_concrete_sequential_process
+    )
+    # compile the concrete sequential process and call it
+    compiled_concrete_sequential_process = jax.jit(vmap_concrete_sequential_process)
+    result_stream = compiled_concrete_sequential_process(keys, base_stream)
 
-    assert stream_0 is not expected_stream
-    assert stream_0 is not base_stream
-    assert stream_0.keys() == expected_stream.keys()
+    assert vmap_concrete_sequential_process.number_of_compilations == 1
+    assert base_stream is not result_stream
+    assert result_stream.keys() == expected_stream.keys()
     assert (
-        stream_0["convex_combination_mask"]
-        == expected_stream["convex_combination_mask"]
+        result_stream["convex_combination_mask"][0]
+        != result_stream["convex_combination_mask"][1]
     ).all()
-
-    vmap_explanation_stream = jax.vmap(explanation_stream, in_axes=0)
-    stream_1 = vmap_explanation_stream(key=keys)
-    assert stream_1 is not stream_0
-    assert stream_1.keys() == expected_stream.keys()
-    assert stream_1["convex_combination_mask"].shape[0] == num_samples
+    assert result_stream["convex_combination_mask"].shape[0] == num_samples
     assert (
-        stream_1["convex_combination_mask"].shape[1:]
+        result_stream["convex_combination_mask"].shape[1:]
         == expected_stream["convex_combination_mask"].shape
     )
     assert (
-        stream_1["convex_combination_mask"][0]
+        result_stream["convex_combination_mask"][0]
         == expected_stream["convex_combination_mask"]
     ).all()
 
 
 def test_resize_mask():
-    resize = operations.make_resize_mask(
+    resize = operations.resize_mask(
         name="test_mask",
         shape=in_shape,
         source_name="small_mask",
-    )
+    ).concretize()
     small_shape = (1, 5, 5, 3)
     small_mask = jax.random.uniform(key, shape=small_shape)
     expected = jax.image.resize(
@@ -107,7 +175,7 @@ def test_resize_mask():
 
 
 def test_convex_combination_mask():
-    convex_combination = operations.make_convex_combination_mask(
+    convex_combination = operations.convex_combination_mask(
         name="test_mask",
         source_name="input",
         target_name="target",
@@ -119,16 +187,17 @@ def test_convex_combination_mask():
     alpha = jax.random.uniform(key_3)
     expected = (1 - alpha) * input + (alpha) * target
     out = {"input": input, "target": target, "alpha": alpha}
-    convex_combination(
+    convex_combination.update_params(
         stream=out,
-        key=key,
     )
+    convex_combination_compiled = convex_combination.compile()
+    out = convex_combination_compiled(key=key)
     assert out["test_mask"].shape == in_shape
     assert (out["test_mask"] == expected).all()
 
 
 def test_linear_combination_mask():
-    linear_combination = operations.make_linear_combination_mask(
+    linear_combination = operations.linear_combination_mask(
         name="test_mask",
         source_name="input",
         target_name="target",
@@ -147,10 +216,12 @@ def test_linear_combination_mask():
         "alpha_source": alpha_source,
         "alpha_target": alpha_target,
     }
-    linear_combination(
+    linear_combination.update_params(
         stream=out,
-        key=key,
     )
+    linear_combination_compiled = linear_combination.compile()
+    out = linear_combination_compiled(key=key)
+
     assert out["test_mask"].shape == in_shape
     assert (out["test_mask"] == expected).all()
 
