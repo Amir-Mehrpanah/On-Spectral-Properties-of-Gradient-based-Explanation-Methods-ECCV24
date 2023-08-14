@@ -71,11 +71,7 @@ def test_concrete_process_compilation_count():
     assert concrete_func.number_of_compilations == 2
 
 
-def test_stream_sampling():
-    base_stream = {}
-    num_samples = 10
-    keys = jax.random.split(key, num=num_samples)
-
+def get_abstract_stream_sampler(base_stream, keys):
     # initialize a static mask in the stream that does not depend on the key
     concrete_process = neighborhoods.deterministic_mask(
         name="alpha_mask",
@@ -109,9 +105,12 @@ def test_stream_sampling():
             alpha_name="alpha_mask",
         ),
     ]
+    return base_abstract_processes
 
-    # check that the result stream is as expected with jit
-    # # bind the base stream to the abstract processes
+
+def get_concrete_stream_sampler(base_stream, keys):
+    base_abstract_processes = get_abstract_stream_sampler(base_stream, keys)
+
     concrete_processes = operations.concretize(
         abstract_processes=base_abstract_processes
     )
@@ -119,6 +118,57 @@ def test_stream_sampling():
     concrete_sequential_process = operations.sequential_call(
         concrete_processes=concrete_processes
     ).concretize()
+    return concrete_sequential_process
+
+
+def test_stream_sampling():
+    base_stream = {}
+    num_samples = 10
+    keys = jax.random.split(key, num=num_samples)
+
+    concrete_sequential_process = get_concrete_stream_sampler(base_stream, keys)
+
+    # compute the expected stream
+    expected_stream = copy.deepcopy(base_stream)
+    concrete_sequential_process(keys[0], expected_stream)
+
+    # vmap the concrete sequential process
+    vmap_concrete_sequential_process = jax.vmap(
+        concrete_sequential_process, in_axes=(0, None)
+    )
+
+    # count the number of compilations
+    vmap_concrete_sequential_process = operations.count_compilations(
+        vmap_concrete_sequential_process
+    )
+    # compile the concrete sequential process and call it
+    compiled_concrete_sequential_process = jax.jit(vmap_concrete_sequential_process)
+    result_stream = compiled_concrete_sequential_process(keys, base_stream)
+
+    assert vmap_concrete_sequential_process.number_of_compilations == 1
+    assert base_stream is not result_stream
+    assert result_stream.keys() == expected_stream.keys()
+    assert (
+        result_stream["convex_combination_mask"][0]
+        != result_stream["convex_combination_mask"][1]
+    ).all()
+    assert result_stream["convex_combination_mask"].shape[0] == num_samples
+    assert (
+        result_stream["convex_combination_mask"].shape[1:]
+        == expected_stream["convex_combination_mask"].shape
+    )
+    assert (
+        result_stream["convex_combination_mask"][0]
+        == expected_stream["convex_combination_mask"]
+    ).all()
+
+
+def test_grad_stream_sampling():
+    base_stream = {}
+    num_samples = 10
+    keys = jax.random.split(key, num=num_samples)
+
+    concrete_sequential_process = get_abstract_stream_sampler(base_stream, keys)
 
     # compute the expected stream
     expected_stream = copy.deepcopy(base_stream)

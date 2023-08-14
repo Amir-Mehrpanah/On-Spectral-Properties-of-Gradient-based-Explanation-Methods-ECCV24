@@ -1,6 +1,18 @@
 from functools import partial, update_wrapper
 from typing import Any, Dict, List, Callable, Tuple
+import tensorflow as tf
+import jax.numpy as jnp
 import jax
+
+
+def preprocess(x, img_size):
+    x = tf.keras.layers.experimental.preprocessing.CenterCrop(
+        height=img_size,
+        width=img_size,
+    )(x)
+    x = jnp.array(x)
+    x = jnp.expand_dims(x, axis=0) / 255.0
+    return x
 
 
 class AbstractProcess:
@@ -51,6 +63,35 @@ def sequential_call(key, stream, *, concrete_processes):
     for concrete_process in concrete_processes:
         concrete_process(stream=stream, key=key)
     return stream
+
+
+# jax.grad does not support kwargs this makes our code less elegant
+# otherwise we could have used **kwargs in the abstract processes
+@AbstractProcess
+def forward_with_projection(inputs, *, name, projection_name, forward, stream, key):
+    assert inputs.ndim == 4, "x should be a batch of images"
+    log_prob = forward(inputs)
+    results = (log_prob @ stream[projection_name]).squeeze()
+    stream.update({name: results})
+    return results, log_prob
+
+
+@AbstractProcess
+def vanilla_gradient(
+    *,
+    name,
+    source_name,
+    concrete_projection,
+    has_aux=False,
+    stream,
+    key,
+):
+    assert stream[source_name].ndim == 4, "x should be a batch of images"
+    grads = jax.grad(
+        concrete_projection,
+        has_aux=has_aux,
+    )(stream[source_name], stream=stream, key=key)
+    stream.update({name: grads})
 
 
 @AbstractProcess

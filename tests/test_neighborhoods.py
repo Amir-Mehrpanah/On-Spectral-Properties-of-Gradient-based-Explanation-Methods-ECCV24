@@ -10,10 +10,10 @@ from tests.assets.test_config import key, in_shape
 
 def test_deterministic_mask():
     sample_mask = jnp.zeros(in_shape)
-    mask = neighborhoods.make_deterministic_mask(
+    mask = neighborhoods.deterministic_mask(
         name="test_mask",
         mask=sample_mask,
-    )
+    ).concretize()
     out = {}
     mask(stream=out, key=key)
     assert out["test_mask"].shape == in_shape
@@ -21,10 +21,10 @@ def test_deterministic_mask():
 
 
 def test_uniform_mask():
-    mask = neighborhoods.make_uniform_mask(
+    mask = neighborhoods.uniform_mask(
         name="test_mask",
         shape=in_shape,
-    )
+    ).concretize()
     expected = jax.random.uniform(key, shape=in_shape)
     out = {}
     mask(stream=out, key=key)
@@ -37,11 +37,11 @@ def test_bernoulli_mask():
     ps.append(jnp.ones(shape=in_shape))
 
     for p in ps:
-        mask = neighborhoods.make_bernoulli_mask(
+        mask = neighborhoods.bernoulli_mask(
             name="test_mask",
             shape=in_shape,
             p=p,
-        )
+        ).concretize()
         expected = jax.random.bernoulli(key, p=p, shape=in_shape)
         out = {}
         mask(stream=out, key=key)
@@ -59,11 +59,11 @@ def test_onehot_categorical_mask():
         jnp.zeros(shape=(H, W)).at[0, 0].set(1.0),
     ]
     for p in ps:
-        mask = neighborhoods.make_onehot_categorical_mask(
+        mask = neighborhoods.onehot_categorical_mask(
             name="test_mask",
             shape=in_shape,
             p=p,
-        )
+        ).concretize()
         flat_index = jax.random.categorical(key, jnp.log(p).flatten())
         x_index, y_index = jnp.unravel_index(flat_index, shape=(H, W))
         expected = jnp.zeros(shape=in_shape).at[0, x_index, y_index, :].set(1.0)
@@ -77,10 +77,10 @@ def test_onehot_categorical_mask():
 
 
 def test_normal_mask():
-    mask = neighborhoods.make_normal_mask(
+    mask = neighborhoods.normal_mask(
         name="test_mask",
         shape=in_shape,
-    )
+    ).concretize()
     expected = jax.random.normal(key, shape=in_shape)
     out = {}
     mask(stream=out, key=key)
