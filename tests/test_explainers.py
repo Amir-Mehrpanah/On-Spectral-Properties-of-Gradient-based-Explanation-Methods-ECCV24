@@ -14,6 +14,7 @@ jax.config.update("jax_log_compiles", True)
 sys.path.append(os.getcwd())
 from source import labels
 from source import operations
+from source import explainers
 from test_operations import get_abstract_stream_sampler
 
 
@@ -57,12 +58,10 @@ class TestAssests:
 
 class TestWithResnet50(TestAssests):
     def test_forward_and_project(self):
-        projected_log_prob, log_prob = operations.forward_with_projection(
-            name="test",
+        projected_log_prob, (_, log_prob) = explainers.forward_with_projection(
             projection_name="proj_test",
             forward=self.forward,
             stream={"proj_test": self.projection},
-            key=self.key,
         ).concretize()(
             self.images[95],
         )
@@ -71,8 +70,7 @@ class TestWithResnet50(TestAssests):
         assert np.exp(projected_log_prob) > 0.9
 
     def test_grad_shape(self):
-        concrete_forward_with_projection = operations.forward_with_projection(
-            name="test",
+        concrete_forward_with_projection = explainers.forward_with_projection(
             projection_name="proj_test",
             forward=self.forward,
             stream={"proj_test": self.projection},
@@ -82,13 +80,13 @@ class TestWithResnet50(TestAssests):
             has_aux=True,
         )
 
-        grad, log_probs = grad_fn(
+        grad, (_, log_probs) = grad_fn(
             self.images[95],
         )
         assert grad.shape == self.images[95].shape
 
     def test_grad_shape_batch(self):
-        concrete_forward_with_projection = operations.forward_with_projection(
+        concrete_forward_with_projection = explainers.forward_with_projection(
             projection_name="test_proj",  # static projection
             forward=self.forward,
         ).concretize()
@@ -111,12 +109,12 @@ class TestWithResnet50(TestAssests):
     def get_concrete_grad_stream_sampler(self, base_stream, keys):
         base_stream["proj_test"] = self.projection
         base_abstract_processes = get_abstract_stream_sampler(base_stream, keys)
-        concrete_forward_with_projection = operations.forward_with_projection(
+        concrete_forward_with_projection = explainers.forward_with_projection(
             forward=self.forward,
             projection_name="proj_test",
         ).concretize()
         base_abstract_processes.append(
-            operations.vanilla_gradient(
+            explainers.vanilla_gradient(
                 name="vanilla_grad_mask",
                 source_name="convex_combination_mask",
                 concrete_forward_with_projection=concrete_forward_with_projection,
