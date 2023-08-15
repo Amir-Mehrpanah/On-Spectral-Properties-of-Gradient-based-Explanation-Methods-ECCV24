@@ -65,39 +65,6 @@ def sequential_call(key, stream, *, concrete_processes):
     return stream
 
 
-# jax.grad does not support kwargs this makes our code less elegant
-# otherwise we could have used **kwargs in the abstract processes
-@AbstractProcess
-def forward_with_projection(inputs, stream, *, forward, projection_name):
-    assert inputs.ndim == 4, "x should be a batch of images"
-    log_prob = forward(inputs)
-    results_at_projection = (log_prob @ stream[projection_name]).squeeze()
-    return results_at_projection, (results_at_projection, log_prob)
-
-
-@AbstractProcess
-def vanilla_gradient(
-    *,
-    name: str,
-    source_name: str,
-    concrete_forward_with_projection: Callable,
-    stream: Dict[str, jax.Array],
-    key: jax.random.KeyArray,
-):
-    assert stream[source_name].ndim == 4, "x should be a batch of images"
-    grads, (results_at_projection, log_probs) = jax.grad(
-        concrete_forward_with_projection,
-        has_aux=True,
-    )(stream[source_name], stream)
-    stream.update(
-        {
-            name: grads,
-            f"log_probs@projection": results_at_projection,
-            f"log_probs": log_probs,
-        }
-    )
-
-
 @AbstractProcess
 def resize_mask(
     *,
