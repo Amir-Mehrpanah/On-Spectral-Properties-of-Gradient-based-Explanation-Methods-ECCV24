@@ -1,6 +1,7 @@
 import jax
-from source.explanation_methods import noise_interpolation
 import argparse
+
+from source.explanation_methods import noise_interpolation
 from source import configs
 
 
@@ -12,8 +13,11 @@ parser.add_argument(
     choices=["noise_interpolation"],
 )
 args = parser.parse_args()
-key = configs.base_key
-stream = {"image": configs.images[0]}
+batch_keys = jax.random.split(
+    configs.base_key,
+    num=configs.NoiseInterpolation.num_batches,
+)
+stream = configs.stream
 
 if args.method == "noise_interpolation":
     noise_interpolation(
@@ -22,6 +26,16 @@ if args.method == "noise_interpolation":
     )
     concrete_process = noise_interpolation.concretize()
 
-
-concrete_process = jax.jit(concrete_process)
-stream = concrete_process(key, stream)
+compiled_concrete_process = jax.jit(
+    jax.vmap(
+        concrete_process,
+        in_axes=(0, None),
+    )
+)
+with jax.log_compiles():
+    for batch_key in batch_keys:
+        sample_keys = jax.random.split(
+            batch_key,
+            num=configs.sampling_batch_size,
+        )
+        stream = compiled_concrete_process(sample_keys, stream)

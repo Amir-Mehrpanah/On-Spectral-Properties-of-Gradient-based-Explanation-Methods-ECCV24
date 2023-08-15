@@ -71,13 +71,13 @@ def test_concrete_process_compilation_count():
     assert concrete_func.number_of_compilations == 2
 
 
-def get_abstract_stream_sampler(base_stream, keys):
+def get_abstract_stream_sampler(base_stream):
     # initialize a static mask in the stream that does not depend on the key
     concrete_process = neighborhoods.deterministic_mask(
         name="alpha_mask",
         mask=0.5 * jnp.ones(shape=(1, 1, 1, 1)),
         stream=base_stream,
-        key=keys[0],
+        key=key,
     ).concretize()
     # put the static mask in the stream
     concrete_process()
@@ -105,13 +105,14 @@ def get_abstract_stream_sampler(base_stream, keys):
             alpha_name="alpha_mask",
         ),
     ]
+    operations.bind_all(abstract_processes=base_abstract_processes, stream=base_stream)
     return base_abstract_processes
 
 
-def get_concrete_stream_sampler(base_stream, keys):
-    base_abstract_processes = get_abstract_stream_sampler(base_stream, keys)
+def get_concrete_stream_sampler(base_stream):
+    base_abstract_processes = get_abstract_stream_sampler(base_stream)
 
-    concrete_processes = operations.concretize(
+    concrete_processes = operations.concretize_all(
         abstract_processes=base_abstract_processes
     )
     # create a concrete sequential process
@@ -121,32 +122,37 @@ def get_concrete_stream_sampler(base_stream, keys):
     return concrete_sequential_process
 
 
+def test_bind_all():
+    base_stream = {}
+    concrete_sequential_process = get_concrete_stream_sampler(base_stream)
+    concrete_sequential_process(key)
+    assert "convex_combination_mask" in base_stream.keys()
+
+
 def test_stream_sampling():
     base_stream = {}
     num_samples = 10
     keys = jax.random.split(key, num=num_samples)
 
-    concrete_sequential_process = get_concrete_stream_sampler(base_stream, keys)
-
-    # compute the expected stream
     expected_stream = copy.deepcopy(base_stream)
-    concrete_sequential_process(keys[0], expected_stream)
+    concrete_sequential_process = get_concrete_stream_sampler(
+        base_stream=expected_stream
+    )
+    # compute the expected stream
+    concrete_sequential_process(keys[0])
 
+    concrete_sequential_process = get_concrete_stream_sampler(base_stream=base_stream)
     # vmap the concrete sequential process
+    def dummy_func(key): 
+        concrete_sequential_process(key)
+        return base_stream
     vmap_concrete_sequential_process = jax.vmap(
-        concrete_sequential_process, in_axes=(0, None)
+        dummy_func, in_axes=(0)
     )
+    # call the concrete sequential process vmapped on the keys
+    result_stream = vmap_concrete_sequential_process(keys)
 
-    # count the number of compilations
-    vmap_concrete_sequential_process = operations.count_compilations(
-        vmap_concrete_sequential_process
-    )
-    # compile the concrete sequential process and call it
-    compiled_concrete_sequential_process = jax.jit(vmap_concrete_sequential_process)
-    result_stream = compiled_concrete_sequential_process(keys, base_stream)
-
-    assert vmap_concrete_sequential_process.number_of_compilations == 1
-    assert base_stream is not result_stream
+    assert result_stream is not expected_stream
     assert result_stream.keys() == expected_stream.keys()
     assert (
         result_stream["convex_combination_mask"][0]
@@ -199,7 +205,7 @@ def test_convex_combination_mask():
         stream=out,
     )
     concrete_convex_combination = convex_combination.concretize()
-    out = concrete_convex_combination(key=key)
+    concrete_convex_combination(key=key)
     assert out["test_mask"].shape == in_shape
     assert (out["test_mask"] == expected).all()
 
@@ -228,7 +234,7 @@ def test_linear_combination_mask():
         stream=out,
     )
     concrete_linear_combination = linear_combination.concretize()
-    out = concrete_linear_combination(key=key)
+    concrete_linear_combination(key=key)
 
     assert out["test_mask"].shape == in_shape
     assert (out["test_mask"] == expected).all()

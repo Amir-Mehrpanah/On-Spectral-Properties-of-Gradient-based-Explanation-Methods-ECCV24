@@ -120,7 +120,7 @@ class TestWithResnet50(TestAssests):
                 concrete_forward_with_projection=concrete_forward_with_projection,
             )
         )
-        concrete_processes = operations.concretize(
+        concrete_processes = operations.concretize_all(
             abstract_processes=base_abstract_processes
         )
         # create a concrete sequential process

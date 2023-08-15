@@ -7,20 +7,26 @@ from source.operations import AbstractProcess
 
 
 @AbstractProcess
-def noise_interpolation(key, stream, alpha, *, forward):
-    assert "image" in stream
-    input_shape = stream["image"].shape
+def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image, label):
     assert len(input_shape) == 4
-
+    stream = {"image": image}
     static_key = jax.random.PRNGKey(0)
-    concrete_process = neighborhoods.deterministic_mask(
+    concrete_alpha_mask = neighborhoods.deterministic_mask(
         name="alpha_mask",
         mask=alpha * jnp.ones(shape=(1, 1, 1, 1)),
         stream=stream,
         key=static_key,
     ).concretize()
-    # put the static mask in the stream
-    concrete_process()
+    concrete_projection = operations.deterministic_projection(
+        name="projection",
+        mask=jnp.zeros(shape=(num_classes, 1), dtype=jnp.float32).at[label, 0].set(1.0),
+        stream=stream,
+        key=static_key,
+    ).concretize()
+
+    # put the static masks in the stream
+    concrete_projection()
+    concrete_alpha_mask()
 
     # initialize other masks that depend on the key with tailored inputs
     abstract_processes = [
@@ -38,7 +44,7 @@ def noise_interpolation(key, stream, alpha, *, forward):
 
     concrete_forward_with_projection = explainers.forward_with_projection(
         forward=forward,
-        projection_name="proj_test",
+        projection_name="projection",
     ).concretize()
 
     abstract_processes.append(
@@ -48,13 +54,14 @@ def noise_interpolation(key, stream, alpha, *, forward):
             concrete_forward_with_projection=concrete_forward_with_projection,
         )
     )
-    concrete_processes = operations.concretize(abstract_processes=abstract_processes)
+    concrete_processes = operations.concretize_all(abstract_processes=abstract_processes)
     # create a concrete sequential process
     concrete_sequential_process = operations.sequential_call(
         concrete_processes=concrete_processes
     ).concretize()
 
-    return concrete_sequential_process(key, stream)
+    concrete_sequential_process(key, stream)
+    return stream 
 
 
 # class NoiseInterpolation(Aggregator):

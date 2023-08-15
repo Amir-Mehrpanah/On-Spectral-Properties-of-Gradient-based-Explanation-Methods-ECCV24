@@ -29,7 +29,34 @@ class AbstractProcess:
         return partial(self.func, **self.params)
 
 
-def concretize(*, abstract_processes):
+@AbstractProcess
+def deterministic_projection(
+    *,
+    name: str,
+    stream=Dict[str, jax.Array],
+    projection: jnp.ndarray,
+    key: jax.random.KeyArray,
+) -> Dict[str, jax.Array]:
+    """
+    args:
+        name: name of the mask
+        projection: projection matrix to be used of shape (K, 1) where K is the number of classes
+        key: key will be ignored
+    returns:
+        the resulting stream
+
+    An inplace function that takes a stream and puts the deterministic projection matrix in the stream.
+    """
+
+    assert (
+        projection.shape[-1] == 1 and projection.ndim == 2
+    ), "mask should be a 4D array of shape (K, 1)"
+
+    stream.update({name: projection})
+    return stream
+
+
+def concretize_all(*, abstract_processes):
     """
     args:
         abstract_processes: a list of abstract processes that have specified arguments except key.
@@ -48,21 +75,32 @@ def count_compilations(func):
     return wrapper
 
 
+def bind_all(*, abstract_processes, **kwargs):
+    """
+    args:
+        abstract_processes: a list of abstract processes.
+    returns:
+        None
+
+    the list of abstract processes will be bound to the kwargs. this function is inplace.
+    """
+    for process in abstract_processes:
+        process(**kwargs)
+
+
 # jax vmap does not support kwargs this makes our code less elegant
 # otherwise we could have used **kwargs in the abstract processes
 @AbstractProcess
-def sequential_call(key, stream, *, concrete_processes):
+def sequential_call(key, *, concrete_processes):
     """
     args:
         key: key to be used for sampling
-        stream: stream to be used
         concrete_processes: a list of concrete processes that have specified arguments except key.
     returns:
         the resulting stream
     """
     for concrete_process in concrete_processes:
-        concrete_process(stream=stream, key=key)
-    return stream
+        concrete_process(key=key)
 
 
 @AbstractProcess
