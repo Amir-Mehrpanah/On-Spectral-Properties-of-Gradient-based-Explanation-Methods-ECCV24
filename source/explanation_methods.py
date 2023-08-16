@@ -19,7 +19,7 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
     ).concretize()
     concrete_projection = operations.deterministic_projection(
         name="projection",
-        mask=jnp.zeros(shape=(num_classes, 1), dtype=jnp.float32).at[label, 0].set(1.0),
+        projection=jnp.zeros(shape=(num_classes, 1), dtype=jnp.float32).at[label, 0].set(1.0),
         stream=stream,
         key=static_key,
     ).concretize()
@@ -54,14 +54,17 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
             concrete_forward_with_projection=concrete_forward_with_projection,
         )
     )
-    concrete_processes = operations.concretize_all(abstract_processes=abstract_processes)
+    abstract_processes = operations.bind_all(abstract_processes=abstract_processes,stream=stream)
+    concrete_processes = operations.concretize_all(
+        abstract_processes=abstract_processes
+    )
     # create a concrete sequential process
     concrete_sequential_process = operations.sequential_call(
         concrete_processes=concrete_processes
     ).concretize()
 
-    concrete_sequential_process(key, stream)
-    return stream 
+    concrete_sequential_process(key)
+    return stream
 
 
 # class NoiseInterpolation(Aggregator):
