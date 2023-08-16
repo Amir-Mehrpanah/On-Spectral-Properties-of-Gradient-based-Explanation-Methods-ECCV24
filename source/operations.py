@@ -15,7 +15,7 @@ def preprocess(x, img_size):
     return x
 
 
-class AbstractProcess:
+class FactoryFunction:
     def __init__(self, func) -> None:
         self.func = func
         self.params = {}
@@ -29,7 +29,7 @@ class AbstractProcess:
         return partial(self.func, **self.params)
 
 
-@AbstractProcess
+@FactoryFunction
 def deterministic_projection(
     *,
     name: str,
@@ -90,7 +90,7 @@ def bind_all(*, abstract_processes, **kwargs):
 
 # jax vmap does not support kwargs this makes our code less elegant
 # otherwise we could have used **kwargs in the abstract processes
-@AbstractProcess
+@FactoryFunction
 def sequential_call(key, *, concrete_processes):
     """
     args:
@@ -103,7 +103,7 @@ def sequential_call(key, *, concrete_processes):
         concrete_process(key=key)
 
 
-@AbstractProcess
+@FactoryFunction
 def resize_mask(
     *,
     name: str,
@@ -138,7 +138,7 @@ def resize_mask(
     )
 
 
-@AbstractProcess
+@FactoryFunction
 def multiply_masks(
     *,
     name: str,
@@ -160,7 +160,7 @@ def multiply_masks(
     stream.update({name: stream[source_name] * stream[target_name]})
 
 
-@AbstractProcess
+@FactoryFunction
 def add_masks(
     *,
     name: str,
@@ -204,7 +204,7 @@ def convex_combination_mask(
     return (1 - alpha_mask) * source_mask + alpha_mask * target_mask
 
 
-@AbstractProcess
+@FactoryFunction
 def linear_combination_mask(
     *,
     name: str,

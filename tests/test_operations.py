@@ -13,7 +13,7 @@ from source import operations
 
 
 def test_partial_call():
-    @operations.AbstractProcess
+    @operations.FactoryFunction
     def func(*, idict, y):
         """
         test docstring
@@ -36,7 +36,7 @@ def test_partial_call():
 
 
 def test_partial_compile():
-    @operations.AbstractProcess
+    @operations.FactoryFunction
     def func(*, x, y, z):
         """
         test docstring
@@ -49,7 +49,7 @@ def test_partial_compile():
 
 
 def test_concrete_process_compilation_count():
-    @operations.AbstractProcess
+    @operations.FactoryFunction
     def func(*, x, y, z):
         """
         test docstring

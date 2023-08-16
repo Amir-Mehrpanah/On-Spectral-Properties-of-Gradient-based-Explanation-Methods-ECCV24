@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 
 # from tqdm import tqdm
-from source.operations import AbstractProcess
+from source.operations import FactoryFunction
 
 
 def forward_with_projection(inputs, projection, forward):

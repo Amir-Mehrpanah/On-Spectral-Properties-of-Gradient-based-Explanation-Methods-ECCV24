@@ -1,11 +1,9 @@
 import jax
-import jax.numpy as jnp
 import argparse
-import cProfile
-from pstats import Stats
 from source.explanation_methods import noise_interpolation
-from source import configs
+from tqdm import tqdm
 
+from source import configs
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -19,7 +17,6 @@ batch_keys = jax.random.split(
     configs.base_key,
     num=configs.NoiseInterpolation.num_batches,
 )
-
 if args.method == "noise_interpolation":
     kwargs = {
         "alpha": configs.NoiseInterpolation.alpha,
@@ -30,22 +27,19 @@ if args.method == "noise_interpolation":
         "label": configs.base_stream["label"],
     }
     concrete_process = noise_interpolation(**kwargs).concretize()
-
 vectorized_concrete_process = jax.vmap(
     concrete_process,
     in_axes=(0),
 )
-compiled_concrete_process = jax.jit(vectorized_concrete_process)
+compiled_concrete_process = jax.jit(
+    vectorized_concrete_process,
+)
 
-# with jax.log_compiles():
-for i, batch_key in enumerate(batch_keys):
-    print(f"iteration {i}")
+for batch_key in tqdm(batch_keys):
     sample_keys = jax.random.split(
         batch_key,
         num=configs.sampling_batch_size,
     )
-    stream = compiled_concrete_process(sample_keys)
-    break
+    stream = vectorized_concrete_process(sample_keys)
 
 print("sampling finished")
-print({k: v.shape for k, v in stream.items()})

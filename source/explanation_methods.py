@@ -10,14 +10,29 @@ sys.path.append(os.getcwd())
 from source import neighborhoods, operations, explainers
 
 
-@operations.AbstractProcess
-def noise_interpolation(
-    key, *, alpha, forward, num_classes, input_shape, image, label, **kwargs
+@operations.FactoryFunction
+def fisher_information(
+    key,
+    *,
+    forward,
+    input_shape,
+    image,
+    label,
 ):
     assert len(input_shape) == 4
-    print("input shape")
+
+    normal_mask = neighborhoods.normal_mask(
+        key=key,
+        shape=input_shape,
+    )
+    return normal_mask
+
+
+@operations.FactoryFunction
+def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image, label):
+    assert len(input_shape) == 4
+
     alpha_mask = alpha * jnp.ones(shape=(1, 1, 1, 1))
-    print("alpha mask")
     projection = (
         jnp.zeros(
             shape=(num_classes, 1),
@@ -26,77 +41,23 @@ def noise_interpolation(
         .at[label, 0]
         .set(1.0)
     )
-    print("returned from projection")
+
     normal_mask = neighborhoods.normal_mask(
         key=key,
         shape=input_shape,
     )
-    print("returned from normal mask")
     convex_combination_mask = operations.convex_combination_mask(
         source_mask=image,
         target_mask=normal_mask,
         alpha_mask=alpha_mask,
     )
-    print(f"returned from convex combination mask")
     vanilla_grad_mask, results_at_projection, log_probs = explainers.vanilla_gradient(
         source_mask=convex_combination_mask,
         projection=projection,
         forward=forward,
     )
-    print("returned from vanilla gradient")
-    return vanilla_grad_mask
+    return vanilla_grad_mask, results_at_projection, log_probs
 
-
-# class NoiseInterpolation(Aggregator):
-#     def __init__(
-#         self,
-#         forward: Callable,
-#         input_shape: Tuple[int, int, int],
-#         prediction_stats: Dict[str, Statistic],
-#         explanation_stats: Dict[str, Statistic],
-#         alpha: float = 0.3,
-#         batch_size: int = 32,
-#     ) -> None:
-#         """
-#         Args:
-#             model: model to explain
-#             input_shape: shape of the input to the model (C,H,W)
-#             alpha: intensity of the noise to interpolate to the baseline in (0,1) range
-#             this computes the perturbation as alpha * (baseline - input) + input
-#             batch_size: number of samples to draw from the distribution
-#             explanation_stats: statistics to compute on the explanations
-#             prediction_stats: statistics to compute on the predictions
-#         An implementation of Noise Interpolation from a probabilistic perspective.
-#         """
-#         assert 0 <= alpha <= 1, "noise_level must be in (0,1)"
-#         alpha_mask = alpha * torch.ones(1, 1, 1, 1)
-#         distribution = Compose(
-#             [
-#                 DeterministicMask(alpha_mask, name="alpha_mask"),
-#                 NormalMask(
-#                     shape=(batch_size, *input_shape),
-#                     name="baseline",
-#                     device=device,
-#                 ),
-#                 ConvexCombination(
-#                     device=device,
-#                     name="neighbor",
-#                     source_mask="input",
-#                     alpha_mask="alpha_mask",
-#                     target_mask="baseline",
-#                 ),
-#             ]
-#         )
-#         deterministic_explainer = VanillaGradient(model, returns="probs")
-#         probabilistic_explainer = ProbabilisticExplainer(
-#             deterministic_explainer, distribution
-#         )
-#         super().__init__(
-#             probabilistic_explainer,
-#             prediction_stats=prediction_stats,
-#             explanation_stats=explanation_stats,
-#             batch_size=batch_size,
-#         )
 
 
 # class SmoothGradient(Aggregator):

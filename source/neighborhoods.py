@@ -3,15 +3,13 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 
-from source.operations import AbstractProcess
+from source.operations import FactoryFunction
 
 
 def deterministic_mask(
     *,
-    name: str,
-    stream=Dict[str, jax.Array],
     mask: jnp.ndarray,
-    key: jax.random.KeyArray,
+    **kwargs,
 ) -> Dict[str, jax.Array]:
     """
     args:
@@ -32,7 +30,7 @@ def deterministic_mask(
     return stream
 
 
-@AbstractProcess
+@FactoryFunction
 def uniform_mask(
     *,
     name: str,
@@ -59,7 +57,7 @@ def uniform_mask(
     return stream
 
 
-@AbstractProcess
+@FactoryFunction
 def bernoulli_mask(
     *,
     name: str,
@@ -91,7 +89,7 @@ def bernoulli_mask(
     return stream
 
 
-@AbstractProcess
+@FactoryFunction
 def onehot_categorical_mask(
     *,
     name: str,

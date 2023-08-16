@@ -57,11 +57,9 @@ class TestAssests:
 class TestWithResnet50(TestAssests):
     def test_forward_and_project(self):
         projected_log_prob, (_, log_prob) = explainers.forward_with_projection(
-            projection_name="proj_test",
-            forward=self.forward,
-            stream={"proj_test": self.projection},
-        ).concretize()(
             self.images[95],
+            projection=self.projection,
+            forward=self.forward,
         )
         assert projected_log_prob.shape == ()
         assert log_prob.shape == (1, 1000)
