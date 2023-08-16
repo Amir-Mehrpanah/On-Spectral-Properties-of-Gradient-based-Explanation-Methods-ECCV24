@@ -11,7 +11,7 @@ from source.operations import preprocess
 
 # general
 base_key = jax.random.PRNGKey(0)
-sampling_batch_size = 32
+sampling_batch_size = 2
 num_classes = 1000
 input_shape = (1, 224, 224, 3)
 

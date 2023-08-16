@@ -9,8 +9,6 @@ import jax.numpy as jnp
 import flaxmodels as fm
 from PIL import Image
 
-jax.config.update("jax_log_compiles", True)
-
 sys.path.append(os.getcwd())
 from source import labels
 from source import operations

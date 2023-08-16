@@ -71,6 +71,20 @@ def test_concrete_process_compilation_count():
     assert concrete_func.number_of_compilations == 2
 
 
+def test_unused_args():
+    def func(x, **args):
+        y = args["y"]
+        return x + y
+
+    def meta_func(x, y):
+        args = {"y": y, "z": 3}
+        return func(x, **args)
+
+    pjit_meta_func = jax.jit(meta_func, static_argnames=("y",))
+    pjit_text = pjit_meta_func.lower(5, 5.5).as_text()
+    print(pjit_text)
+
+
 def get_abstract_stream_sampler(base_stream):
     # initialize a static mask in the stream that does not depend on the key
     concrete_process = neighborhoods.deterministic_mask(
@@ -142,13 +156,13 @@ def test_stream_sampling():
     concrete_sequential_process(keys[0])
 
     concrete_sequential_process = get_concrete_stream_sampler(base_stream=base_stream)
+
     # vmap the concrete sequential process
-    def dummy_func(key): 
+    def dummy_func(key):
         concrete_sequential_process(key)
         return base_stream
-    vmap_concrete_sequential_process = jax.vmap(
-        dummy_func, in_axes=(0)
-    )
+
+    vmap_concrete_sequential_process = jax.vmap(dummy_func, in_axes=(0))
     # call the concrete sequential process vmapped on the keys
     result_stream = vmap_concrete_sequential_process(keys)
 

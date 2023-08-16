@@ -182,15 +182,11 @@ def add_masks(
     stream.update({name: stream[source_name] + stream[target_name]})
 
 
-@AbstractProcess
 def convex_combination_mask(
     *,
-    name: str,
-    stream: Dict[str, jax.Array],
-    source_name: str,
-    target_name: str,
-    alpha_name: str,
-    key: jax.random.KeyArray,
+    source_mask: str,
+    target_mask: str,
+    alpha_mask: str,
 ) -> Dict[str, jax.Array]:
     """
     args:
@@ -205,12 +201,7 @@ def convex_combination_mask(
         zero, the output is the source mask and when alpha is one, the output is
         the target mask. all masks should have the same spatial shape or be scalars.
     """
-    stream.update(
-        {
-            name: (1 - stream[alpha_name]) * stream[source_name]
-            + stream[alpha_name] * stream[target_name]
-        }
-    )
+    return (1 - alpha_mask) * source_mask + alpha_mask * target_mask
 
 
 @AbstractProcess

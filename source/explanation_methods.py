@@ -2,69 +2,49 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from typing import Callable, Dict, List, Tuple
+
+import os
+import sys
+
+sys.path.append(os.getcwd())
 from source import neighborhoods, operations, explainers
-from source.operations import AbstractProcess
 
 
-@AbstractProcess
-def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image, label):
+@operations.AbstractProcess
+def noise_interpolation(
+    key, *, alpha, forward, num_classes, input_shape, image, label, **kwargs
+):
     assert len(input_shape) == 4
-    stream = {"image": image}
-    static_key = jax.random.PRNGKey(0)
-    concrete_alpha_mask = neighborhoods.deterministic_mask(
-        name="alpha_mask",
-        mask=alpha * jnp.ones(shape=(1, 1, 1, 1)),
-        stream=stream,
-        key=static_key,
-    ).concretize()
-    concrete_projection = operations.deterministic_projection(
-        name="projection",
-        projection=jnp.zeros(shape=(num_classes, 1), dtype=jnp.float32).at[label, 0].set(1.0),
-        stream=stream,
-        key=static_key,
-    ).concretize()
-
-    # put the static masks in the stream
-    concrete_projection()
-    concrete_alpha_mask()
-
-    # initialize other masks that depend on the key with tailored inputs
-    abstract_processes = [
-        neighborhoods.normal_mask(
-            name="normal_mask",
-            shape=input_shape,
-        ),
-        operations.convex_combination_mask(
-            name="convex_combination_mask",
-            source_name="image",
-            target_name="normal_mask",
-            alpha_name="alpha_mask",
-        ),
-    ]
-
-    concrete_forward_with_projection = explainers.forward_with_projection(
-        forward=forward,
-        projection_name="projection",
-    ).concretize()
-
-    abstract_processes.append(
-        explainers.vanilla_gradient(
-            name="vanilla_grad_mask",
-            source_name="convex_combination_mask",
-            concrete_forward_with_projection=concrete_forward_with_projection,
+    print("input shape")
+    alpha_mask = alpha * jnp.ones(shape=(1, 1, 1, 1))
+    print("alpha mask")
+    projection = (
+        jnp.zeros(
+            shape=(num_classes, 1),
+            dtype=jnp.float32,
         )
+        .at[label, 0]
+        .set(1.0)
     )
-    abstract_processes = operations.bind_all(abstract_processes=abstract_processes,stream=stream)
-    concrete_processes = operations.concretize_all(
-        abstract_processes=abstract_processes
+    print("returned from projection")
+    normal_mask = neighborhoods.normal_mask(
+        key=key,
+        shape=input_shape,
     )
-    # create a concrete sequential process
-    concrete_sequential_process = operations.sequential_call(
-        concrete_processes=concrete_processes
-    ).concretize()
-
-    concrete_sequential_process(key)
-    return stream
+    print("returned from normal mask")
+    convex_combination_mask = operations.convex_combination_mask(
+        source_mask=image,
+        target_mask=normal_mask,
+        alpha_mask=alpha_mask,
+    )
+    print(f"returned from convex combination mask")
+    vanilla_grad_mask, results_at_projection, log_probs = explainers.vanilla_gradient(
+        source_mask=convex_combination_mask,
+        projection=projection,
+        forward=forward,
+    )
+    print("returned from vanilla gradient")
+    return vanilla_grad_mask
 
 
 # class NoiseInterpolation(Aggregator):

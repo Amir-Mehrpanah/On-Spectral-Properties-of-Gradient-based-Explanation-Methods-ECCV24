@@ -6,7 +6,6 @@ import jax.numpy as jnp
 from source.operations import AbstractProcess
 
 
-@AbstractProcess
 def deterministic_mask(
     *,
     name: str,
@@ -142,11 +141,8 @@ def onehot_categorical_mask(
     return stream
 
 
-@AbstractProcess
 def normal_mask(
     *,
-    name: str,
-    stream=Dict[str, jax.Array],
     shape: Tuple,
     key: jax.random.KeyArray,
 ) -> Dict[str, jax.Array]:
@@ -165,5 +161,4 @@ def normal_mask(
         shape[0] == 1 and len(shape) == 4
     ), "shape should be a 4D array of shape (1,H,W,C)"
 
-    stream.update({name: jax.random.normal(key, shape=shape)})
-    return stream
+    return jax.random.normal(key, shape=shape)
