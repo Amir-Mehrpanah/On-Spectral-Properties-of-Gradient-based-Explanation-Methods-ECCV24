@@ -9,7 +9,8 @@ import sys
 sys.path.append(os.getcwd())
 from source import neighborhoods, operations, explainers
 from source.configs import (
-    Streams,
+    Stream,
+    StreamNames,
     Statistics,
 )
 
@@ -61,99 +62,104 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
         forward=forward,
     )
 
-    return vanilla_grad_mask, results_at_projection, log_probs
+    return {
+        StreamNames.vanilla_grad_mask: vanilla_grad_mask,
+        StreamNames.results_at_projection: results_at_projection,
+        StreamNames.log_probs: log_probs,
+    }
 
 
-def additive_sample_mean(num_batches, samples):
-    return (1 / num_batches) * samples.mean(axis=0)
+def make_iterable_process(seed, concrete_vectorized_process, num_batches, batch_size):
+    for i in tqdm(range(num_batches)):
+        key = jax.random.PRNGKey(seed + i)
+        batch_keys = jax.random.split(key, num=batch_size)
+        yield concrete_vectorized_process(batch_keys)
 
 
-def additive_sample_var(num_samples, batch_size, num_batches, samples):
-    return ((batch_size - 1) / (num_samples - num_batches)) * samples.var(axis=0)
-
-
-def make_iterable_process(key, concrete_vectorized_process, num_samples, batch_size):
-    assert num_samples % batch_size == 0
-
-    keys = jax.random.split(key, num=num_samples)
-    keys = jnp.split(keys, indices_or_sections=batch_size, axis=0)
-    for batch_key in keys:
-        yield concrete_vectorized_process(batch_key)
-
-
-@partial(jax.jit(static_argnames=["key", "concrete_process", "stats"]))
 def gather_stats(
-    key,
-    concrete_process: Callable,
-    stats,
+    seed,
+    abstract_sampling_process: operations.FactoryFunction,
     batch_size,
     num_samples,
+    input_shape,
+    num_classes,
 ):
+    assert num_samples % batch_size == 0
     num_batches = num_samples // batch_size
+
+    stats = {
+        Stream(
+            StreamNames.vanilla_grad_mask,
+            Statistics.mean,
+        ): jnp.zeros(shape=input_shape),
+        Stream(
+            StreamNames.vanilla_grad_mask,
+            Statistics.var,
+        ): jnp.zeros(shape=input_shape),
+        Stream(
+            StreamNames.results_at_projection,
+            Statistics.mean,
+        ): jnp.zeros(shape=()),
+        Stream(
+            StreamNames.results_at_projection,
+            Statistics.var,
+        ): jnp.zeros(shape=()),
+        Stream(
+            StreamNames.log_probs,
+            Statistics.mean,
+        ): jnp.zeros(shape=(1, num_classes)),
+        Stream(
+            StreamNames.log_probs,
+            Statistics.var,
+        ): jnp.zeros(shape=(1, num_classes)),
+    }
+
+    concrete_update_stats = update_stats(stream_keys=tuple(stats.keys())).concretize()
+    compiled_update_stats = jax.jit(concrete_update_stats)
+
+    concrete_sampling_process = abstract_sampling_process.concretize()
     vectorized_concrete_process = jax.vmap(
-        concrete_process,
+        concrete_sampling_process,
         in_axes=(0),
     )
+    compiled_vectorized_concrete_process = jax.jit(vectorized_concrete_process)
     iterable_process = make_iterable_process(
-        key, vectorized_concrete_process, num_samples, batch_size
+        seed, compiled_vectorized_concrete_process, num_batches, batch_size
     )
-    for vanilla_grad_mask, results_at_projection, log_probs in tqdm(iterable_process):
-        for k in stats.keys():
-            stats[k] += update_stats(
-                num_samples,
-                batch_size,
-                num_batches,
-                vanilla_grad_mask,
-                results_at_projection,
-                log_probs,
-                k,
-            )
-
+    for data in iterable_process:
+        stats = compiled_update_stats(data, stats)
+    stats = multiply_constants(stats, num_batches, num_samples, batch_size)
     return stats
 
 
-def update_stats(
-    num_samples,
-    batch_size,
-    num_batches,
-    vanilla_grad_mask,
-    results_at_projection,
-    log_probs,
-    k,
+def multiply_constants(
+    stats: Dict[Stream, jax.Array], num_batches, num_samples, batch_size
 ):
-    variable = select_variable(
-        vanilla_grad_mask,
-        results_at_projection,
-        log_probs,
-        k,
-    )
-    return update_variable(
-        num_samples,
-        batch_size,
-        num_batches,
-        k,
-        variable,
-    )
+    for key, variable in stats.items():
+        if key.statistic == Statistics.mean:
+            stats[key] += (1 / num_batches) * variable
+        elif key.statistic == Statistics.var:
+            stats[key] += ((batch_size - 1) / (num_samples - num_batches)) * variable
+        else:
+            raise ValueError(f"Unknown key {key}")
+    return stats
 
 
-def update_variable(num_samples, batch_size, num_batches, key, variable):
-    if key[1] == Statistics.mean:
-        return additive_sample_mean(num_batches, variable)
-    elif key[1] == Statistics.var:
-        return additive_sample_var(num_samples, batch_size, num_batches, variable)
-    else:
-        raise ValueError(f"Unknown key {key}")
-
-
-def select_variable(vanilla_grad_mask, results_at_projection, log_probs, key):
-    if key[0] == Streams.vanilla_grad_mask:
-        return vanilla_grad_mask
-    elif key[0] == Streams.results_at_projection:
-        return results_at_projection
-    elif key[0] == Streams.log_probs:
-        return log_probs
-    else:
-        raise ValueError(f"Unknown key {key}")
+@operations.FactoryFunction
+def update_stats(
+    data: Dict[StreamNames, jax.Array],
+    stats: Dict[Stream, jax.Array],
+    *,
+    stream_keys: Tuple[Stream],
+):
+    for key in stream_keys:
+        if key.statistic == Statistics.mean:
+            stats[key] += data[key.name].mean(axis=0)
+        elif key.statistic == Statistics.var:
+            stats[key] += data[key.name].var(axis=0)
+        else:
+            raise ValueError(f"Unknown key {key}")
+    return stats
 
 
 # class SmoothGradient(Aggregator):

@@ -1,6 +1,8 @@
+from collections import namedtuple
 import jax
 import flaxmodels as fm
 import jax.numpy as jnp
+import numpy as np
 from functools import partial
 import tensorflow_datasets as tfds
 import os
@@ -11,10 +13,13 @@ from source.operations import preprocess
 
 
 # general
-class Streams:
-    vanilla_grad_mask = 0
-    results_at_projection = 1
-    log_probs = 2
+Stream = namedtuple("Stream", ["name", "statistic"])
+
+
+class StreamNames:
+    vanilla_grad_mask = 10
+    results_at_projection = 11
+    log_probs = 12
 
 
 class Statistics:
@@ -22,18 +27,11 @@ class Statistics:
     var = 1
 
 
-base_key = jax.random.PRNGKey(0)
-sampling_batch_size = 128
+seed = 0
+batch_size = 32
 num_classes = 1000
 input_shape = (1, 224, 224, 3)
-stats = {
-    (Streams.vanilla_grad_mask, Statistics.mean): jnp.zeros(shape=input_shape),
-    (Streams.vanilla_grad_mask, Statistics.var): jnp.zeros(shape=input_shape),
-    (Streams.results_at_projection, Statistics.mean): jnp.zeros(shape=()),
-    (Streams.results_at_projection, Statistics.var): jnp.zeros(shape=()),
-    (Streams.log_probs, Statistics.mean): jnp.zeros(shape=(1, num_classes)),
-    (Streams.log_probs, Statistics.var): jnp.zeros(shape=(1, num_classes)),
-}
+
 
 # model
 resnet50 = fm.ResNet50(
@@ -53,6 +51,7 @@ resnet50_forward = partial(
 
 # data
 datadir = "/local_storage/datasets/imagenet/"
+tensorboard_dir = "/local_storage/users/amirme/tensorboard_logs/"
 image_height = input_shape[1]
 dataset_skip_index = 0
 dataset = tfds.folder_dataset.ImageFolder(root_dir=datadir)
@@ -66,5 +65,4 @@ del base_stream["image/filename"]
 # explanation methods
 class NoiseInterpolation:
     alpha = 0.1
-    num_samples = 2048
-    num_batches = num_samples // sampling_batch_size
+    num_samples = 8192

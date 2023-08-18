@@ -1,5 +1,5 @@
+from collections import namedtuple
 import copy
-from functools import wraps
 import os
 import sys
 import jax
@@ -69,28 +69,6 @@ def test_concrete_process_compilation_count():
 
     assert compiled_func(y=2, z=4) == 7  # force recompilation
     assert concrete_func.number_of_compilations == 2
-
-
-def test_unused_args():
-    def func(x, **args):
-        y = args["y_test"]
-        y2 = args["y2_test"]
-        return x + y - y2
-
-    def make_iterable(args):
-        for key in args.keys():
-            yield key
-
-    def meta_func(x, y):
-        args = {"y_test": y + 1, "y2_test": y, "z": 3}
-        for key in make_iterable(args):
-            if "test" in key:
-                args[key] += x
-        return func(x, **args)
-
-    pjit_meta_func = jax.jit(meta_func, static_argnames=("y",))
-    pjit_text = pjit_meta_func.lower(5, 5.5).as_text()
-    print(pjit_text)
 
 
 def get_abstract_stream_sampler(base_stream):
