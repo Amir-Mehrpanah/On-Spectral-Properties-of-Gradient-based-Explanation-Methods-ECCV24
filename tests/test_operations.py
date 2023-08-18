@@ -73,11 +73,19 @@ def test_concrete_process_compilation_count():
 
 def test_unused_args():
     def func(x, **args):
-        y = args["y"]
-        return x + y
+        y = args["y_test"]
+        y2 = args["y2_test"]
+        return x + y - y2
+
+    def make_iterable(args):
+        for key in args.keys():
+            yield key
 
     def meta_func(x, y):
-        args = {"y": y, "z": 3}
+        args = {"y_test": y + 1, "y2_test": y, "z": 3}
+        for key in make_iterable(args):
+            if "test" in key:
+                args[key] += x
         return func(x, **args)
 
     pjit_meta_func = jax.jit(meta_func, static_argnames=("y",))

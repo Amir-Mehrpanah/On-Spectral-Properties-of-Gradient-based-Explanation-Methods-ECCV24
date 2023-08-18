@@ -14,7 +14,6 @@ def preprocess(x, img_size):
     x = jnp.expand_dims(x, axis=0) / 255.0
     return x
 
-
 class FactoryFunction:
     def __init__(self, func) -> None:
         self.func = func

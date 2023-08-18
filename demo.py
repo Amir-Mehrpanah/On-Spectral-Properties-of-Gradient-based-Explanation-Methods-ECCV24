@@ -1,9 +1,10 @@
 import jax
 import argparse
-from source.explanation_methods import noise_interpolation
 from tqdm import tqdm
 
+# jax.config.update("jax_disable_jit", True)
 from source import configs
+from source.explanation_methods import gather_stats, noise_interpolation
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -13,10 +14,7 @@ parser.add_argument(
     choices=["noise_interpolation"],
 )
 args = parser.parse_args()
-batch_keys = jax.random.split(
-    configs.base_key,
-    num=configs.NoiseInterpolation.num_batches,
-)
+
 if args.method == "noise_interpolation":
     kwargs = {
         "alpha": configs.NoiseInterpolation.alpha,
@@ -26,20 +24,27 @@ if args.method == "noise_interpolation":
         "image": configs.base_stream["image"],
         "label": configs.base_stream["label"],
     }
-    concrete_process = noise_interpolation(**kwargs).concretize()
-vectorized_concrete_process = jax.vmap(
-    concrete_process,
-    in_axes=(0),
-)
-compiled_concrete_process = jax.jit(
-    vectorized_concrete_process,
-)
+    abstract_process = noise_interpolation(**kwargs)
 
-for batch_key in tqdm(batch_keys):
-    sample_keys = jax.random.split(
-        batch_key,
-        num=configs.sampling_batch_size,
-    )
-    stream = vectorized_concrete_process(sample_keys)
+    
+    kwargs["method"] = "noise_interpolation"
+    kwargs["num_samples"] = configs.NoiseInterpolation.num_samples
+    kwargs["batch_size"] = configs.batch_size
+    kwargs["seed"] = configs.seed
+
+    del kwargs["forward"]
+    del kwargs["image"]
+    del kwargs["label"]
+    print(kwargs)
+
+
+stats = gather_stats(
+    kwargs["seed"],
+    abstract_process,
+    kwargs["batch_size"],
+    kwargs["num_samples"],
+    kwargs["input_shape"],
+    kwargs["num_classes"],
+)
 
 print("sampling finished")
