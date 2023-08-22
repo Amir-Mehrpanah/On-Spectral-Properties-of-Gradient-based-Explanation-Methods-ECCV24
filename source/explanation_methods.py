@@ -1,4 +1,4 @@
-from functools import partial
+from collections import namedtuple
 import jax
 import jax.numpy as jnp
 from typing import Callable, Dict, List, Tuple
@@ -8,11 +8,20 @@ import sys
 
 sys.path.append(os.getcwd())
 from source import neighborhoods, operations, explainers
-from source.configs import (
-    Stream,
-    StreamNames,
-    Statistics,
-)
+
+
+class StreamNames:
+    vanilla_grad_mask = 10
+    results_at_projection = 11
+    log_probs = 12
+
+
+class Statistics:
+    mean = 0
+    var = 1
+
+
+Stream = namedtuple("Stream", ["name", "statistic"])
 
 
 @operations.FactoryFunction

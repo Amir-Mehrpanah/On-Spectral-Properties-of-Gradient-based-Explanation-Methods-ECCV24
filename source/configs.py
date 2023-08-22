@@ -1,4 +1,3 @@
-from collections import namedtuple
 import jax
 import flaxmodels as fm
 import jax.numpy as jnp
@@ -13,20 +12,6 @@ from source.operations import preprocess
 
 
 # general
-Stream = namedtuple("Stream", ["name", "statistic"])
-
-
-class StreamNames:
-    vanilla_grad_mask = 10
-    results_at_projection = 11
-    log_probs = 12
-
-
-class Statistics:
-    mean = 0
-    var = 1
-
-
 seed = 0
 batch_size = 32
 num_classes = 1000
@@ -51,7 +36,16 @@ resnet50_forward = partial(
 
 # data
 datadir = "/local_storage/datasets/imagenet/"
+rawdata_dir = "/local_storage/users/amirme/no_ls_raw_data"
+rawdata_pandas_path = os.path.join(rawdata_dir, "raw_data.csv")
+if not os.path.exists(rawdata_dir):
+    os.makedirs(rawdata_dir)
+
 tensorboard_dir = "/local_storage/users/amirme/tensorboard_logs/"
+visualizations_dir = os.path.join(tensorboard_dir, "visualizations")
+profiler_dir = os.path.join(tensorboard_dir, "profiler")
+
+
 image_height = input_shape[1]
 dataset_skip_index = 0
 dataset = tfds.folder_dataset.ImageFolder(root_dir=datadir)

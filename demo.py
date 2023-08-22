@@ -2,7 +2,6 @@ import jax
 import argparse
 from tqdm import tqdm
 
-# jax.config.update("jax_disable_jit", True)
 from source import configs
 from source.explanation_methods import gather_stats, noise_interpolation
 
@@ -26,7 +25,6 @@ if args.method == "noise_interpolation":
     }
     abstract_process = noise_interpolation(**kwargs)
 
-    
     kwargs["method"] = "noise_interpolation"
     kwargs["num_samples"] = configs.NoiseInterpolation.num_samples
     kwargs["batch_size"] = configs.batch_size
@@ -36,7 +34,6 @@ if args.method == "noise_interpolation":
     del kwargs["image"]
     del kwargs["label"]
     print(kwargs)
-
 
 stats = gather_stats(
     kwargs["seed"],
