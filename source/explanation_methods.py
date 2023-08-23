@@ -78,6 +78,8 @@ def gather_stats(
     batch_index_key,
 ):
     assert monitored_statistic_key.statistic == Statistics.abs_delta
+    assert stats[monitored_statistic_key] == jnp.inf
+    
     (
         loop_initials,
         concrete_stopping_condition,
@@ -177,12 +179,12 @@ def stopping_condition(
     monitored_statistic_key: Stream,
     batch_index_key,
 ):
-    print("stopping condition key", monitored_statistic_key)
     change = stats[monitored_statistic_key]  # lookup
     batch_index = stats[batch_index_key]  # lookup
 
-    value_condition = change < min_change
+    value_condition = change > min_change
     iteration_condition = batch_index < max_batches
+
     return value_condition & iteration_condition
 
 

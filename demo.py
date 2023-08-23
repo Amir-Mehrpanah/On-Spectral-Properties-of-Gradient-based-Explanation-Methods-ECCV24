@@ -72,7 +72,7 @@ stats = {
         StreamNames.log_probs,
         Statistics.meanx2,
     ): jnp.zeros(shape=(1, num_classes)),
-    monitored_statistic_key: jnp.zeros(shape=()),
+    monitored_statistic_key: jnp.inf,
     batch_index_key: 0,
 }
 
