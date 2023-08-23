@@ -17,6 +17,7 @@ args = parser.parse_args()
 if args.method == "noise_interpolation":
     input_shape = configs.input_shape
     num_classes = configs.num_classes
+    min_change = configs.NoiseInterpolation.min_change
 
     kwargs = {
         "alpha": configs.NoiseInterpolation.alpha,
@@ -82,7 +83,7 @@ stats = gather_stats(
     abstract_process,
     kwargs["batch_size"],
     kwargs["max_batches"],
-    1e-8,
+    min_change,
     stats,
     monitored_statistic_source_key,
     monitored_statistic_key,
@@ -90,4 +91,4 @@ stats = gather_stats(
 )
 end = time.time()
 print(f"Time: {end - start}s")
-print("number of samples", stats[batch_index_key])
+print("number of samples", stats[batch_index_key] * kwargs["batch_size"])

@@ -5,8 +5,6 @@ from tqdm import tqdm
 import os
 import sys
 
-jax.config.update("jax_disable_jit", True)
-
 sys.path.append(os.getcwd())
 from source import neighborhoods, operations, explainers
 from source.helpers import Stream, StreamNames, Statistics
@@ -79,7 +77,7 @@ def gather_stats(
 ):
     assert monitored_statistic_key.statistic == Statistics.abs_delta
     assert stats[monitored_statistic_key] == jnp.inf
-    
+
     (
         loop_initials,
         concrete_stopping_condition,
@@ -95,7 +93,6 @@ def gather_stats(
         monitored_statistic_key,
         batch_index_key,
     )
-
     stats = jax.lax.while_loop(
         cond_fun=concrete_stopping_condition,
         body_fun=concrete_sample_and_update,
@@ -167,6 +164,7 @@ def sample_and_update_stats(
 
     sampled_batch = concrete_vectorized_process(batch_keys)
     stats = concrete_update_stats(sampled_batch, stats, batch_index)
+    jax.debug.print("sampled_batch {}", batch_index)
     return stats
 
 
