@@ -1,4 +1,3 @@
-from collections import namedtuple
 import jax
 import jax.numpy as jnp
 from typing import Callable, Dict, List, Tuple
@@ -6,22 +5,11 @@ from tqdm import tqdm
 import os
 import sys
 
+jax.config.update("jax_disable_jit", True)
+
 sys.path.append(os.getcwd())
 from source import neighborhoods, operations, explainers
-
-
-class StreamNames:
-    vanilla_grad_mask = 10
-    results_at_projection = 11
-    log_probs = 12
-
-
-class Statistics:
-    mean = 0
-    var = 1
-
-
-Stream = namedtuple("Stream", ["name", "statistic"])
+from source.helpers import Stream, StreamNames, Statistics
 
 
 @operations.FactoryFunction
@@ -78,96 +66,153 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
     }
 
 
-def make_iterable_process(seed, concrete_vectorized_process, num_batches, batch_size):
-    for i in tqdm(range(num_batches)):
-        key = jax.random.PRNGKey(seed + i)
-        batch_keys = jax.random.split(key, num=batch_size)
-        yield concrete_vectorized_process(batch_keys)
-
-
 def gather_stats(
     seed,
     abstract_sampling_process: operations.FactoryFunction,
     batch_size,
-    num_samples,
-    input_shape,
-    num_classes,
+    max_batches,
+    min_change,
+    stats: Dict[Stream, jax.Array],
+    monitored_statistic_source_key: Stream,
+    monitored_statistic_key: Stream,
+    batch_index_key,
 ):
-    assert num_samples % batch_size == 0
-    num_batches = num_samples // batch_size
-
-    stats = {
-        Stream(
-            StreamNames.vanilla_grad_mask,
-            Statistics.mean,
-        ): jnp.zeros(shape=input_shape),
-        Stream(
-            StreamNames.vanilla_grad_mask,
-            Statistics.var,
-        ): jnp.zeros(shape=input_shape),
-        Stream(
-            StreamNames.results_at_projection,
-            Statistics.mean,
-        ): jnp.zeros(shape=()),
-        Stream(
-            StreamNames.results_at_projection,
-            Statistics.var,
-        ): jnp.zeros(shape=()),
-        Stream(
-            StreamNames.log_probs,
-            Statistics.mean,
-        ): jnp.zeros(shape=(1, num_classes)),
-        Stream(
-            StreamNames.log_probs,
-            Statistics.var,
-        ): jnp.zeros(shape=(1, num_classes)),
-    }
-
-    concrete_update_stats = update_stats(stream_keys=tuple(stats.keys())).concretize()
-    compiled_update_stats = jax.jit(concrete_update_stats)
-
-    concrete_sampling_process = abstract_sampling_process.concretize()
-    vectorized_concrete_process = jax.vmap(
-        concrete_sampling_process,
-        in_axes=(0),
+    assert monitored_statistic_key.statistic == Statistics.abs_delta
+    (
+        loop_initials,
+        concrete_stopping_condition,
+        concrete_sample_and_update,
+    ) = init_loop(
+        seed,
+        abstract_sampling_process,
+        batch_size,
+        max_batches,
+        min_change,
+        stats,
+        monitored_statistic_source_key,
+        monitored_statistic_key,
+        batch_index_key,
     )
-    compiled_vectorized_concrete_process = jax.jit(vectorized_concrete_process)
-    iterable_process = make_iterable_process(
-        seed, compiled_vectorized_concrete_process, num_batches, batch_size
+
+    stats = jax.lax.while_loop(
+        cond_fun=concrete_stopping_condition,
+        body_fun=concrete_sample_and_update,
+        init_val=loop_initials,
     )
-    for data in iterable_process:
-        stats = compiled_update_stats(data, stats)
-    stats = multiply_constants(stats, num_batches, num_samples, batch_size)
     return stats
 
 
-def multiply_constants(
-    stats: Dict[Stream, jax.Array], num_batches, num_samples, batch_size
+def init_loop(
+    seed,
+    abstract_sampling_process: operations.FactoryFunction,
+    batch_size,
+    max_batches,
+    min_change,
+    stats: Stream,
+    monitored_statistic_source_key: Stream,
+    monitored_statistic_key: Stream,
+    batch_index_key,
 ):
-    for key, variable in stats.items():
-        if key.statistic == Statistics.mean:
-            stats[key] += (1 / num_batches) * variable
-        elif key.statistic == Statistics.var:
-            stats[key] += ((batch_size - 1) / (num_samples - num_batches)) * variable
-        else:
-            raise ValueError(f"Unknown key {key}")
+    # concretize abstract stopping condition
+    concrete_stopping_condition = stopping_condition(
+        max_batches=max_batches,
+        min_change=min_change,
+        monitored_statistic_key=monitored_statistic_key,
+        batch_index_key=batch_index_key,
+    ).concretize()
+
+    # concretize abstract sampling process
+    concrete_sampling_process = abstract_sampling_process.concretize()
+    vectorized_concrete_sampling_process = jax.vmap(
+        concrete_sampling_process,
+        in_axes=(0),
+    )
+
+    # concretize abstract update stats
+    concrete_update_stats = update_stats(
+        stream_keys=tuple(stats.keys()),
+        monitored_statistic_source_key=monitored_statistic_source_key,
+        monitored_statistic_key=monitored_statistic_key,
+    ).concretize()
+
+    # concretize abstract sample and update
+    concrete_sample_and_update_stats = sample_and_update_stats(
+        seed=seed,
+        batch_size=batch_size,
+        concrete_vectorized_process=vectorized_concrete_sampling_process,
+        concrete_update_stats=concrete_update_stats,
+        batch_index_key=batch_index_key,
+    ).concretize()
+
+    return stats, concrete_stopping_condition, concrete_sample_and_update_stats
+
+
+@operations.FactoryFunction
+def sample_and_update_stats(
+    stats,
+    *,
+    seed,
+    batch_size,
+    concrete_vectorized_process,
+    concrete_update_stats,
+    batch_index_key,
+):
+    stats[batch_index_key] += 1  # lookup
+    batch_index = stats[batch_index_key]  # lookup
+
+    key = jax.random.PRNGKey(seed + batch_index)
+    batch_keys = jax.random.split(key, num=batch_size)
+
+    sampled_batch = concrete_vectorized_process(batch_keys)
+    stats = concrete_update_stats(sampled_batch, stats, batch_index)
     return stats
 
 
 @operations.FactoryFunction
+def stopping_condition(
+    stats,
+    *,
+    max_batches,
+    min_change,
+    monitored_statistic_key: Stream,
+    batch_index_key,
+):
+    print("stopping condition key", monitored_statistic_key)
+    change = stats[monitored_statistic_key]  # lookup
+    batch_index = stats[batch_index_key]  # lookup
+
+    value_condition = change < min_change
+    iteration_condition = batch_index < max_batches
+    return value_condition & iteration_condition
+
+
+@operations.FactoryFunction
 def update_stats(
-    data: Dict[StreamNames, jax.Array],
+    sampled_batch: Dict[StreamNames, jax.Array],
     stats: Dict[Stream, jax.Array],
+    batch_index: int,
     *,
     stream_keys: Tuple[Stream],
+    monitored_statistic_source_key: Stream,
+    monitored_statistic_key: Stream,
 ):
+    monitored_statistic_old = stats[monitored_statistic_source_key]  # lookup
+
     for key in stream_keys:
-        if key.statistic == Statistics.mean:
-            stats[key] += data[key.name].mean(axis=0)
-        elif key.statistic == Statistics.var:
-            stats[key] += data[key.name].var(axis=0)
-        else:
-            raise ValueError(f"Unknown key {key}")
+        if key.statistic == Statistics.meanx:
+            stats[key] = (1 / batch_index) * sampled_batch[key.name].mean(axis=0) + (
+                (batch_index - 1) / batch_index
+            ) * stats[key]
+        elif key.statistic == Statistics.meanx2:
+            stats[key] = (1 / batch_index) * (sampled_batch[key.name] ** 2).mean(
+                axis=0
+            ) + ((batch_index - 1) / batch_index) * stats[key]
+
+    monitored_statistic_new = stats[monitored_statistic_source_key]  # lookup
+
+    stats[monitored_statistic_key] = jnp.abs(
+        monitored_statistic_new - monitored_statistic_old
+    ).max()  # lookup
     return stats
 
 

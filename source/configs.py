@@ -13,7 +13,7 @@ from source.operations import preprocess
 
 # general
 seed = 0
-batch_size = 32
+batch_size = 4
 num_classes = 1000
 input_shape = (1, 224, 224, 3)
 
@@ -59,4 +59,4 @@ del base_stream["image/filename"]
 # explanation methods
 class NoiseInterpolation:
     alpha = 0.1
-    num_samples = 8192
+    max_batches = 32
