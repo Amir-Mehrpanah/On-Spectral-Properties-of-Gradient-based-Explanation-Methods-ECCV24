@@ -1,34 +1,10 @@
-from functools import partial, update_wrapper
 from typing import Any, Dict, List, Callable, Tuple
-import tensorflow as tf
+from helpers import AbstractFunction
 import jax.numpy as jnp
 import jax
 
 
-def preprocess(x, img_size):
-    x = tf.keras.layers.experimental.preprocessing.CenterCrop(
-        height=img_size,
-        width=img_size,
-    )(x)
-    x = jnp.array(x)
-    x = jnp.expand_dims(x, axis=0) / 255.0
-    return x
-
-class FactoryFunction:
-    def __init__(self, func) -> None:
-        self.func = func
-        self.params = {}
-        update_wrapper(self, func)
-
-    def __call__(self, **kwargs):
-        self.params.update(kwargs)
-        return self
-
-    def concretize(self):
-        return partial(self.func, **self.params)
-
-
-@FactoryFunction
+@AbstractFunction
 def deterministic_projection(
     *,
     name: str,
@@ -64,16 +40,6 @@ def concretize_all(*, abstract_processes):
     return [process.concretize() for process in abstract_processes]
 
 
-def count_compilations(func):
-    def wrapper(*args, **kwargs):
-        wrapper.number_of_compilations += 1
-        return func(*args, **kwargs)
-
-    wrapper.number_of_compilations = 0
-
-    return wrapper
-
-
 def bind_all(*, abstract_processes, **kwargs):
     """
     args:
@@ -89,7 +55,7 @@ def bind_all(*, abstract_processes, **kwargs):
 
 # jax vmap does not support kwargs this makes our code less elegant
 # otherwise we could have used **kwargs in the abstract processes
-@FactoryFunction
+@AbstractFunction
 def sequential_call(key, *, concrete_processes):
     """
     args:
@@ -102,7 +68,7 @@ def sequential_call(key, *, concrete_processes):
         concrete_process(key=key)
 
 
-@FactoryFunction
+@AbstractFunction
 def resize_mask(
     *,
     name: str,
@@ -137,7 +103,7 @@ def resize_mask(
     )
 
 
-@FactoryFunction
+@AbstractFunction
 def multiply_masks(
     *,
     name: str,
@@ -159,7 +125,7 @@ def multiply_masks(
     stream.update({name: stream[source_name] * stream[target_name]})
 
 
-@FactoryFunction
+@AbstractFunction
 def add_masks(
     *,
     name: str,
@@ -203,7 +169,7 @@ def convex_combination_mask(
     return (1 - alpha_mask) * source_mask + alpha_mask * target_mask
 
 
-@FactoryFunction
+@AbstractFunction
 def linear_combination_mask(
     *,
     name: str,

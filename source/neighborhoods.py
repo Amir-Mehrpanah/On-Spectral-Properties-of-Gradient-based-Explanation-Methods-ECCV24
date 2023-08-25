@@ -3,34 +3,10 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 
-from source.operations import FactoryFunction
+from source.operations import AbstractFunction
 
 
-def deterministic_mask(
-    *,
-    mask: jnp.ndarray,
-    **kwargs,
-) -> Dict[str, jax.Array]:
-    """
-    args:
-        name: name of the mask
-        mask: mask to be used
-        key: key to be used for sampling
-    returns:
-        the resulting stream
-
-    An inplace function that takes a stream and puts the deterministic mask in the stream.
-    """
-
-    assert (
-        mask.shape[0] == 1 and mask.ndim == 4
-    ), "mask should be a 4D array of shape (1,H,W,C)"
-
-    stream.update({name: mask})
-    return stream
-
-
-@FactoryFunction
+@AbstractFunction
 def uniform_mask(
     *,
     name: str,
@@ -57,7 +33,7 @@ def uniform_mask(
     return stream
 
 
-@FactoryFunction
+@AbstractFunction
 def bernoulli_mask(
     *,
     name: str,
@@ -89,7 +65,7 @@ def bernoulli_mask(
     return stream
 
 
-@FactoryFunction
+@AbstractFunction
 def onehot_categorical_mask(
     *,
     name: str,
