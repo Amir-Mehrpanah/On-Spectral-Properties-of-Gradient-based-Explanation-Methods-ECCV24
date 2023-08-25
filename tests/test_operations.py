@@ -8,7 +8,7 @@ import jax.numpy as jnp
 
 sys.path.append(os.getcwd())
 from tests.assets.test_config import key, in_shape
-from source import neighborhoods
+from source import neighborhoods, operations
 from source.helpers import AbstractFunction
 
 
