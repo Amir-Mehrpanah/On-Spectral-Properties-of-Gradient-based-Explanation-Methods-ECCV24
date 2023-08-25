@@ -1,9 +1,7 @@
 from typing import Any, Callable, Optional, Dict, Tuple, Union
 import jax
-import jax.numpy as jnp
 
-# from tqdm import tqdm
-from source.operations import AbstractFunction
+from source.helpers import AbstractFunction
 
 
 def forward_with_projection(inputs, projection, forward):

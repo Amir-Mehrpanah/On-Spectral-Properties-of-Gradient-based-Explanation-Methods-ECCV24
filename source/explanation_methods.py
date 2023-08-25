@@ -6,11 +6,11 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from source import neighborhoods, operations, explainers
-from source.helpers import Stream, StreamNames, Statistics
+from source import neighborhoods, explainers, operations
+from source.helpers import Stream, StreamNames, AbstractFunction
 
 
-@operations.AbstractFunction
+@AbstractFunction
 def fisher_information(
     key,
     *,
@@ -28,7 +28,7 @@ def fisher_information(
     return normal_mask
 
 
-@operations.AbstractFunction
+@AbstractFunction
 def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image, label):
     assert len(input_shape) == 4
 

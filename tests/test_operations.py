@@ -9,11 +9,11 @@ import jax.numpy as jnp
 sys.path.append(os.getcwd())
 from tests.assets.test_config import key, in_shape
 from source import neighborhoods
-from source import operations
+from source.helpers import AbstractFunction
 
 
 def test_partial_call():
-    @operations.AbstractFunction
+    @AbstractFunction
     def func(*, idict, y):
         """
         test docstring
@@ -36,7 +36,7 @@ def test_partial_call():
 
 
 def test_partial_compile():
-    @operations.AbstractFunction
+    @AbstractFunction
     def func(*, x, y, z):
         """
         test docstring
@@ -49,7 +49,7 @@ def test_partial_compile():
 
 
 def test_concrete_process_compilation_count():
-    @operations.AbstractFunction
+    @AbstractFunction
     def func(*, x, y, z):
         """
         test docstring

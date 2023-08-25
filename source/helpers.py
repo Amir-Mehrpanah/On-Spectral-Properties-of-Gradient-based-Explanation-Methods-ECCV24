@@ -11,7 +11,6 @@ import flaxmodels as fm
 import jax.numpy as jnp
 from functools import partial, update_wrapper
 
-from source import operations
 from source.configs import DefaultArgs
 from source.explanation_methods import noise_interpolation
 
@@ -49,7 +48,7 @@ Stream = namedtuple("Stream", ["name", "statistic"])
 
 def gather_stats(
     seed,
-    abstract_sampling_process: operations.AbstractFunction,
+    abstract_sampling_process: AbstractFunction,
     batch_size,
     max_batches,
     min_change,
@@ -86,7 +85,7 @@ def gather_stats(
 
 def init_loop(
     seed,
-    abstract_sampling_process: operations.AbstractFunction,
+    abstract_sampling_process: AbstractFunction,
     batch_size,
     max_batches,
     min_change,
@@ -129,7 +128,7 @@ def init_loop(
     return stats, concrete_stopping_condition, concrete_sample_and_update_stats
 
 
-@operations.AbstractFunction
+@AbstractFunction
 def sample_and_update_stats(
     stats,
     *,
@@ -151,7 +150,7 @@ def sample_and_update_stats(
     return stats
 
 
-@operations.AbstractFunction
+@AbstractFunction
 def stopping_condition(
     stats,
     *,
@@ -169,7 +168,7 @@ def stopping_condition(
     return value_condition & iteration_condition
 
 
-@operations.AbstractFunction
+@AbstractFunction
 def update_stats(
     sampled_batch: Dict[StreamNames, jax.Array],
     stats: Dict[Stream, jax.Array],
