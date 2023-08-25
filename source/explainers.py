@@ -1,8 +1,6 @@
 from typing import Any, Callable, Optional, Dict, Tuple, Union
 import jax
 
-from source.helpers import AbstractFunction
-
 
 def forward_with_projection(inputs, projection, forward):
     assert inputs.ndim == 4, "x should be a batch of images"

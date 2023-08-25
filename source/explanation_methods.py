@@ -1,7 +1,5 @@
-import jax
 import jax.numpy as jnp
 from typing import Callable, Dict, List, Tuple
-from tqdm import tqdm
 import os
 import sys
 

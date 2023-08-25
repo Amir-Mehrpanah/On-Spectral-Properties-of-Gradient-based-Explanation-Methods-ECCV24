@@ -1,4 +1,3 @@
-from collections import namedtuple
 import copy
 import os
 import sys
