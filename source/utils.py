@@ -1,6 +1,7 @@
 from collections import namedtuple
 from functools import partial, update_wrapper
 
+
 class AbstractFunction:
     def __init__(self, func) -> None:
         self.func = func
@@ -10,6 +11,9 @@ class AbstractFunction:
     def __call__(self, **kwargs):
         self.params.update(kwargs)
         return self
+
+    def __repr__(self) -> str:
+        return f"abstrac {self.func.__name__}(static_args={list(self.params.keys())})"
 
     def concretize(self):
         return partial(self.func, **self.params)
@@ -30,3 +34,14 @@ class Statistics:
 
 
 Stream = namedtuple("Stream", ["name", "statistic"])
+
+
+class Switch:
+    def __init__(self):
+        self.key_values = {}
+
+    def register(self, key, value):
+        self.key_values[key] = value
+
+    def __getitem__(self, key):
+        return self.key_values[key]

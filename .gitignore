@@ -1,7 +1,6 @@
 outputs/
 .vscode/*
 logs/
-commands/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

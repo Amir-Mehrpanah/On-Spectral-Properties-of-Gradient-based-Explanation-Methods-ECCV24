@@ -1,9 +1,13 @@
+import argparse
 import copy
+from datetime import datetime
 
 import json
 import os
 from typing import Dict, Tuple
 from functools import partial
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import jax
@@ -13,61 +17,54 @@ import jax.numpy as jnp
 from source.configs import DefaultArgs
 from source.explanation_methods import noise_interpolation
 from source.utils import (
+    Switch,
     Stream,
     StreamNames,
     Statistics,
 )
 
-def noise_interpolation_parser(base_parser):
-    base_parser.add_argument(
-        "--alpha",
-        type=float,
-        required=True,
-    )
-    args = base_parser.parse_args()
+methods_switch = Switch()
+args_selector_switch = Switch()
+inplace_method_parser_switch = Switch()
 
-    kwargs = {
-        "alpha": args.alpha,
-        "forward": args.forward,
-        "num_classes": args.num_classes,
-        "input_shape": args.input_shape,
-        "image": args.image,
-        "label": args.label,
-    }
-
-    # just for printing
-    pretty_kwargs = copy.deepcopy(kwargs)
-    pretty_kwargs["method"] = "noise_interpolation"
-    pretty_kwargs["max_batches"] = args.max_batches
-    pretty_kwargs["batch_size"] = args.batch_size
-    pretty_kwargs["seed"] = args.seed
-
-    del pretty_kwargs["forward"]
-    del pretty_kwargs["image"]
-    del pretty_kwargs["label"]
-
-    print("noise_interpolation kwargs:")
-    print(json.dumps(pretty_kwargs, sort_keys=True))
-
-    return args, kwargs
+methods_switch.register(
+    "noise_interpolation",
+    noise_interpolation.noise_interpolation,
+)
+inplace_method_parser_switch.register(
+    "noise_interpolation",
+    noise_interpolation.inplace_noise_interpolation_parser,
+)
+args_selector_switch.register(
+    "noise_interpolation",
+    noise_interpolation.noise_interpolation_select_args,
+)
 
 
 def base_parser(parser, default_args: DefaultArgs):
-    parser.add_argument(
-        "--forward",
-        type=str,
-        default=default_args.forward,
-    )
-    parser.add_argument(
-        "--max_batches",
-        type=int,
-        default=default_args.max_batches,
-    )
     parser.add_argument(
         "--method",
         type=str,
         default=default_args.method,
         choices=default_args.methods,
+    )
+    args, _ = parser.parse_known_args()
+    inplace_add_method_parser(args.method, parser)
+
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        default=default_args.dry_run,
+    )
+    parser.add_argument(
+        "--architecure",
+        type=str,
+        default=default_args.architecure,
+    )
+    parser.add_argument(
+        "--max_batches",
+        type=int,
+        default=default_args.max_batches,
     )
     parser.add_argument(
         "--min_change",
@@ -83,17 +80,6 @@ def base_parser(parser, default_args: DefaultArgs):
         "--batch_size",
         type=int,
         default=default_args.batch_size,
-    )
-    parser.add_argument(
-        "--save_raw_data_dir",
-        type=str,
-        default=default_args.save_raw_data_dir,
-    )
-    parser.add_argument(
-        "--relative_save_path",
-        type=str,
-        required=True,
-        help="relative path to save raw data will be appended to save_raw_data_dir",
     )
     parser.add_argument(
         "--num_classes",
@@ -132,18 +118,28 @@ def base_parser(parser, default_args: DefaultArgs):
         default=default_args.dataset_skip_index,
     )
     parser.add_argument(
+        "--save_raw_data_dir",
+        type=str,
+        default=default_args.save_raw_data_dir,
+    )
+    parser.add_argument(
+        "--save_metadata_dir",
+        type=str,
+        default=default_args.save_metadata_dir,
+    )
+    parser.add_argument(
         "--dataset_dir",
         type=str,
         default=default_args.dataset_dir,
     )
 
     args = parser.parse_args()
-    args = _base_process_args(parser, args)
+    args = _process_args(args)
 
     return args
 
 
-def _base_process_args(parser, args):
+def _process_args(args):
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
 
@@ -151,7 +147,6 @@ def _base_process_args(parser, args):
 
     inplace_update_query_dataset(args)
     inplace_update_init_forward(args)
-    inplace_update_init_method(args, parser)
 
     if args.monitored_statistic == "meanx2":
         monitored_statistic = Statistics.meanx2
@@ -201,14 +196,34 @@ def _base_process_args(parser, args):
         args.batch_index_key: 0,
     }
 
+    inplace_update_method_and_kwargs(args)
+
+    pretty_print_args(args)
+
     return args
 
 
-def inplace_update_init_method(args, base_parser):
-    method, method_parser = str_to_method_and_parser_switch[args.method]
-    args, kwargs = method_parser(base_parser)
-    args.abstract_process = method(**kwargs)
-    return args
+def pretty_print_args(args: argparse.Namespace):
+    pretty_kwargs = vars(copy.deepcopy(args))
+    pretty_kwargs["method"] = args.method
+    pretty_kwargs["max_batches"] = args.max_batches
+    pretty_kwargs["batch_size"] = args.batch_size
+    pretty_kwargs["seed"] = args.seed
+
+    pretty_kwargs["forward"] = str(args.forward)[:50]
+    pretty_kwargs["image"] = str(args.image.shape)
+    pretty_kwargs["abstract_process"] = str(args.abstract_process)
+    pretty_kwargs["stats"] = f"stats of len {len(args.stats)}"
+    pretty_kwargs.update(
+        {k: int(v) for k, v in pretty_kwargs.items() if isinstance(v, np.int64)}
+    )
+
+    print("experiment args:", json.dumps(pretty_kwargs, indent=4, sort_keys=True))
+
+
+def inplace_add_method_parser(method, base_parser):
+    method_parser = inplace_method_parser_switch[method]
+    method_parser(base_parser)
 
 
 def init_resnet50_forward(args):
@@ -258,17 +273,59 @@ def inplace_update_query_dataset(args):
 
 
 def inplace_update_init_forward(args):
-    init_forward_func = str_to_init_forward_func_switch[args.forward]
+    init_forward_func = str_architecure_to_init_forward_func_switch[args.architecure]
     return init_forward_func(args)
 
 
-# to avoid if-else statements
-str_to_init_forward_func_switch = {
+def inplace_update_method_and_kwargs(args):
+    method = methods_switch[args.method]
+    select_kwargs = args_selector_switch[args.method]
+    kwargs = select_kwargs(args)
+    args.abstract_process = method(**kwargs)
+
+
+def save_stats(args, stats):
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+    get_npy_file_path = lambda key: f"{timestamp}.{key}.npy"
+    npy_file_paths = []
+
+    args.batch_index = args.stats[args.batch_index_key]
+    args.monitored_statistic = args.stats[args.monitored_statistic_key]
+    del args.stats[args.batch_index_key]
+    del args.stats[args.monitored_statistic_key]
+    del args.batch_index_key
+    del args.monitored_statistic_source_key
+    del args.monitored_statistic_key
+
+    for key, value in stats.items():
+        npy_file_path = os.path.join(
+            args.save_raw_data_dir, get_npy_file_path(f"{key.name}.{key.statistic}")
+        )
+        np.save(npy_file_path, value)
+        npy_file_paths.append(npy_file_path)
+    args.paths = npy_file_paths
+    print("saved the raw data to", get_npy_file_path("*"))
+    return timestamp, npy_file_paths
+
+
+def save_metadata(args, name_prefix):
+    csv_file_name = f"{name_prefix}.csv"
+    csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
+    args.input_shape = str(args.input_shape)
+    del args.stats
+    del args.forward
+    del args.image
+    del args.abstract_process
+    args = vars(args)
+    dataframe = pd.DataFrame(args)
+    dataframe.to_csv(csv_file_path, index=False)
+    print("saved the correspoding meta data to", csv_file_path)
+
+
+# change this to a switch
+str_architecure_to_init_forward_func_switch = {
     "resnet50": init_resnet50_forward,
 }
 str_to_dataset_query_func_switch = {
     "imagenet": query_imagenet,
-}
-str_to_method_and_parser_switch = {
-    "noise_interpolation": (noise_interpolation, noise_interpolation_parser),
 }
