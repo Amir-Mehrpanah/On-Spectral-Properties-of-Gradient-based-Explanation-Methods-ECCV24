@@ -10,7 +10,7 @@ import flaxmodels as fm
 from PIL import Image
 
 sys.path.append(os.getcwd())
-from source import operations, helpers, explainers, labels
+from source import driver_helpers, operations, explainers, labels
 from test_operations import get_abstract_stream_sampler
 
 
@@ -20,7 +20,7 @@ class TestAssests:
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00048840.JPEG"
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00048864.JPEG"
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00049585.JPEG"
-    transforms = helpers.preprocess
+    transforms = driver_helpers.preprocess
     images: Dict[int, jax.Array] = {
         95: transforms(
             Image.open("tests/assets/ILSVRC2012_val_00048840.JPEG"), img_size=img_size
@@ -95,9 +95,3 @@ class TestWithResnet50(TestAssests):
 
         vgrad = jnp.squeeze(vgrad, axis=1)
         assert vgrad.shape == self.batch.shape
-
-    def disentangled_forward(self, input_noise, projection, forward):
-        input, noise = input_noise
-        noisy_image = input + noise
-        return explainers.forward_with_projection(noisy_image, projection, forward)
-

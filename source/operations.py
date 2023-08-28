@@ -2,7 +2,8 @@ from typing import Any, Dict, List, Callable, Tuple
 import jax.numpy as jnp
 import jax
 
-from source.utils import AbstractFunction
+from source.utils import Stream, StreamNames, Statistics, AbstractFunction
+
 
 @AbstractFunction
 def deterministic_projection(
@@ -200,3 +201,155 @@ def linear_combination_mask(
             + stream[alpha_target_name] * stream[target_name]
         }
     )
+
+
+def gather_stats(
+    seed,
+    abstract_sampling_process: AbstractFunction,
+    batch_size,
+    max_batches,
+    min_change,
+    stats: Dict[Stream, jax.Array],
+    monitored_statistic_source_key: Stream,
+    monitored_statistic_key: Stream,
+    batch_index_key,
+):
+    assert monitored_statistic_key.statistic == Statistics.abs_delta
+    assert stats[monitored_statistic_key] == jnp.inf
+
+    (
+        loop_initials,
+        concrete_stopping_condition,
+        concrete_sample_and_update,
+    ) = init_loop(
+        seed,
+        abstract_sampling_process,
+        batch_size,
+        max_batches,
+        min_change,
+        stats,
+        monitored_statistic_source_key,
+        monitored_statistic_key,
+        batch_index_key,
+    )
+    stats = jax.lax.while_loop(
+        cond_fun=concrete_stopping_condition,
+        body_fun=concrete_sample_and_update,
+        init_val=loop_initials,
+    )
+    return stats
+
+
+def init_loop(
+    seed,
+    abstract_sampling_process: AbstractFunction,
+    batch_size,
+    max_batches,
+    min_change,
+    stats: Stream,
+    monitored_statistic_source_key: Stream,
+    monitored_statistic_key: Stream,
+    batch_index_key,
+):
+    # concretize abstract stopping condition
+    concrete_stopping_condition = stopping_condition(
+        max_batches=max_batches,
+        min_change=min_change,
+        monitored_statistic_key=monitored_statistic_key,
+        batch_index_key=batch_index_key,
+    ).concretize()
+
+    # concretize abstract sampling process
+    concrete_sampling_process = abstract_sampling_process.concretize()
+    vectorized_concrete_sampling_process = jax.vmap(
+        concrete_sampling_process,
+        in_axes=(0),
+    )
+
+    # concretize abstract update stats
+    concrete_update_stats = update_stats(
+        stream_keys=tuple(stats.keys()),
+        monitored_statistic_source_key=monitored_statistic_source_key,
+        monitored_statistic_key=monitored_statistic_key,
+    ).concretize()
+
+    # concretize abstract sample and update
+    concrete_sample_and_update_stats = sample_and_update_stats(
+        seed=seed,
+        batch_size=batch_size,
+        concrete_vectorized_process=vectorized_concrete_sampling_process,
+        concrete_update_stats=concrete_update_stats,
+        batch_index_key=batch_index_key,
+    ).concretize()
+
+    return stats, concrete_stopping_condition, concrete_sample_and_update_stats
+
+
+@AbstractFunction
+def sample_and_update_stats(
+    stats,
+    *,
+    seed,
+    batch_size,
+    concrete_vectorized_process,
+    concrete_update_stats,
+    batch_index_key,
+):
+    stats[batch_index_key] += 1  # lookup
+    batch_index = stats[batch_index_key]  # lookup
+
+    key = jax.random.PRNGKey(seed + batch_index)
+    batch_keys = jax.random.split(key, num=batch_size)
+
+    sampled_batch = concrete_vectorized_process(batch_keys)
+    stats = concrete_update_stats(sampled_batch, stats, batch_index)
+    jax.debug.print("sampled_batch {}", batch_index)
+    return stats
+
+
+@AbstractFunction
+def stopping_condition(
+    stats,
+    *,
+    max_batches,
+    min_change,
+    monitored_statistic_key: Stream,
+    batch_index_key,
+):
+    change = stats[monitored_statistic_key]  # lookup
+    batch_index = stats[batch_index_key]  # lookup
+
+    value_condition = change > min_change
+    iteration_condition = batch_index < max_batches
+
+    return value_condition & iteration_condition
+
+
+@AbstractFunction
+def update_stats(
+    sampled_batch: Dict[StreamNames, jax.Array],
+    stats: Dict[Stream, jax.Array],
+    batch_index: int,
+    *,
+    stream_keys: Tuple[Stream],
+    monitored_statistic_source_key: Stream,
+    monitored_statistic_key: Stream,
+):
+    monitored_statistic_old = stats[monitored_statistic_source_key]  # lookup
+
+    for key in stream_keys:
+        if key.statistic == Statistics.meanx:
+            stats[key] = (1 / batch_index) * sampled_batch[key.name].mean(axis=0) + (
+                (batch_index - 1) / batch_index
+            ) * stats[key]
+        elif key.statistic == Statistics.meanx2:
+            stats[key] = (1 / batch_index) * (sampled_batch[key.name] ** 2).mean(
+                axis=0
+            ) + ((batch_index - 1) / batch_index) * stats[key]
+
+    monitored_statistic_new = stats[monitored_statistic_source_key]  # lookup
+
+    stats[monitored_statistic_key] = jnp.abs(
+        monitored_statistic_new - monitored_statistic_old
+    ).max()  # lookup
+    return stats
