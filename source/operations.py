@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Callable, Tuple
-from helpers import AbstractFunction
 import jax.numpy as jnp
 import jax
 
+from source.utils import AbstractFunction
 
 @AbstractFunction
 def deterministic_projection(

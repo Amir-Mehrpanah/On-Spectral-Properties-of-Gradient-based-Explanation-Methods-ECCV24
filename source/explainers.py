@@ -3,7 +3,8 @@ import jax
 
 
 def forward_with_projection(inputs, projection, forward):
-    assert inputs.ndim == 4, "x should be a batch of images"
+    assert inputs.ndim == 4, "inputs should be a batch of images"
+    assert inputs.shape[0] == 1, "batch size must match"
     log_prob = forward(inputs)
     results_at_projection = (log_prob @ projection).squeeze()
     return results_at_projection, (results_at_projection, log_prob)

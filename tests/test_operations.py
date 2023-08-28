@@ -71,16 +71,6 @@ def test_concrete_process_compilation_count():
 
 
 def get_abstract_stream_sampler(base_stream):
-    # initialize a static mask in the stream that does not depend on the key
-    concrete_process = neighborhoods.deterministic_mask(
-        name="alpha_mask",
-        mask=0.5 * jnp.ones(shape=(1, 1, 1, 1)),
-        stream=base_stream,
-        key=key,
-    ).concretize()
-    # put the static mask in the stream
-    concrete_process()
-
     # initialize other masks that depend on the key with tailored inputs
     base_abstract_processes = [
         neighborhoods.uniform_mask(

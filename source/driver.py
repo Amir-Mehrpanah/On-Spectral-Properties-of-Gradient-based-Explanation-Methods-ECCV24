@@ -3,7 +3,6 @@ import sys
 import numpy as np
 import time
 from source import helpers, configs
-from source.helpers import gather_stats
 
 
 parser = argparse.ArgumentParser()

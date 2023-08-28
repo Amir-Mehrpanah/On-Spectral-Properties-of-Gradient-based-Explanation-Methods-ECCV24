@@ -5,7 +5,7 @@ import sys
 
 sys.path.append(os.getcwd())
 from source import neighborhoods, explainers, operations
-from source.helpers import Stream, StreamNames, AbstractFunction
+from source.utils import Stream, StreamNames, AbstractFunction
 
 
 @AbstractFunction
@@ -44,11 +44,13 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
         key=key,
         shape=input_shape,
     )
+
     convex_combination_mask = operations.convex_combination_mask(
         source_mask=image,
         target_mask=normal_mask,
         alpha_mask=alpha_mask,
     )
+
     vanilla_grad_mask, results_at_projection, log_probs = explainers.vanilla_gradient(
         source_mask=convex_combination_mask,
         projection=projection,

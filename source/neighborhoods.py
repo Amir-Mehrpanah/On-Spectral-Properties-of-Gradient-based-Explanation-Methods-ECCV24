@@ -3,7 +3,7 @@ import jax
 import numpy as np
 import jax.numpy as jnp
 
-from source.helpers import AbstractFunction
+from source.utils import AbstractFunction
 
 
 @AbstractFunction
