@@ -284,34 +284,52 @@ def inplace_update_method_and_kwargs(args):
     args.abstract_process = method(**kwargs)
 
 
-def save_stats(args, stats):
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-    get_npy_file_path = lambda key: f"{timestamp}.{key}.npy"
-    npy_file_paths = []
+def inplace_save_stats(args, stats):
+    path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+    get_npy_file_path = lambda key: f"{path_prefix}.{key}.npy"
 
+    # temporary metadata
+    npy_file_paths = []
+    stream_names = []
+    stream_statistic = []
+
+    # update args with metadata before deleting keys
     args.batch_index = stats[args.batch_index_key]
-    args.monitored_statistic = stats[args.monitored_statistic_key]
+    args.monitored_statistic_change = stats[args.monitored_statistic_key]
     del stats[args.batch_index_key]
     del stats[args.monitored_statistic_key]
 
+    # save stats
     for key, value in stats.items():
         npy_file_path = os.path.join(
             args.save_raw_data_dir, get_npy_file_path(f"{key.name}.{key.statistic}")
         )
         np.save(npy_file_path, value)
+
+        # update metadata
         npy_file_paths.append(npy_file_path)
-        
+        stream_names.append(key.name)
+        stream_statistic.append(key.statistic)
+
+    # add metadata to args
     args.paths = npy_file_paths
+    args.stream_names = stream_names
+    args.stream_statistic = stream_statistic
+    args.path_prefix = path_prefix
+
     print("saved the raw data to", get_npy_file_path("*"))
-    return timestamp, npy_file_paths
 
 
-def save_metadata(args, name_prefix):
-    csv_file_name = f"{name_prefix}.csv"
+def inplace_save_metadata(args):
+    csv_file_name = f"{args.path_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
     args.input_shape = str(args.input_shape)
+    args.image_index = args.image_index + args.dataset_skip_index
 
+    # remove keys that are not needed in the metadata
     del args.batch_index_key
+    del args.dataset_skip_index
+    del args.dry_run
     del args.monitored_statistic_source_key
     del args.monitored_statistic_key
     del args.stats
@@ -322,7 +340,10 @@ def save_metadata(args, name_prefix):
     del args.save_metadata_dir
     del args.dataset_dir
 
+    # convert metadata from namespace to dict
     args = vars(args)
+
+    # convert metadata from dict to dataframe and save
     dataframe = pd.DataFrame(args)
     dataframe.to_csv(csv_file_path, index=False)
     print("saved the correspoding meta data to", csv_file_path)

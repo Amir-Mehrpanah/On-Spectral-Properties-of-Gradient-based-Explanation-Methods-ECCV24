@@ -25,10 +25,10 @@ stats = gather_stats(
     args.batch_index_key,
 )
 end = time.time()
-args.ttc = end - start
+args.time_to_compute = end - start
 
-print(f"sampling finsied in {args.ttc:.4f}s")
+print(f"sampling finsied in {args.time_to_compute:.4f}s")
 print("number of samples", stats[args.batch_index_key] * args.batch_size)
 
-name_prefix, npy_file_paths = driver_helpers.save_stats(args, stats)
-driver_helpers.save_metadata(args, name_prefix)
+driver_helpers.inplace_save_stats(args, stats)
+driver_helpers.inplace_save_metadata(args)
