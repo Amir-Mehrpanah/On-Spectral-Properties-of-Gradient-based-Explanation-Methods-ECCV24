@@ -57,9 +57,9 @@ def base_parser(parser, default_args: DefaultArgs):
         default=default_args.dry_run,
     )
     parser.add_argument(
-        "--architecure",
+        "--architecture",
         type=str,
-        default=default_args.architecure,
+        default=default_args.architecture,
     )
     parser.add_argument(
         "--max_batches",
@@ -141,7 +141,7 @@ def base_parser(parser, default_args: DefaultArgs):
 
 def _process_args(args):
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
-    os.makedirs(args.save_raw_data_dir, exist_ok=True)
+    os.makedirs(args.save_metadata_dir, exist_ok=True)
 
     args.input_shape = tuple(args.input_shape)
 
@@ -273,7 +273,7 @@ def inplace_update_query_dataset(args):
 
 
 def inplace_update_init_forward(args):
-    init_forward_func = str_architecure_to_init_forward_func_switch[args.architecure]
+    init_forward_func = str_architecture_to_init_forward_func_switch[args.architecture]
     return init_forward_func(args)
 
 
@@ -289,13 +289,10 @@ def save_stats(args, stats):
     get_npy_file_path = lambda key: f"{timestamp}.{key}.npy"
     npy_file_paths = []
 
-    args.batch_index = args.stats[args.batch_index_key]
-    args.monitored_statistic = args.stats[args.monitored_statistic_key]
-    del args.stats[args.batch_index_key]
-    del args.stats[args.monitored_statistic_key]
-    del args.batch_index_key
-    del args.monitored_statistic_source_key
-    del args.monitored_statistic_key
+    args.batch_index = stats[args.batch_index_key]
+    args.monitored_statistic = stats[args.monitored_statistic_key]
+    del stats[args.batch_index_key]
+    del stats[args.monitored_statistic_key]
 
     for key, value in stats.items():
         npy_file_path = os.path.join(
@@ -303,6 +300,7 @@ def save_stats(args, stats):
         )
         np.save(npy_file_path, value)
         npy_file_paths.append(npy_file_path)
+        
     args.paths = npy_file_paths
     print("saved the raw data to", get_npy_file_path("*"))
     return timestamp, npy_file_paths
@@ -312,10 +310,18 @@ def save_metadata(args, name_prefix):
     csv_file_name = f"{name_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
     args.input_shape = str(args.input_shape)
+
+    del args.batch_index_key
+    del args.monitored_statistic_source_key
+    del args.monitored_statistic_key
     del args.stats
     del args.forward
     del args.image
     del args.abstract_process
+    del args.save_raw_data_dir
+    del args.save_metadata_dir
+    del args.dataset_dir
+
     args = vars(args)
     dataframe = pd.DataFrame(args)
     dataframe.to_csv(csv_file_path, index=False)
@@ -323,7 +329,7 @@ def save_metadata(args, name_prefix):
 
 
 # change this to a switch
-str_architecure_to_init_forward_func_switch = {
+str_architecture_to_init_forward_func_switch = {
     "resnet50": init_resnet50_forward,
 }
 str_to_dataset_query_func_switch = {

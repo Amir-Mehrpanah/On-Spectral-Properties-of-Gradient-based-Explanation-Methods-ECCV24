@@ -9,20 +9,20 @@ class DefaultArgs:
         raise NotImplementedError("This class is not meant to be instantiated")
 
     methods = ["noise_interpolation", "fisher_information"]
-    architecures = ["resnet50"]
+    architecture = ["resnet50"]
 
-    dry_run = True
+    dry_run = False
     seed = 0 if dry_run else 42
     method = methods[0] if dry_run else None
 
-    architecure = architecures[0] if dry_run else None
+    architecture = architecture[0] if dry_run else None
     input_shape = (1, 224, 224, 3)
 
     monitored_statistic = "meanx2"
     monitored_stream = "vanilla_grad_mask"
-    max_batches = 1 if dry_run else 10000
-    min_change = 1e-6
+    min_change = 1e-2
     batch_size = 2 if dry_run else 32
+    max_batches = 1 if dry_run else 10000//batch_size
 
     dataset = "imagenet"
     num_classes = 1000

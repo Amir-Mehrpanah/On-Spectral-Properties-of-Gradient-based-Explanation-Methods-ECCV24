@@ -1,5 +1,9 @@
 import argparse
 import time
+import os
+import sys
+
+sys.path.append(os.getcwd())
 from source import driver_helpers, configs
 from source.operations import gather_stats
 
@@ -23,8 +27,8 @@ stats = gather_stats(
 end = time.time()
 args.ttc = end - start
 
-print(f"sampling finsied in {args.ttc}s")
-print("number of samples", args.stats[args.batch_index_key] * args.batch_size)
+print(f"sampling finsied in {args.ttc:.4f}s")
+print("number of samples", stats[args.batch_index_key] * args.batch_size)
 
 name_prefix, npy_file_paths = driver_helpers.save_stats(args, stats)
 driver_helpers.save_metadata(args, name_prefix)
