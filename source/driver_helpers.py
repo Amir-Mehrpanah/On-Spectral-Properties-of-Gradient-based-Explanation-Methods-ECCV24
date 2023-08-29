@@ -54,7 +54,12 @@ def base_parser(parser, default_args: DefaultArgs):
     parser.add_argument(
         "--dry_run",
         action="store_true",
-        default=default_args.dry_run,
+        default=False,
+    )
+    parser.add_argument(
+        "--assert_device",
+        action="store_true",
+        default=False,
     )
     parser.add_argument(
         "--architecture",
@@ -129,12 +134,20 @@ def base_parser(parser, default_args: DefaultArgs):
     )
 
     args = parser.parse_args()
-    args = _process_args(args)
+    args = _process_args(args, default_args)
 
     return args
 
 
-def _process_args(args):
+def _process_args(args, default_args):
+    if args.assert_device:
+        assert jax.device_count() > 0, "jax devices are not available"
+
+    if args.dry_run:
+        args.save_raw_data_dir = default_args.dry_run_save_raw_data_dir
+        args.save_metadata_dir = default_args.dry_run_save_metadata_dir
+        args.dataset_dir = default_args.dry_run_dataset_dir
+
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)
 
@@ -146,7 +159,7 @@ def _process_args(args):
     if args.monitored_statistic == "meanx2":
         monitored_statistic = Statistics.meanx2
     else:
-        raise NotImplementedError("other stats must be implemented")
+        raise NotImplementedError("other stats are not implemented")
 
     if args.monitored_stream == "vanilla_grad_mask":
         monitored_stream = StreamNames.vanilla_grad_mask

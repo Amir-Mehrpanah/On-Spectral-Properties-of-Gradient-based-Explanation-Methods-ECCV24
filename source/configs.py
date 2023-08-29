@@ -11,29 +11,25 @@ class DefaultArgs:
     methods = ["noise_interpolation", "fisher_information"]
     architecture = ["resnet50"]
 
-    dry_run = False
-    seed = 0 if dry_run else 42
-    method = methods[0] if dry_run else None
+    seed = 42
 
-    architecture = architecture[0] if dry_run else None
     input_shape = (1, 224, 224, 3)
 
     monitored_statistic = "meanx2"
     monitored_stream = "vanilla_grad_mask"
     min_change = 1e-2
-    batch_size = 2 if dry_run else 32
-    max_batches = 1 if dry_run else 10000 // batch_size
+    batch_size = 32
+    max_batches = 10000 // batch_size
 
     dataset = "imagenet"
     num_classes = 1000
+
     dataset_dir = "/local_storage/datasets/imagenet"
-    dataset_dir = dataset_dir if not dry_run else "tests/assets"
-
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
-    save_raw_data_dir = save_raw_data_dir if not dry_run else "outputs/test_raw_data"
     save_metadata_dir = "/local_storage/users/amirme/metadata"
-    save_metadata_dir = save_metadata_dir if not dry_run else "outputs/test_metadata"
-
+    dry_run_dataset_dir = "tests/assets"
+    dry_run_save_raw_data_dir = "outputs/test_raw_data"
+    dry_run_save_metadata_dir = "outputs/test_metadata"
     jupyter_data_dir = "/local_storage/users/amirme/jupyter_data"
     visualizations_dir = os.path.join(jupyter_data_dir, "visualizations")
     profiler_dir = os.path.join(jupyter_data_dir, "profiler")
