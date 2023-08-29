@@ -22,7 +22,7 @@ class DefaultArgs:
     monitored_stream = "vanilla_grad_mask"
     min_change = 1e-2
     batch_size = 2 if dry_run else 32
-    max_batches = 1 if dry_run else 10000//batch_size
+    max_batches = 1 if dry_run else 10000 // batch_size
 
     dataset = "imagenet"
     num_classes = 1000
@@ -30,16 +30,13 @@ class DefaultArgs:
     dataset_dir = dataset_dir if not dry_run else "tests/assets"
 
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
-    save_raw_data_dir = save_raw_data_dir if not dry_run else "outputs/raw_data"
+    save_raw_data_dir = save_raw_data_dir if not dry_run else "outputs/test_raw_data"
     save_metadata_dir = "/local_storage/users/amirme/metadata"
-    save_metadata_dir = save_metadata_dir if not dry_run else "outputs/metadata"
+    save_metadata_dir = save_metadata_dir if not dry_run else "outputs/test_metadata"
 
-    tensorboard_dir = "/local_storage/users/amirme/tensorboard_logs/"
-    tensorboard_dir = tensorboard_dir if not dry_run else "outputs/tensorboard_logs"
-
-    visualizations_dir = os.path.join(tensorboard_dir, "visualizations")
-    profiler_dir = os.path.join(tensorboard_dir, "profiler")
+    jupyter_data_dir = "/local_storage/users/amirme/jupyter_data"
+    visualizations_dir = os.path.join(jupyter_data_dir, "visualizations")
+    profiler_dir = os.path.join(jupyter_data_dir, "profiler")
 
     image_height = input_shape[1]
     image_index = 0
-    dataset_skip_index = 0

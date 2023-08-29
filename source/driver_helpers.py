@@ -113,11 +113,6 @@ def base_parser(parser, default_args: DefaultArgs):
         default=default_args.dataset,
     )
     parser.add_argument(
-        "--dataset_skip_index",
-        type=int,
-        default=default_args.dataset_skip_index,
-    )
-    parser.add_argument(
         "--save_raw_data_dir",
         type=str,
         default=default_args.save_raw_data_dir,
@@ -257,7 +252,7 @@ def preprocess(x, img_size):
 def query_imagenet(args):
     dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
     dataset = dataset.as_dataset(split="val", shuffle_files=False)
-    dataset = dataset.skip(args.dataset_skip_index)
+    dataset = dataset.skip(args.image_index)
     base_stream = next(dataset.take(1).as_numpy_iterator())
 
     image_height = args.input_shape[1]  # (N, H, W, C)
@@ -324,11 +319,9 @@ def inplace_save_metadata(args):
     csv_file_name = f"{args.path_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
     args.input_shape = str(args.input_shape)
-    args.image_index = args.image_index + args.dataset_skip_index
 
     # remove keys that are not needed in the metadata
     del args.batch_index_key
-    del args.dataset_skip_index
     del args.dry_run
     del args.monitored_statistic_source_key
     del args.monitored_statistic_key

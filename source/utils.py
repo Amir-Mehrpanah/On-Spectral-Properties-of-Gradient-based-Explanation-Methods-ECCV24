@@ -20,17 +20,19 @@ class AbstractFunction:
 
 
 class StreamNames:
-    batch_index = 10  # does it affect performance if we use a string instead of an int?
-    vanilla_grad_mask = 11
-    results_at_projection = 12
-    log_probs = 13
+    batch_index = (
+        "Index"  # does it affect performance if we use a string instead of an int?
+    )
+    vanilla_grad_mask = "vanilla_grad_mask"
+    results_at_projection = "results_at_projection"
+    log_probs = "log_probs"
 
 
 class Statistics:
-    none = 0
-    meanx = 1
-    meanx2 = 2
-    abs_delta = 3
+    none = "none"
+    meanx = "mean[X]"
+    meanx2 = "mean[X^2]"
+    abs_delta = "abs_delta"
 
 
 Stream = namedtuple("Stream", ["name", "statistic"])
