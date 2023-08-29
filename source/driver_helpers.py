@@ -45,7 +45,6 @@ def base_parser(parser, default_args: DefaultArgs):
     parser.add_argument(
         "--method",
         type=str,
-        default=default_args.method,
         choices=default_args.methods,
     )
     args, _ = parser.parse_known_args()
@@ -64,7 +63,7 @@ def base_parser(parser, default_args: DefaultArgs):
     parser.add_argument(
         "--architecture",
         type=str,
-        default=default_args.architecture,
+        choices=default_args.architectures,
     )
     parser.add_argument(
         "--max_batches",

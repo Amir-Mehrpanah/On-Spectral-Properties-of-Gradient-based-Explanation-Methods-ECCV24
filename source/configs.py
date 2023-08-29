@@ -9,7 +9,7 @@ class DefaultArgs:
         raise NotImplementedError("This class is not meant to be instantiated")
 
     methods = ["noise_interpolation", "fisher_information"]
-    architecture = ["resnet50"]
+    architectures = ["resnet50"]
 
     seed = 42
 
