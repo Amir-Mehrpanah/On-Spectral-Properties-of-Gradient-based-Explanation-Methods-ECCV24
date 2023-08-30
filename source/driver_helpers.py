@@ -297,7 +297,7 @@ def inplace_save_stats(args, stats):
 
     # temporary metadata
     npy_file_paths = []
-    stream_names = []
+    stream_name = []
     stream_statistic = []
 
     # update args with metadata before deleting keys
@@ -306,21 +306,28 @@ def inplace_save_stats(args, stats):
     del stats[args.batch_index_key]
     del stats[args.monitored_statistic_key]
 
+    # write image
+    npy_file_path = os.path.join(args.save_raw_data_dir, get_npy_file_path("image.raw"))
+    np.save(npy_file_path, args.image.squeeze())
+    npy_file_paths.append(npy_file_path)
+    stream_name.append("image")
+    stream_statistic.append(Statistics.none)
+
     # save stats
     for key, value in stats.items():
         npy_file_path = os.path.join(
             args.save_raw_data_dir, get_npy_file_path(f"{key.name}.{key.statistic}")
         )
-        np.save(npy_file_path, value)
+        np.save(npy_file_path, value.squeeze())
 
         # update metadata
         npy_file_paths.append(npy_file_path)
-        stream_names.append(key.name)
+        stream_name.append(key.name)
         stream_statistic.append(key.statistic)
 
     # add metadata to args
-    args.paths = npy_file_paths
-    args.stream_names = stream_names
+    args.data_path = npy_file_paths
+    args.stream_name = stream_name
     args.stream_statistic = stream_statistic
     args.path_prefix = path_prefix
 

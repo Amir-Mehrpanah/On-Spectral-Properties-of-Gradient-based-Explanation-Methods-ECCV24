@@ -280,7 +280,6 @@ def init_loop(
         concrete_vectorized_process=vectorized_concrete_sampling_process,
         concrete_update_stats=concrete_update_stats,
         batch_index_key=batch_index_key,
-        monitored_statistic_key=monitored_statistic_key,
     ).concretize()
 
     return stats, concrete_stopping_condition, concrete_sample_and_update_stats
@@ -295,7 +294,6 @@ def sample_and_update_stats(
     concrete_vectorized_process,
     concrete_update_stats,
     batch_index_key,
-    monitored_statistic_key,
 ):
     stats[batch_index_key] += 1  # lookup
     batch_index = stats[batch_index_key]  # lookup
@@ -305,11 +303,6 @@ def sample_and_update_stats(
 
     sampled_batch = concrete_vectorized_process(batch_keys)
     stats = concrete_update_stats(sampled_batch, stats, batch_index)
-    jax.debug.print(
-        "\rsampled_batch {} change {}",
-        batch_index,
-        stats[monitored_statistic_key],
-    )
     return stats
 
 
@@ -343,7 +336,7 @@ def update_stats(
 ):
     monitored_statistic_old = stats[monitored_statistic_source_key]  # lookup
 
-    for key in stream_keys: #optimize key, operation in stream.items():
+    for key in stream_keys:  # optimize key, operation in stream.items():
         if key.statistic == Statistics.meanx:
             stats[key] = (1 / batch_index) * sampled_batch[key.name].mean(axis=0) + (
                 (batch_index - 1) / batch_index
