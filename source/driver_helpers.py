@@ -1,21 +1,18 @@
 import argparse
 import copy
 from datetime import datetime
-
 import json
 import os
 from typing import Dict, Tuple
-from functools import partial
 import numpy as np
 import pandas as pd
-import tensorflow as tf
-import tensorflow_datasets as tfds
 import jax
-import flaxmodels as fm
 import jax.numpy as jnp
 
 from source.configs import DefaultArgs
+from source.data_manager import query_imagenet
 from source.explanation_methods import noise_interpolation
+from source.model_manager import init_resnet50_forward
 from source.utils import (
     Switch,
     Stream,
@@ -26,6 +23,9 @@ from source.utils import (
 methods_switch = Switch()
 args_selector_switch = Switch()
 inplace_method_parser_switch = Switch()
+dataset_query_func_switch = Switch()
+init_architecture_forward_switch = Switch()
+
 
 methods_switch.register(
     "noise_interpolation",
@@ -39,12 +39,21 @@ args_selector_switch.register(
     "noise_interpolation",
     noise_interpolation.noise_interpolation_select_args,
 )
+dataset_query_func_switch.register(
+    "imagenet",
+    query_imagenet,
+)
+init_architecture_forward_switch.register(
+    "resnet50",
+    init_resnet50_forward,
+)
 
 
 def base_parser(parser, default_args: DefaultArgs):
     parser.add_argument(
         "--method",
         type=str,
+        required=True,
         choices=default_args.methods,
     )
     args, _ = parser.parse_known_args()
@@ -56,6 +65,11 @@ def base_parser(parser, default_args: DefaultArgs):
         default=False,
     )
     parser.add_argument(
+        "--disable_jit",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "--assert_device",
         action="store_true",
         default=False,
@@ -63,6 +77,7 @@ def base_parser(parser, default_args: DefaultArgs):
     parser.add_argument(
         "--architecture",
         type=str,
+        required=True,
         choices=default_args.architectures,
     )
     parser.add_argument(
@@ -146,6 +161,9 @@ def _process_args(args, default_args):
         args.save_raw_data_dir = default_args.dry_run_save_raw_data_dir
         args.save_metadata_dir = default_args.dry_run_save_metadata_dir
         args.dataset_dir = default_args.dry_run_dataset_dir
+
+    if args.disable_jit:
+        jax.config.update("jax_disable_jit", True)
 
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)
@@ -233,54 +251,13 @@ def inplace_add_method_parser(method, base_parser):
     method_parser(base_parser)
 
 
-def init_resnet50_forward(args):
-    resnet50 = fm.ResNet50(
-        output="log_softmax",
-        pretrained="imagenet",
-    )
-    params = resnet50.init(
-        jax.random.PRNGKey(0),
-        jnp.empty(args.input_shape, dtype=jnp.float32),
-    )
-    resnet50_forward = partial(
-        resnet50.apply,
-        params,
-        train=False,
-    )
-
-    args.forward = resnet50_forward
-
-
-def preprocess(x, img_size):
-    x = tf.keras.layers.experimental.preprocessing.CenterCrop(
-        height=img_size,
-        width=img_size,
-    )(x)
-    x = jnp.array(x)
-    x = jnp.expand_dims(x, axis=0) / 255.0
-    return x
-
-
-def query_imagenet(args):
-    dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
-    dataset = dataset.as_dataset(split="val", shuffle_files=False)
-    dataset = dataset.skip(args.image_index)
-    base_stream = next(dataset.take(1).as_numpy_iterator())
-
-    image_height = args.input_shape[1]  # (N, H, W, C)
-    base_stream["image"] = preprocess(base_stream["image"], image_height)
-
-    args.image = base_stream["image"]
-    args.label = base_stream["label"]
-
-
 def inplace_update_query_dataset(args):
-    init_dataset_func = str_to_dataset_query_func_switch[args.dataset]
+    init_dataset_func = dataset_query_func_switch[args.dataset]
     return init_dataset_func(args)
 
 
 def inplace_update_init_forward(args):
-    init_forward_func = str_architecture_to_init_forward_func_switch[args.architecture]
+    init_forward_func = init_architecture_forward_switch[args.architecture]
     return init_forward_func(args)
 
 
@@ -341,6 +318,7 @@ def inplace_save_metadata(args):
 
     # remove keys that are not needed in the metadata
     del args.batch_index_key
+    del args.assert_device
     del args.dry_run
     del args.monitored_statistic_source_key
     del args.monitored_statistic_key
@@ -359,12 +337,3 @@ def inplace_save_metadata(args):
     dataframe = pd.DataFrame(args)
     dataframe.to_csv(csv_file_path, index=False)
     print("saved the correspoding meta data to", csv_file_path)
-
-
-# change this to a switch
-str_architecture_to_init_forward_func_switch = {
-    "resnet50": init_resnet50_forward,
-}
-str_to_dataset_query_func_switch = {
-    "imagenet": query_imagenet,
-}

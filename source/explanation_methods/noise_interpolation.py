@@ -3,6 +3,8 @@ from typing import Callable, Dict, List, Tuple
 import os
 import sys
 
+from source.model_manager import forward_with_projection
+
 sys.path.append(os.getcwd())
 from source import neighborhoods, explainers, operations
 from source.utils import StreamNames, AbstractFunction
@@ -34,11 +36,11 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
     )
 
     vanilla_grad_mask, results_at_projection, log_probs = explainers.vanilla_gradient(
-        source_mask=convex_combination_mask,
-        projection=projection,
-        forward=forward,
+        forward=forward_with_projection,
+        inputs=(convex_combination_mask, projection, forward),
     )
-
+    correct_prediction = label == log_probs.argmax()
+    
     return {
         StreamNames.vanilla_grad_mask: vanilla_grad_mask,
         StreamNames.results_at_projection: results_at_projection,

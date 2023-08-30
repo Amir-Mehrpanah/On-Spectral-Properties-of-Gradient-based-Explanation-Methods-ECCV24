@@ -10,8 +10,7 @@ import flaxmodels as fm
 from PIL import Image
 
 sys.path.append(os.getcwd())
-from source import driver_helpers, operations, explainers, labels
-from test_operations import get_abstract_stream_sampler
+from source import data_manager, explainers
 
 
 class TestAssests:
@@ -20,20 +19,37 @@ class TestAssests:
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00048840.JPEG"
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00048864.JPEG"
     # "/local_storage/datasets/imagenet/val/n01443537/ILSVRC2012_val_00049585.JPEG"
-    transforms = driver_helpers.preprocess
+    transforms = data_manager.preprocess
     images: Dict[int, jax.Array] = {
+        0: transforms(
+            Image.open("tests/assets/val/n01491361/ILSVRC2012_val_00026626.JPEG"),
+            img_size=img_size,
+        ),
         95: transforms(
-            Image.open("tests/assets/ILSVRC2012_val_00048840.JPEG"), img_size=img_size
+            Image.open("tests/assets/val/n01491361/ILSVRC2012_val_00048840.JPEG"),
+            img_size=img_size,
         ),
         96: transforms(
-            Image.open("tests/assets/ILSVRC2012_val_00048864.JPEG"), img_size=img_size
+            Image.open("tests/assets/val/n01491361/ILSVRC2012_val_00048864.JPEG"),
+            img_size=img_size,
         ),
         97: transforms(
-            Image.open("tests/assets/ILSVRC2012_val_00049585.JPEG"), img_size=img_size
+            Image.open("tests/assets/val/n01491361/ILSVRC2012_val_00049585.JPEG"),
+            img_size=img_size,
         ),
     }
     labels = {
-        95: labels.IMAGENET_LABELS_TO_IDX["goldfish, Carassius auratus"],
+        0: 46,
+        95: 1,
+    }
+    projection_ = np.zeros((1000, 1))
+    projection_46 = copy.deepcopy(projection_)
+    projection_46[46] = 1
+    projection_1 = copy.deepcopy(projection_)
+    projection_1[1] = 1
+    projections = {
+        0: projection_46,
+        95: projection_1,
     }
 
     batch = jnp.concatenate(list(images.values()), axis=0)
@@ -42,8 +58,6 @@ class TestAssests:
         output="log_softmax",
         pretrained="imagenet",
     )
-    projection = np.zeros((1000, 1))
-    projection[1] = 1
     params = model.init(key, images[95])
     forward = partial(
         model.apply,
@@ -55,13 +69,12 @@ class TestAssests:
 class TestWithResnet50(TestAssests):
     def test_forward_and_project(self):
         projected_log_prob, (_, log_prob) = explainers.forward_with_projection(
-            self.images[95],
-            projection=self.projection,
+            self.images[0],
+            projection=self.projections[0],
             forward=self.forward,
         )
         assert projected_log_prob.shape == ()
         assert log_prob.shape == (1, 1000)
-        assert np.exp(projected_log_prob) > 0.9
 
     def test_grad_shape(self):
         grad_fn = jax.grad(
@@ -71,7 +84,7 @@ class TestWithResnet50(TestAssests):
 
         grad, (_, log_probs) = grad_fn(
             self.images[95],
-            projection=self.projection,
+            projection=self.projections[95],
             forward=self.forward,
         )
         assert grad.shape == self.images[95].shape

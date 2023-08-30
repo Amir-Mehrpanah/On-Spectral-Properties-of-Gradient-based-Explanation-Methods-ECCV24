@@ -6,17 +6,24 @@ import os
 from source.configs import DefaultArgs
 
 
-def delete_slurm_data(path):
-    os.remove(path)
+def delete_slurm_data(metadata: pd.Series, selected_rows: pd.Series = None):
+    if selected_rows is None:
+        return metadata.apply(os.remove)
+    return metadata[selected_rows].apply(os.remove)
 
 
-def check_slurm_data_exists(path):
-    return os.path.exists(path)
+def check_slurm_data_exists(metadata: pd.Series, selected_rows: pd.Series = None):
+    if selected_rows is None:
+        return metadata.apply(os.path.exists)
+    return metadata[selected_rows].apply(os.path.exists)
 
 
-def load_slurm_metadata():
-    metadata_glob_path = os.path.join(DefaultArgs.save_metadata_dir, "*.csv")
-    metadata_paths = glob(metadata_glob_path)
+def load_slurm_metadata(glob_path: str = "*.csv", list_of_paths: list = None):
+    if list_of_paths is None:
+        metadata_glob_path = os.path.join(DefaultArgs.save_metadata_dir, glob_path)
+        metadata_paths = glob(metadata_glob_path)
+    else:
+        metadata_paths = list_of_paths
     dataframes = []
     if metadata_paths:
         for metadata_path in metadata_paths:

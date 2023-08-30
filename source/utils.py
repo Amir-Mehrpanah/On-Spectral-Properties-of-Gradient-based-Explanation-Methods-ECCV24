@@ -30,8 +30,8 @@ class StreamNames:
 
 class Statistics:
     none = "none"
-    meanx = "mean[X]"
-    meanx2 = "mean[X^2]"
+    meanx = "meanx"
+    meanx2 = "meanx2"
     abs_delta = "abs_delta"
 
 

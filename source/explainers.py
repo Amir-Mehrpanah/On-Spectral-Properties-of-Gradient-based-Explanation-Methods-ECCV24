@@ -1,27 +1,19 @@
 from typing import Any, Callable, Optional, Dict, Tuple, Union
 import jax
 
-
-def forward_with_projection(inputs, projection, forward):
-    assert inputs.ndim == 4, "inputs should be a batch of images"
-    assert inputs.shape[0] == 1, "batch size must match"
-    log_prob = forward(inputs)
-    results_at_projection = (log_prob @ projection).squeeze()
-    return results_at_projection, (results_at_projection, log_prob)
+from source.model_manager import forward_with_argmax, forward_with_projection
 
 
 def vanilla_gradient(
     *,
-    source_mask: jax.Array,
-    projection: jax.Array,
     forward,
+    inputs,
 ):
-    assert len(source_mask.shape) == 4, "x should be a batch of images"
-    grads, (results_at_projection, log_probs) = jax.grad(
-        forward_with_projection,
+    grads, aux = jax.grad(
+        forward,
         has_aux=True,
-    )(source_mask, projection, forward)
-    return grads, results_at_projection, log_probs
+    )(*inputs)
+    return grads, *aux
 
 
 # class FiniteDifference(Explainer):
