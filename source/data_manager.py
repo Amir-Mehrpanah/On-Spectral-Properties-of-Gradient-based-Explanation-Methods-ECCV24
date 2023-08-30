@@ -25,7 +25,3 @@ def query_imagenet(args):
     args.image = base_stream["image"]
     args.label = base_stream["label"]
     args.image_path = str(base_stream["image/filename"])
-
-    print(f"image_path: {args.image_path}")
-    print(f"label: {args.label}")
-    raise

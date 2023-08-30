@@ -39,7 +39,6 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
         forward=forward_with_projection,
         inputs=(convex_combination_mask, projection, forward),
     )
-    correct_prediction = label == log_probs.argmax()
     
     return {
         StreamNames.vanilla_grad_mask: vanilla_grad_mask,
