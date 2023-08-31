@@ -20,12 +20,11 @@ class AbstractFunction:
 
 
 class StreamNames:
-    batch_index = (
-        "Index"  # does it affect performance if we use a string instead of an int?
-    )
+    batch_index = "index"
     vanilla_grad_mask = "vanilla_grad_mask"
     results_at_projection = "results_at_projection"
     log_probs = "log_probs"
+    image = "image"
 
 
 class Statistics:

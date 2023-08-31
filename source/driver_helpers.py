@@ -26,10 +26,15 @@ inplace_method_parser_switch = Switch()
 dataset_query_func_switch = Switch()
 init_architecture_forward_switch = Switch()
 method_pretty_print_switch = Switch()
+method_demo_switch = Switch()
 
 methods_switch.register(
     "noise_interpolation",
     noise_interpolation.noise_interpolation,
+)
+method_demo_switch.register(
+    "noise_interpolation",
+    noise_interpolation.inplace_noise_interpolation_demo,
 )
 inplace_method_parser_switch.register(
     "noise_interpolation",
@@ -235,6 +240,11 @@ def _process_args(args, default_args):
     return args
 
 
+def sampling_demo(args):
+    if args.write_demo:
+        method_demo_switch[args.method](args)
+
+
 def pretty_print_args(args: argparse.Namespace):
     pretty_kwargs = vars(copy.deepcopy(args))
     pretty_kwargs["method"] = args.method
@@ -270,18 +280,11 @@ def inplace_save_stats(args):
     stream_name = []
     stream_statistic = []
 
-    # update args with metadata before deleting keys
+    # update metadata before deleting keys
     args.batch_index = args.stats[args.batch_index_key]
     args.monitored_statistic_change = args.stats[args.monitored_statistic_key]
     del args.stats[args.batch_index_key]
     del args.stats[args.monitored_statistic_key]
-
-    # write image
-    npy_file_path = os.path.join(args.save_raw_data_dir, get_npy_file_path("image.raw"))
-    np.save(npy_file_path, args.image.squeeze())
-    npy_file_paths.append(npy_file_path)
-    stream_name.append("image")
-    stream_statistic.append(Statistics.none)
 
     # save stats
     for key, value in args.stats.items():
@@ -299,7 +302,7 @@ def inplace_save_stats(args):
     args.data_path = npy_file_paths
     args.stream_name = stream_name
     args.stream_statistic = stream_statistic
-    args.path_prefix
+    args.path_prefix = path_prefix
 
     print("saved the raw data to", get_npy_file_path("*"))
 
@@ -307,10 +310,12 @@ def inplace_save_stats(args):
 def inplace_save_metadata(args):
     csv_file_name = f"{args.path_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
-    args.csv_file_path = csv_file_path
-    args.input_shape = str(args.input_shape)
 
     inplace_delete_extra_metadata(args)
+
+    # processing base metadata before saving
+    args.csv_file_path = csv_file_path
+    args.input_shape = str(args.input_shape)
 
     # convert metadata from namespace to dict
     args = vars(args)

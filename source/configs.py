@@ -12,7 +12,7 @@ class DefaultArgs:
     architectures = ["resnet50"]
 
     seed = 42
-
+    write_demo = True
     input_shape = (1, 224, 224, 3)
 
     monitored_statistic = "meanx2"

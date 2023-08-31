@@ -9,7 +9,7 @@ from source.model_manager import forward_with_projection
 
 sys.path.append(os.getcwd())
 from source import neighborhoods, explainers, operations
-from source.utils import StreamNames, AbstractFunction
+from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
 
 @AbstractFunction
@@ -21,6 +21,7 @@ def noise_interpolation(
     projection,
     image,
     baseline_mask,
+    demo=False,
 ):
     if isinstance(baseline_mask, Callable):
         baseline_mask = baseline_mask(key=key)
@@ -40,6 +41,19 @@ def noise_interpolation(
         inputs=(convex_combination_mask, projection, forward),
     )
 
+    if demo:
+        return {
+            Stream(StreamNames.vanilla_grad_mask, Statistics.none): vanilla_grad_mask,
+            Stream(
+                StreamNames.results_at_projection, Statistics.none
+            ): results_at_projection,
+            Stream(StreamNames.log_probs, Statistics.none): log_probs,
+            Stream(StreamNames.image, Statistics.none): image,
+            Stream("convex_combination_mask", Statistics.none): convex_combination_mask,
+            Stream("projection", Statistics.none): projection,
+            Stream("alpha_mask", Statistics.none): alpha_mask,
+            Stream("baseline_mask", Statistics.none): baseline_mask,
+        }
     return {
         StreamNames.vanilla_grad_mask: vanilla_grad_mask,
         StreamNames.results_at_projection: results_at_projection,
@@ -79,13 +93,6 @@ def inplace_noise_interpolation_parser(base_parser):
         "--baseline_mask_value",
         type=float,
     )
-
-
-def inplace_delete_noise_interpolation_extra_metadata(args):
-    # things we added but don't want to be saved
-    del args.alpha_mask
-    del args.projection
-    del args.baseline_mask
 
 
 def noise_interpolation_process_args(args):
@@ -164,8 +171,23 @@ def inplace_process_projection(args):
         )
 
 
+def inplace_delete_noise_interpolation_extra_metadata(args):
+    # things we added but don't want to be saved as metadata
+    del args.alpha_mask
+    del args.projection
+    del args.baseline_mask
+
+
 def inplace_noise_interpolation_pretty_print(pretty_kwargs):
+    # things we added but don't want to be shown in the pretty print
     del pretty_kwargs["projection"]
     del pretty_kwargs["alpha_mask"]
     del pretty_kwargs["baseline_mask"]
     return pretty_kwargs
+
+
+def inplace_noise_interpolation_demo(args):
+    key = jax.random.PRNGKey(args.seed)
+    kwargs = noise_interpolation_process_args(args)
+    demo_output = noise_interpolation(demo=True, **kwargs).concretize()(key=key)
+    args.stats.update(demo_output)
