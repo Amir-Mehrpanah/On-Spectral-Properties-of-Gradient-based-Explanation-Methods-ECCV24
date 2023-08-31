@@ -27,7 +27,6 @@ end = time.time()
 args.time_to_compute = end - start
 print(f"sampling finsied in {args.time_to_compute:.4f}s")
 print("number of samples", args.stats[args.batch_index_key] * args.batch_size)
-print("sampling demo")
 
 driver_helpers.sampling_demo(args)
 driver_helpers.inplace_save_stats(args)

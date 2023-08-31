@@ -73,6 +73,12 @@ def base_parser(parser, default_args: DefaultArgs):
     inplace_method_parser_switch[args.method](parser)
 
     parser.add_argument(
+        "--no_demo",
+        action="store_false",
+        dest="write_demo",
+        default=default_args.write_demo,
+    )
+    parser.add_argument(
         "--dry_run",
         action="store_true",
         default=False,
@@ -161,19 +167,14 @@ def base_parser(parser, default_args: DefaultArgs):
     )
 
     args = parser.parse_args()
-    args = _process_args(args, default_args)
+    args = _process_args(args)
 
     return args
 
 
-def _process_args(args, default_args):
+def _process_args(args):
     if args.assert_device:
         assert jax.device_count() > 0, "jax devices are not available"
-
-    if args.dry_run:
-        args.save_raw_data_dir = default_args.dry_run_save_raw_data_dir
-        args.save_metadata_dir = default_args.dry_run_save_metadata_dir
-        args.dataset_dir = default_args.dry_run_dataset_dir
 
     if args.disable_jit:
         jax.config.update("jax_disable_jit", True)
@@ -242,6 +243,7 @@ def _process_args(args, default_args):
 
 def sampling_demo(args):
     if args.write_demo:
+        print("sampling demo")
         method_demo_switch[args.method](args)
 
 
@@ -273,7 +275,9 @@ def inplace_update_method_and_kwargs(args):
 
 def inplace_save_stats(args):
     path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-    get_npy_file_path = lambda key: f"{path_prefix}.{key}.npy"
+    get_npy_file_path = lambda key: os.path.join(
+        args.save_raw_data_dir, f"{path_prefix}.{key}.npy"
+    )
 
     # temporary metadata
     npy_file_paths = []
@@ -288,9 +292,7 @@ def inplace_save_stats(args):
 
     # save stats
     for key, value in args.stats.items():
-        npy_file_path = os.path.join(
-            args.save_raw_data_dir, get_npy_file_path(f"{key.name}.{key.statistic}")
-        )
+        npy_file_path = get_npy_file_path(f"{key.name}.{key.statistic}")
         np.save(npy_file_path, value.squeeze())
 
         # update metadata
