@@ -21,11 +21,12 @@ from source.utils import (
 )
 
 methods_switch = Switch()
+delete_method_extra_metadata_switch = Switch()
 args_processor_switch = Switch()
 inplace_method_parser_switch = Switch()
 dataset_query_func_switch = Switch()
 init_architecture_forward_switch = Switch()
-
+method_pretty_print_switch = Switch()
 
 methods_switch.register(
     "noise_interpolation",
@@ -38,6 +39,14 @@ inplace_method_parser_switch.register(
 args_processor_switch.register(
     "noise_interpolation",
     noise_interpolation.noise_interpolation_process_args,
+)
+delete_method_extra_metadata_switch.register(
+    "noise_interpolation",
+    noise_interpolation.inplace_delete_noise_interpolation_extra_metadata,
+)
+method_pretty_print_switch.register(
+    "noise_interpolation",
+    noise_interpolation.inplace_noise_interpolation_pretty_print,
 )
 dataset_query_func_switch.register(
     "imagenet",
@@ -57,7 +66,7 @@ def base_parser(parser, default_args: DefaultArgs):
         choices=default_args.methods,
     )
     args, _ = parser.parse_known_args()
-    inplace_add_method_parser(args.method, parser)
+    inplace_method_parser_switch[args.method](parser)
 
     parser.add_argument(
         "--dry_run",
@@ -170,8 +179,8 @@ def _process_args(args, default_args):
 
     args.input_shape = tuple(args.input_shape)
 
-    inplace_update_query_dataset(args)
-    inplace_update_init_forward(args)
+    dataset_query_func_switch[args.dataset](args)
+    init_architecture_forward_switch[args.architecture](args)
 
     if args.monitored_statistic == "meanx2":
         monitored_statistic = Statistics.meanx2
@@ -222,7 +231,6 @@ def _process_args(args, default_args):
     }
 
     inplace_update_method_and_kwargs(args)
-
     pretty_print_args(args)
 
     return args
@@ -243,32 +251,18 @@ def pretty_print_args(args: argparse.Namespace):
         {k: int(v) for k, v in pretty_kwargs.items() if isinstance(v, np.int64)}
     )
 
+    method_pretty_print_switch[args.method](pretty_kwargs)
     print("experiment args:", json.dumps(pretty_kwargs, indent=4, sort_keys=True))
-
-
-def inplace_add_method_parser(method, base_parser):
-    method_parser = inplace_method_parser_switch[method]
-    method_parser(base_parser)
-
-
-def inplace_update_query_dataset(args):
-    init_dataset_func = dataset_query_func_switch[args.dataset]
-    return init_dataset_func(args)
-
-
-def inplace_update_init_forward(args):
-    init_forward_func = init_architecture_forward_switch[args.architecture]
-    return init_forward_func(args)
 
 
 def inplace_update_method_and_kwargs(args):
     method = methods_switch[args.method]
-    process_kwargs = args_processor_switch[args.method]
-    kwargs = process_kwargs(args)
+    process_args_and_return_kwargs = args_processor_switch[args.method]
+    kwargs = process_args_and_return_kwargs(args)
     args.abstract_process = method(**kwargs)
 
 
-def inplace_save_stats(args, stats):
+def inplace_save_stats(args):
     path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
     get_npy_file_path = lambda key: f"{path_prefix}.{key}.npy"
 
@@ -278,10 +272,10 @@ def inplace_save_stats(args, stats):
     stream_statistic = []
 
     # update args with metadata before deleting keys
-    args.batch_index = stats[args.batch_index_key]
-    args.monitored_statistic_change = stats[args.monitored_statistic_key]
-    del stats[args.batch_index_key]
-    del stats[args.monitored_statistic_key]
+    args.batch_index = args.stats[args.batch_index_key]
+    args.monitored_statistic_change = args.stats[args.monitored_statistic_key]
+    del args.stats[args.batch_index_key]
+    del args.stats[args.monitored_statistic_key]
 
     # write image
     npy_file_path = os.path.join(args.save_raw_data_dir, get_npy_file_path("image.raw"))
@@ -291,7 +285,7 @@ def inplace_save_stats(args, stats):
     stream_statistic.append(Statistics.none)
 
     # save stats
-    for key, value in stats.items():
+    for key, value in args.stats.items():
         npy_file_path = os.path.join(
             args.save_raw_data_dir, get_npy_file_path(f"{key.name}.{key.statistic}")
         )
@@ -306,7 +300,7 @@ def inplace_save_stats(args, stats):
     args.data_path = npy_file_paths
     args.stream_name = stream_name
     args.stream_statistic = stream_statistic
-    args.path_prefix = path_prefix
+    args.path_prefix
 
     print("saved the raw data to", get_npy_file_path("*"))
 
@@ -314,9 +308,20 @@ def inplace_save_stats(args, stats):
 def inplace_save_metadata(args):
     csv_file_name = f"{args.path_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
+    args.csv_file_path = csv_file_path
     args.input_shape = str(args.input_shape)
 
-    # remove keys that are not needed in the metadata
+    inplace_delete_extra_metadata(args)
+    
+    # convert metadata from namespace to dict
+    args = vars(args)
+
+    # convert metadata from dict to dataframe and save
+    dataframe = pd.DataFrame(args)
+    dataframe.to_csv(csv_file_path, index=False)
+    print("saved the correspoding meta data to", csv_file_path)
+
+def inplace_delete_extra_metadata(args):
     del args.batch_index_key
     del args.assert_device
     del args.dry_run
@@ -329,11 +334,7 @@ def inplace_save_metadata(args):
     del args.save_raw_data_dir
     del args.save_metadata_dir
     del args.dataset_dir
+    del args.disable_jit
+    del args.path_prefix
 
-    # convert metadata from namespace to dict
-    args = vars(args)
-
-    # convert metadata from dict to dataframe and save
-    dataframe = pd.DataFrame(args)
-    dataframe.to_csv(csv_file_path, index=False)
-    print("saved the correspoding meta data to", csv_file_path)
+    delete_method_extra_metadata_switch[args.method](args)

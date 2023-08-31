@@ -51,7 +51,8 @@ def inplace_noise_interpolation_parser(base_parser):
     base_parser.add_argument(
         "--alpha_mask_type",
         type=str,
-        required=["static", "scalar_uniform"],
+        required=True,
+        choices=["static", "scalar_uniform"],
     )
     base_parser.add_argument(
         "--alpha_mask_value",
@@ -60,6 +61,7 @@ def inplace_noise_interpolation_parser(base_parser):
     base_parser.add_argument(
         "--projection_type",
         type=str,
+        required=True,
         choices=["label", "random", "prediction"],
     )
     base_parser.add_argument(
@@ -70,12 +72,20 @@ def inplace_noise_interpolation_parser(base_parser):
     base_parser.add_argument(
         "--baseline_mask_type",
         type=str,
+        required=True,
         choices=["static", "gaussian"],
     )
     base_parser.add_argument(
         "--baseline_mask_value",
         type=float,
     )
+
+
+def inplace_delete_noise_interpolation_extra_metadata(args):
+    # things we added but don't want to be saved
+    del args.alpha_mask
+    del args.projection
+    del args.baseline_mask
 
 
 def noise_interpolation_process_args(args):
@@ -152,3 +162,10 @@ def inplace_process_projection(args):
             image=args.image,
             forward=args.forward,
         )
+
+
+def inplace_noise_interpolation_pretty_print(pretty_kwargs):
+    del pretty_kwargs["projection"]
+    del pretty_kwargs["alpha_mask"]
+    del pretty_kwargs["baseline_mask"]
+    return pretty_kwargs

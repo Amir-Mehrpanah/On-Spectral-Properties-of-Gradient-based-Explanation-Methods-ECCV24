@@ -14,6 +14,6 @@ nvidia-smi
 . ~/miniconda3/etc/profile.d/conda.sh
 conda activate xmodel
 
-python driver.py --assert_device --method $method --architecture $architecture --min_change $min_change --alpha $alpha
+python driver.py --assert_device --method $method --architecture $architecture --dataset $dataset $method_args
 
 echo "Job ${SLURM_JOB_ID} on ${SLURMD_NODENAME} finished"

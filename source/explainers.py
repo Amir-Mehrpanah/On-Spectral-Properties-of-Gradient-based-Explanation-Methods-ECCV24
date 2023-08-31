@@ -1,7 +1,7 @@
 from typing import Any, Callable, Optional, Dict, Tuple, Union
 import jax
 
-from source.model_manager import forward_with_argmax, forward_with_projection
+from source.model_manager import forward_with_projection
 
 
 def vanilla_gradient(
