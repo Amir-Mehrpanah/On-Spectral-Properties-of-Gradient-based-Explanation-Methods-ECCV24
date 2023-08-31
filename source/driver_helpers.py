@@ -3,7 +3,6 @@ import copy
 from datetime import datetime
 import json
 import os
-from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 import jax
@@ -312,7 +311,7 @@ def inplace_save_metadata(args):
     args.input_shape = str(args.input_shape)
 
     inplace_delete_extra_metadata(args)
-    
+
     # convert metadata from namespace to dict
     args = vars(args)
 
@@ -320,6 +319,7 @@ def inplace_save_metadata(args):
     dataframe = pd.DataFrame(args)
     dataframe.to_csv(csv_file_path, index=False)
     print("saved the correspoding meta data to", csv_file_path)
+
 
 def inplace_delete_extra_metadata(args):
     del args.batch_index_key
