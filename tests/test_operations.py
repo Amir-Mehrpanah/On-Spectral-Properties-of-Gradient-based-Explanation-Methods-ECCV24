@@ -12,6 +12,17 @@ from source import operations
 from source.utils import AbstractFunction
 
 
+def test_static_call():
+    def f(x, fn):
+        return fn(x)
+
+    pjitf = jax.jit(f, static_argnames=("fn",))
+    jax.config.update("jax_log_compiles", True)
+    fn = lambda x: x + 1
+    pjitf(jnp.array(1), fn)
+    pjitf(jnp.array(2), fn)
+
+
 def test_partial_call():
     @AbstractFunction
     def func(*, idict, y):

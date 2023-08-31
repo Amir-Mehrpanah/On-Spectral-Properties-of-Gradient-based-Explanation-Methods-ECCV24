@@ -21,7 +21,7 @@ from source.utils import (
 )
 
 methods_switch = Switch()
-args_selector_switch = Switch()
+args_processor_switch = Switch()
 inplace_method_parser_switch = Switch()
 dataset_query_func_switch = Switch()
 init_architecture_forward_switch = Switch()
@@ -35,9 +35,9 @@ inplace_method_parser_switch.register(
     "noise_interpolation",
     noise_interpolation.inplace_noise_interpolation_parser,
 )
-args_selector_switch.register(
+args_processor_switch.register(
     "noise_interpolation",
-    noise_interpolation.noise_interpolation_select_args,
+    noise_interpolation.noise_interpolation_process_args,
 )
 dataset_query_func_switch.register(
     "imagenet",
@@ -263,8 +263,8 @@ def inplace_update_init_forward(args):
 
 def inplace_update_method_and_kwargs(args):
     method = methods_switch[args.method]
-    select_kwargs = args_selector_switch[args.method]
-    kwargs = select_kwargs(args)
+    process_kwargs = args_processor_switch[args.method]
+    kwargs = process_kwargs(args)
     args.abstract_process = method(**kwargs)
 
 

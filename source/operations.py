@@ -5,6 +5,23 @@ import jax
 from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 
 
+def static_projection(*, num_classes, index):
+    return (
+        jnp.zeros(
+            shape=(num_classes, 1),
+            dtype=jnp.float32,
+        )
+        .at[index, 0]
+        .set(1.0)
+    )
+
+
+def prediction_projection(*, forward, image):
+    log_probs = forward(image)
+    max_idx = log_probs.argmax()
+    return static_projection(num_classes=log_probs.shape[0], index=max_idx)
+
+
 def resize_mask(
     *,
     source_mask: str,

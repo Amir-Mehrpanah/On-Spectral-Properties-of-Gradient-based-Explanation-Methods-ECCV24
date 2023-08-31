@@ -12,14 +12,6 @@ def forward_with_projection(inputs, projection, forward):
     return results_at_projection, (results_at_projection, log_prob)
 
 
-def forward_with_argmax(inputs, forward):
-    assert inputs.ndim == 4, "inputs should be a batch of images"
-    assert inputs.shape[0] == 1, "batch size must match"
-    log_prob = forward(inputs)
-    max_index = log_prob.argmax()
-    return log_prob[max_index], (log_prob[max_index], log_prob)
-
-
 def init_resnet50_forward(args):
     resnet50 = fm.ResNet50(
         output="log_softmax",

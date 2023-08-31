@@ -113,26 +113,3 @@ def onehot_categorical_mask(
     x_index, y_index = jnp.unravel_index(flat_index, shape=spatial_shape)
     stream.update({name: static_mask.at[0, x_index, y_index, :].set(1.0)})
     return stream
-
-
-def normal_mask(
-    *,
-    shape: Tuple,
-    key: jax.random.KeyArray,
-) -> Dict[str, jax.Array]:
-    """
-    args:
-        name: name of the mask
-        shape: shape of the mask
-        key: key to be used for sampling
-    returns:
-        the resulting stream
-
-    An inplace function that takes a stream and key and samples a mask from the normal distribution
-    depending on the key provided and puts the sampled mask in the stream.
-    """
-    assert (
-        shape[0] == 1 and len(shape) == 4
-    ), "shape should be a 4D array of shape (1,H,W,C)"
-
-    return jax.random.normal(key, shape=shape)

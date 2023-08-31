@@ -1,3 +1,5 @@
+from functools import partial
+import jax
 import jax.numpy as jnp
 from typing import Callable, Dict, List, Tuple
 import os
@@ -11,27 +13,25 @@ from source.utils import StreamNames, AbstractFunction
 
 
 @AbstractFunction
-def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image, label):
-    assert len(input_shape) == 4
-
-    alpha_mask = alpha * jnp.ones(shape=(1, 1, 1, 1))
-    projection = (
-        jnp.zeros(
-            shape=(num_classes, 1),
-            dtype=jnp.float32,
-        )
-        .at[label, 0]
-        .set(1.0)
-    )
-
-    normal_mask = neighborhoods.normal_mask(
-        key=key,
-        shape=input_shape,
-    )
+def noise_interpolation(
+    key,
+    *,
+    forward,
+    alpha_mask,
+    projection,
+    image,
+    baseline_mask,
+):
+    if isinstance(baseline_mask, Callable):
+        baseline_mask = baseline_mask(key=key)
+    if isinstance(projection, Callable):
+        projection = projection(key=key)
+    if isinstance(alpha_mask, Callable):
+        alpha_mask = alpha_mask(key=key)
 
     convex_combination_mask = operations.convex_combination_mask(
         source_mask=image,
-        target_mask=normal_mask,
+        target_mask=baseline_mask,
         alpha_mask=alpha_mask,
     )
 
@@ -39,7 +39,7 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
         forward=forward_with_projection,
         inputs=(convex_combination_mask, projection, forward),
     )
-    
+
     return {
         StreamNames.vanilla_grad_mask: vanilla_grad_mask,
         StreamNames.results_at_projection: results_at_projection,
@@ -49,18 +49,106 @@ def noise_interpolation(key, *, alpha, forward, num_classes, input_shape, image,
 
 def inplace_noise_interpolation_parser(base_parser):
     base_parser.add_argument(
-        "--alpha",
+        "--alpha_mask_type",
+        type=str,
+        required=["static", "scalar_uniform"],
+    )
+    base_parser.add_argument(
+        "--alpha_mask_value",
         type=float,
-        required=True,
+    )
+    base_parser.add_argument(
+        "--projection_type",
+        type=str,
+        choices=["label", "random", "prediction"],
+    )
+    base_parser.add_argument(
+        "--projection_distribution",
+        type=str,
+        choices=["uniform", "categorical"],
+    )
+    base_parser.add_argument(
+        "--baseline_mask_type",
+        type=str,
+        choices=["static", "gaussian"],
+    )
+    base_parser.add_argument(
+        "--baseline_mask_value",
+        type=float,
     )
 
 
-def noise_interpolation_select_args(args):
+def noise_interpolation_process_args(args):
+    inplace_process_logical(args)
+    inplace_process_projection(args)
+    inplace_process_baseline(args)
+    inplace_process_alpha_mask(args)
+
     return {
-        "alpha": args.alpha,
         "forward": args.forward,
-        "num_classes": args.num_classes,
-        "input_shape": args.input_shape,
+        "alpha_mask": args.alpha_mask,
+        "projection": args.projection,
         "image": args.image,
-        "label": args.label,
+        "baseline_mask": args.baseline_mask,
     }
+
+
+def inplace_process_logical(args):
+    assert len(args.input_shape) == 4
+
+    if args.alpha_mask_type == "static":
+        assert args.alpha_mask_value is not None
+    elif args.alpha_mask_type == "uniform":
+        assert args.alpha_mask_value is None
+
+    if args.baseline_mask_type == "static":
+        assert args.baseline_mask_value is not None
+    elif args.baseline_mask_type == "gaussian":
+        assert args.baseline_mask_value is None
+
+    if args.projection_type == "label":
+        assert args.label is not None
+        assert args.projection_distribution is None
+    elif args.projection_type == "random":
+        assert args.projection_distribution is not None
+    elif args.projection_type == "prediction":
+        assert args.projection_distribution is None
+
+
+def inplace_process_alpha_mask(args):
+    if args.alpha_mask_type == "static":
+        args.alpha_mask = args.alpha_mask_value * jnp.ones(shape=(1, 1, 1, 1))
+    elif args.alpha_mask_type == "scalar_uniform":
+        args.alpha_mask = partial(
+            jax.random.uniform,
+            shape=(1, 1, 1, 1),
+        )
+
+
+def inplace_process_baseline(args):
+    if args.baseline_mask_type == "static":
+        args.baseline_mask = args.baseline_mask_value * jnp.ones(shape=args.input_shape)
+    elif args.baseline_mask_type == "gaussian":
+        args.baseline_mask = partial(
+            jax.random.normal,
+            shape=args.input_shape,
+        )
+
+
+def inplace_process_projection(args):
+    if args.projection_type == "label":
+        args.projection = operations.static_projection(
+            num_classes=args.num_classes,
+            index=args.label,
+        )
+    elif args.projection_type == "random":
+        raise NotImplementedError
+        args.projection = operations.random_projection(
+            num_classes=args.num_classes,
+            distribution=args.projection_distribution,
+        )
+    elif args.projection_type == "prediction":
+        args.projection = operations.prediction_projection(
+            image=args.image,
+            forward=args.forward,
+        )
