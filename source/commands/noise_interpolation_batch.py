@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 num_alphas = 10
+job_array_image_index = "1"
 alphas = np.linspace(0.1, 1, num_alphas)
 min_changes = np.array([1e-2, 1e-3, 1e-4, 1e-5])
 method = "noise_interpolation"
@@ -14,7 +15,7 @@ save_raw_data_dir = "/local_storage/users/amirme/raw_data/noise_interpolation"
 save_metadata_dir = "/local_storage/users/amirme/metadata/noise_interpolation"
 sweeper_cmd = (
     lambda min_change, alpha: "sbatch "
-    "--export "
+    f"--array={job_array_image_index} --export "
     f"method={method},"
     f"architecture={architecture},"
     f"dataset={dataset},"

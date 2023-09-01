@@ -38,8 +38,9 @@ def load_experiment_metadata(glob_path: str = "*.csv", list_of_paths: list = Non
             project_data = pd.read_csv(metadata_path)
             dataframes.append(project_data)
     else:
-        print("No slurm api data found creating data from paths")
-        raise FileNotFoundError()
+        raise FileNotFoundError(
+            f"Could not find any metadata files in {metadata_glob_path}"
+        )
 
     project_data = pd.concat(dataframes)
     return project_data

@@ -5,9 +5,9 @@ from typing import Callable, Dict, List, Tuple
 import os
 import sys
 
-from source.model_manager import forward_with_projection
-
 sys.path.append(os.getcwd())
+from source.data_manager import minmax_normalize
+from source.model_manager import forward_with_projection
 from source import neighborhoods, explainers, operations
 from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
@@ -35,7 +35,9 @@ def noise_interpolation(
         target_mask=baseline_mask,
         alpha_mask=alpha_mask,
     )
-
+    convex_combination_mask = minmax_normalize(
+        convex_combination_mask
+    )  # set image to the correct range [0,1]
     vanilla_grad_mask, results_at_projection, log_probs = explainers.vanilla_gradient(
         forward=forward_with_projection,
         inputs=(convex_combination_mask, projection, forward),
@@ -76,7 +78,11 @@ def inplace_noise_interpolation_parser(base_parser):
         "--projection_type",
         type=str,
         required=True,
-        choices=["label", "random", "prediction"],
+        choices=["label", "random", "prediction", "static"],
+    )
+    base_parser.add_argument(
+        "--projection_index",
+        type=int,
     )
     base_parser.add_argument(
         "--projection_distribution",
@@ -130,6 +136,8 @@ def inplace_process_logical(args):
         assert args.projection_distribution is not None
     elif args.projection_type == "prediction":
         assert args.projection_distribution is None
+    elif args.projection_type == "static":
+        assert args.projection_index is not None
 
 
 def inplace_process_alpha_mask(args):
@@ -168,6 +176,11 @@ def inplace_process_projection(args):
         args.projection = operations.prediction_projection(
             image=args.image,
             forward=args.forward,
+        )
+    elif args.projection_type == "static":
+        args.projection = operations.static_projection(
+            num_classes=args.num_classes,
+            index=args.projection_index,
         )
 
 

@@ -12,11 +12,6 @@ def fisher_information(
     label,
 ):
     assert len(input_shape) == 4
-
-    normal_mask = neighborhoods.normal_mask(
-        key=key,
-        shape=input_shape,
-    )
     return normal_mask
 
 

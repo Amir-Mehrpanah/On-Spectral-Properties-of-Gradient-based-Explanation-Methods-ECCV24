@@ -1,0 +1,10 @@
+python driver.py \
+    --method=noise_interpolation \
+    --architecture=resnet50 \
+    --dataset=imagenet \
+    --alpha_mask_type=static \
+    --alpha_mask_value=0.1 \
+    --projection_type=label \
+    --baseline_mask_type=static \
+    --baseline_mask_value=0 \
+    --image_index=7
