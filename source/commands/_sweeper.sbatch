@@ -2,7 +2,6 @@
 #SBATCH --gres gpu:1
 #SBATCH --cpus-per-task 4
 #SBATCH --time 12:00:00
-#SBATCH --constrain "gondor"
 #SBATCH --mail-type BEGIN,END,FAIL
 #SBATCH --mail-user amirme@kth.se
 #SBATCH --output /Midgard/home/amirme/an_explanation_model/outputs/slurm_logs/%J_slurm.out
