@@ -16,10 +16,10 @@ def static_projection(*, num_classes, index):
     )
 
 
-def prediction_projection(*, forward, image):
+def prediction_projection(*, forward, image, k):
     log_probs = forward(image)
-    max_idx = log_probs.argmax()
-    return static_projection(num_classes=log_probs.shape[0], index=max_idx)
+    kth_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
+    return static_projection(num_classes=log_probs.shape[1], index=kth_max)
 
 
 def resize_mask(

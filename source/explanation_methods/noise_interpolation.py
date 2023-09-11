@@ -81,6 +81,10 @@ def inplace_noise_interpolation_parser(base_parser):
         choices=["label", "random", "prediction", "static"],
     )
     base_parser.add_argument(
+        "--projection_top_k",
+        type=int,
+    )
+    base_parser.add_argument(
         "--projection_index",
         type=int,
     )
@@ -136,8 +140,11 @@ def inplace_process_logical(args):
         assert args.projection_distribution is not None
     elif args.projection_type == "prediction":
         assert args.projection_distribution is None
+        assert args.projection_top_k is not None
+        assert args.projection_top_k > 0
     elif args.projection_type == "static":
         assert args.projection_index is not None
+        assert args.projection_index >= 0
 
 
 def inplace_process_alpha_mask(args):
@@ -176,6 +183,7 @@ def inplace_process_projection(args):
         args.projection = operations.prediction_projection(
             image=args.image,
             forward=args.forward,
+            k=args.projection_top_k,
         )
     elif args.projection_type == "static":
         args.projection = operations.static_projection(
