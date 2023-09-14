@@ -1,3 +1,4 @@
+import argparse
 from functools import partial
 import jax
 import jax.numpy as jnp
@@ -192,14 +193,14 @@ def inplace_process_projection(args):
         )
 
 
-def inplace_delete_noise_interpolation_extra_metadata(args):
-    # things we added but don't want to be saved as metadata
+def inplace_delete_noise_interpolation_extra_metadata_after_computation(args: argparse.Namespace):
+    # things we added for computation but don't want to be saved as metadata
     del args.alpha_mask
     del args.projection
     del args.baseline_mask
 
 
-def inplace_noise_interpolation_pretty_print(pretty_kwargs):
+def inplace_noise_interpolation_pretty_print(pretty_kwargs: Dict):
     # things we added but don't want to be shown in the pretty print
     del pretty_kwargs["projection"]
     del pretty_kwargs["alpha_mask"]
@@ -208,6 +209,7 @@ def inplace_noise_interpolation_pretty_print(pretty_kwargs):
 
 
 def inplace_noise_interpolation_demo(args):
+    # we run a demo (one step of the algorithm after computations finished)
     key = jax.random.PRNGKey(args.seed)
     kwargs = noise_interpolation_process_args(args)
     demo_output = noise_interpolation(demo=True, **kwargs).concretize()(key=key)

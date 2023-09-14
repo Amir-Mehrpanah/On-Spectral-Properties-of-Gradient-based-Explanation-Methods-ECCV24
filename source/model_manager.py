@@ -14,7 +14,7 @@ def forward_with_projection(inputs, projection, forward):
 
 def init_resnet50_forward(args):
     resnet50 = fm.ResNet50(
-        output="log_softmax",
+        output=args.output_layer,
         pretrained="imagenet",
     )
     params = resnet50.init(

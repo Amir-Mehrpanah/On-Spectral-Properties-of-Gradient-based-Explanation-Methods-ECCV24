@@ -20,7 +20,7 @@ from source.utils import (
 )
 
 methods_switch = Switch()
-delete_method_extra_metadata_switch = Switch()
+delete_method_metadata_after_computation_switch = Switch()
 args_processor_switch = Switch()
 inplace_method_parser_switch = Switch()
 dataset_query_func_switch = Switch()
@@ -44,9 +44,9 @@ args_processor_switch.register(
     "noise_interpolation",
     noise_interpolation.noise_interpolation_process_args,
 )
-delete_method_extra_metadata_switch.register(
+delete_method_metadata_after_computation_switch.register(
     "noise_interpolation",
-    noise_interpolation.inplace_delete_noise_interpolation_extra_metadata,
+    noise_interpolation.inplace_delete_noise_interpolation_extra_metadata_after_computation,
 )
 method_pretty_print_switch.register(
     "noise_interpolation",
@@ -72,6 +72,15 @@ def base_parser(parser, default_args: DefaultArgs):
     args, _ = parser.parse_known_args()
     inplace_method_parser_switch[args.method](parser)
 
+    add_base_args(parser, default_args)
+
+    args = parser.parse_args()
+    args = _process_args(args)
+
+    return args
+
+
+def add_base_args(parser, default_args):
     parser.add_argument(
         "--no_demo",
         action="store_false",
@@ -165,11 +174,12 @@ def base_parser(parser, default_args: DefaultArgs):
         type=str,
         default=default_args.dataset_dir,
     )
-
-    args = parser.parse_args()
-    args = _process_args(args)
-
-    return args
+    parser.add_argument(
+        "--output_layer",
+        type=str,
+        default=default_args.output_layer,
+        choices=default_args.output_layers,
+    )
 
 
 def _process_args(args):
@@ -313,7 +323,7 @@ def inplace_save_metadata(args):
     csv_file_name = f"{args.path_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
 
-    inplace_delete_extra_metadata(args)
+    inplace_delete_metadata_after_computation(args)
 
     # processing base metadata before saving
     args.csv_file_path = csv_file_path
@@ -328,7 +338,12 @@ def inplace_save_metadata(args):
     print("saved the correspoding meta data to", csv_file_path)
 
 
-def inplace_delete_extra_metadata(args):
+def inplace_delete_metadata_after_computation(args):
+    inplace_delete_base_metadata(args)
+    delete_method_metadata_after_computation_switch[args.method](args)
+    inplace_delete_none_metadata(args)
+
+def inplace_delete_base_metadata(args):
     del args.batch_index_key
     del args.assert_device
     del args.dry_run
@@ -344,4 +359,9 @@ def inplace_delete_extra_metadata(args):
     del args.disable_jit
     del args.path_prefix
 
-    delete_method_extra_metadata_switch[args.method](args)
+
+def inplace_delete_none_metadata(args):
+    temp_args = vars(copy.deepcopy(args))
+    for key, value in temp_args.items():
+        if value is None:
+            delattr(args, key)

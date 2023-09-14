@@ -10,12 +10,14 @@ class DefaultArgs:
 
     methods = ["noise_interpolation", "fisher_information"]
     architectures = ["resnet50"]
+    output_layers = ["logits", "log_softmax", "softmax"]
 
     seed = 42
     write_demo = True
     input_shape = (1, 224, 224, 3)
 
     monitored_statistic = "meanx2"
+    output_layer = output_layers[1]  # see paper for why
     monitored_stream = "vanilla_grad_mask"
     min_change = 1e-2
     batch_size = 32
