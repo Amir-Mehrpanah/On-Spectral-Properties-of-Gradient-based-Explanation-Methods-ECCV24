@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import jax.numpy as jnp
@@ -11,6 +12,42 @@ def preprocess(x, img_size):
     x = jnp.array(x)
     x = jnp.expand_dims(x, axis=0) / 255.0
     return x
+
+
+# move to visualization.py
+def plot_masks(masks, titles, imshow_args={}, ncols=5):
+    ncols = ncols
+    nrows = len(masks) // ncols
+    scale_factor = 4
+    fig, axes = plt.subplots(
+        nrows, ncols, figsize=(ncols * scale_factor, nrows * scale_factor)
+    )
+    for i, ax in enumerate(axes.flatten()):
+        mask = masks.iloc[i]
+        ax.imshow(mask, **imshow_args)
+        ax.set_title(titles.iloc[i])
+
+
+def preprocess_masks(masks, preprocesses=[]):
+    for process in preprocesses:
+        masks = masks.apply(process)
+    return masks
+
+
+def fisher_information(dataframe, prior):
+    temp = dataframe.loc[:, "data_path"].apply(np.load)
+    e = temp.loc["meanx"]
+    e = np.stack(e, axis=0)
+    e2 = e**2
+    # double check
+    # e2 = temp.loc["meanx2"]
+    # e2 = np.stack(e2, axis=0)
+
+    assert e.shape[0] == prior.shape[0]
+    e2q = (e2 * prior).sum(axis=0)
+    eq2 = (e * prior).sum(axis=0) ** 2
+    fisher = e2q - eq2
+    return fisher
 
 
 def minmax_normalize(x):
