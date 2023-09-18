@@ -1,3 +1,4 @@
+import functools
 from typing import Any, Dict, List, Callable, Tuple
 import jax.numpy as jnp
 import jax
@@ -20,6 +21,22 @@ def prediction_projection(*, forward, image, k):
     log_probs = forward(image)
     kth_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
     return static_projection(num_classes=log_probs.shape[1], index=kth_max)
+
+
+def onehot_categorical(key, *, num_classes, indices):
+    sparse = jax.random.choice(key, indices, shape=(1,))
+    return static_projection(num_classes=num_classes, index=sparse)
+
+
+def random_projection(*, forward, image, num_classes, distribution, k, **kwargs):
+    log_probs = forward(image)
+    uptok_max = jnp.argpartition(log_probs.squeeze(), -k)[-k:]
+    if distribution == "topk_uniform":
+        return functools.partial(
+            onehot_categorical, num_classes=num_classes, indices=uptok_max
+        )
+    else:
+        raise NotImplementedError
 
 
 def resize_mask(

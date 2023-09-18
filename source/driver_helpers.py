@@ -28,6 +28,7 @@ init_architecture_forward_switch = Switch()
 method_pretty_print_switch = Switch()
 method_demo_switch = Switch()
 
+# >>> convert this to a switch str to class
 methods_switch.register(
     "noise_interpolation",
     noise_interpolation.noise_interpolation,
@@ -52,6 +53,8 @@ method_pretty_print_switch.register(
     "noise_interpolation",
     noise_interpolation.inplace_noise_interpolation_pretty_print,
 )
+### <<<
+
 dataset_query_func_switch.register(
     "imagenet",
     query_imagenet,

@@ -141,11 +141,12 @@ def inplace_process_logical(args):
         assert args.projection_distribution is not None
     elif args.projection_type == "prediction":
         assert args.projection_distribution is None
-        assert args.projection_top_k is not None
-        assert args.projection_top_k > 0
+        assert args.projection_top_k is not None and args.projection_index >= 0
     elif args.projection_type == "static":
-        assert args.projection_index is not None
-        assert args.projection_index >= 0
+        assert args.projection_index is not None and args.projection_index >= 0
+
+    if args.projection_distribution == "topk_uniform":
+        assert args.projection_top_k is not None and args.projection_index >= 0
 
 
 def inplace_process_alpha_mask(args):
@@ -175,10 +176,12 @@ def inplace_process_projection(args):
             index=args.label,
         )
     elif args.projection_type == "random":
-        raise NotImplementedError
         args.projection = operations.random_projection(
+            image=args.image,
+            forward=args.forward,
             num_classes=args.num_classes,
             distribution=args.projection_distribution,
+            k=args.projection_top_k,
         )
     elif args.projection_type == "prediction":
         args.projection = operations.prediction_projection(
@@ -193,7 +196,9 @@ def inplace_process_projection(args):
         )
 
 
-def inplace_delete_noise_interpolation_extra_metadata_after_computation(args: argparse.Namespace):
+def inplace_delete_noise_interpolation_extra_metadata_after_computation(
+    args: argparse.Namespace,
+):
     # things we added for computation but don't want to be saved as metadata
     del args.alpha_mask
     del args.projection

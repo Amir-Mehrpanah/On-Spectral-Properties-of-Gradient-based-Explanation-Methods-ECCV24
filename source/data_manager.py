@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import jax.numpy as jnp
@@ -34,14 +35,35 @@ def preprocess_masks(masks, preprocesses=[]):
     return masks
 
 
-def fisher_information(dataframe, prior):
-    temp = dataframe.loc[:, "data_path"].apply(np.load)
-    e = temp.loc["meanx"]
+# def fisher_information(dataframe, prior):
+#     '''
+#         the wrong way:
+#         $Var_y[E_x[\nabla\log y f(x)]]$ where $yf(x) = p(y|x)$
+#     '''
+#     temp = dataframe.loc[:, "data_path"].apply(np.load)
+#     e = temp.loc["meanx"]
+#     e = np.stack(e, axis=0)
+#     e2 = e**2
+
+#     assert e.shape[0] == prior.shape[0]
+#     e2q = (e2 * prior).sum(axis=0)
+#     eq2 = (e * prior).sum(axis=0) ** 2
+#     fisher = e2q - eq2
+#     return fisher
+
+
+def fisher_information(dynamic_meanx2, static_meanx2, prior):
+    """
+    $FI = E_x[Var_y[\nabla\log y f(x)]]$ where $yf(x) = p(y|x)$
+    $FI = A - B$ where
+    $A = \sum_i^k E_x[(\nabla (\log f(x))_i)^2] q_i$
+    $B = E_x[(\sum_i^k \nabla (\log f(x))_i q_i)^2]
+    """
+    temp = static_meanx2.loc[:, "data_path"].apply(np.load)
+    e = temp.loc["meanx2"]
+    e2 = temp.loc["meanx2"]
     e = np.stack(e, axis=0)
-    e2 = e**2
-    # double check
-    # e2 = temp.loc["meanx2"]
-    # e2 = np.stack(e2, axis=0)
+    e2 = np.stack(e2, axis=0)
 
     assert e.shape[0] == prior.shape[0]
     e2q = (e2 * prior).sum(axis=0)
