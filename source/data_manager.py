@@ -60,16 +60,19 @@ def fisher_information(dynamic_meanx2, static_meanx2, prior):
     $B = E_x[(\sum_i^k \nabla (\log f(x))_i q_i)^2]
     """
     temp = static_meanx2.loc[:, "data_path"].apply(np.load)
-    e = temp.loc["meanx2"]
-    e2 = temp.loc["meanx2"]
-    e = np.stack(e, axis=0)
-    e2 = np.stack(e2, axis=0)
+    static_meanx2 = temp.loc["meanx2"]
+    static_meanx2 = np.stack(static_meanx2, axis=0)
 
-    assert e.shape[0] == prior.shape[0]
-    e2q = (e2 * prior).sum(axis=0)
-    eq2 = (e * prior).sum(axis=0) ** 2
-    fisher = e2q - eq2
-    return fisher
+    temp = dynamic_meanx2.loc[:, "data_path"].apply(np.load)
+    dynamic_meanx2 = temp.loc["meanx2"]
+    
+    raise NotImplementedError
+    assert static_meanx2.shape[0] == prior.shape[0]
+    e2q = (static_meanx2 * prior).sum(axis=0)
+    eq2 = dynamic_meanx2
+    print(eq2.shape)
+    print(e2q.shape)
+    return e2q - eq2
 
 
 def minmax_normalize(x):

@@ -13,7 +13,7 @@ class AbstractFunction:
         return self
 
     def __repr__(self) -> str:
-        return f"abstrac {self.func.__name__}(static_args={list(self.params.keys())})"
+        return f"abstract {self.func.__name__}(static_args={list(self.params.keys())})"
 
     def concretize(self):
         return partial(self.func, **self.params)

@@ -14,9 +14,9 @@ from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
 
 class NoiseInterpolation:
-    @staticmethod
+
     @AbstractFunction
-    def sample(
+    def sampler(
         key,
         *,
         forward,
@@ -220,7 +220,7 @@ class NoiseInterpolation:
         # we run a demo (one step of the algorithm after computations finished)
         key = jax.random.PRNGKey(args.seed)
         kwargs = NoiseInterpolation.process_args(args)
-        demo_output = NoiseInterpolation.sample(demo=True, **kwargs).concretize()(
+        demo_output = NoiseInterpolation.sampler(demo=True, **kwargs).concretize()(
             key=key
         )
         args.stats.update(demo_output)

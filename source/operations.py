@@ -31,7 +31,7 @@ def top_k_prediction_projection(*, forward, image, k):
         projection.append(static_projection(num_classes=log_probs.shape[1], index=i))
     projection = jnp.stack(projection, axis=0)
     projection = projection / projection.shape[0]
-    return
+    return projection
 
 
 def onehot_categorical(key, *, num_classes, indices):

@@ -13,7 +13,7 @@ from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
 class FisherInformation(NoiseInterpolation):
     @AbstractFunction
-    def sample(
+    def sampler(
         key,
         *,
         forward,
