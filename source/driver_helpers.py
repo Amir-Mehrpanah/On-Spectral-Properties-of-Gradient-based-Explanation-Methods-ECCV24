@@ -277,7 +277,7 @@ def inplace_update_method_and_kwargs(args):
     process_args_and_return_kwargs = method_cls.process_args
 
     kwargs = process_args_and_return_kwargs(args)
-    args.abstract_process = method_cls.sample(**kwargs)
+    args.abstract_process = method_cls.sampler(**kwargs)
 
 
 def inplace_save_stats(args):
@@ -356,6 +356,7 @@ def inplace_delete_base_metadata(args):
     del args.dataset_dir
     del args.disable_jit
     del args.path_prefix
+    del args.stats_log_level
 
 
 def inplace_delete_none_metadata(args):

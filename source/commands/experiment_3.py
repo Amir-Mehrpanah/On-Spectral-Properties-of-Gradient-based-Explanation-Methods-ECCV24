@@ -4,7 +4,7 @@ import time
 import numpy as np
 
 job_array_image_index = "3,5,9,11"
-alphas = np.linspace(0.2, 0.6, 5)
+alphas = np.linspace(0.4, 0.6, 3)
 min_change = 5e-4
 noise_interpolation = "noise_interpolation"
 fisher_information = "fisher_information"
