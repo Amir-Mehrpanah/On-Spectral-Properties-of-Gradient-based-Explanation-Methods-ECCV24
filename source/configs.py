@@ -16,6 +16,7 @@ class DefaultArgs:
     write_demo = True
     input_shape = (1, 224, 224, 3)
 
+    stats_log_level = 0
     monitored_statistic = "meanx2"
     output_layer = output_layers[1]  # see paper for why
     monitored_stream = "vanilla_grad_mask"

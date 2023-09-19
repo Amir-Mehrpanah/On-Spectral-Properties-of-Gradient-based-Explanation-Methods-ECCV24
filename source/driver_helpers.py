@@ -10,7 +10,7 @@ import jax.numpy as jnp
 
 from source.configs import DefaultArgs
 from source.data_manager import query_imagenet
-from source.explanation_methods import noise_interpolation
+from source import explanation_methods
 from source.model_manager import init_resnet50_forward
 from source.utils import (
     Switch,
@@ -20,41 +20,18 @@ from source.utils import (
 )
 
 methods_switch = Switch()
-delete_method_metadata_after_computation_switch = Switch()
-args_processor_switch = Switch()
-inplace_method_parser_switch = Switch()
 dataset_query_func_switch = Switch()
 init_architecture_forward_switch = Switch()
-method_pretty_print_switch = Switch()
-method_demo_switch = Switch()
 
-# >>> convert this to a switch str to class
+
 methods_switch.register(
     "noise_interpolation",
-    noise_interpolation.noise_interpolation,
+    explanation_methods.noise_interpolation.NoiseInterpolation,
 )
-method_demo_switch.register(
-    "noise_interpolation",
-    noise_interpolation.inplace_noise_interpolation_demo,
+methods_switch.register(
+    "fisher_information",
+    explanation_methods.fisher_information.FisherInformation,
 )
-inplace_method_parser_switch.register(
-    "noise_interpolation",
-    noise_interpolation.inplace_noise_interpolation_parser,
-)
-args_processor_switch.register(
-    "noise_interpolation",
-    noise_interpolation.noise_interpolation_process_args,
-)
-delete_method_metadata_after_computation_switch.register(
-    "noise_interpolation",
-    noise_interpolation.inplace_delete_noise_interpolation_extra_metadata_after_computation,
-)
-method_pretty_print_switch.register(
-    "noise_interpolation",
-    noise_interpolation.inplace_noise_interpolation_pretty_print,
-)
-### <<<
-
 dataset_query_func_switch.register(
     "imagenet",
     query_imagenet,
@@ -73,7 +50,7 @@ def base_parser(parser, default_args: DefaultArgs):
         choices=default_args.methods,
     )
     args, _ = parser.parse_known_args()
-    inplace_method_parser_switch[args.method](parser)
+    methods_switch[args.method].inplace_add_args(parser)
 
     add_base_args(parser, default_args)
 
@@ -183,6 +160,11 @@ def add_base_args(parser, default_args):
         default=default_args.output_layer,
         choices=default_args.output_layers,
     )
+    parser.add_argument(
+        "--stats_log_level",
+        type=int,
+        default=default_args.stats_log_level,
+    )
 
 
 def _process_args(args):
@@ -223,30 +205,38 @@ def _process_args(args):
         Statistics.none,
     )
     args.stats = {
-        Stream(
-            StreamNames.vanilla_grad_mask,
-            Statistics.meanx,
-        ): jnp.zeros(shape=args.input_shape),
         args.monitored_statistic_source_key: jnp.zeros(shape=args.input_shape),
         Stream(
             StreamNames.results_at_projection,
             Statistics.meanx,
         ): jnp.zeros(shape=()),
         Stream(
-            StreamNames.results_at_projection,
-            Statistics.meanx2,
-        ): jnp.zeros(shape=()),
-        Stream(
             StreamNames.log_probs,
             Statistics.meanx,
-        ): jnp.zeros(shape=(1, args.num_classes)),
-        Stream(
-            StreamNames.log_probs,
-            Statistics.meanx2,
         ): jnp.zeros(shape=(1, args.num_classes)),
         args.monitored_statistic_key: jnp.inf,
         args.batch_index_key: 0,
     }
+
+    if args.stats_log_level == 1:
+        args.stats[
+            Stream(
+                StreamNames.log_probs,
+                Statistics.meanx2,
+            )
+        ] = jnp.zeros(shape=(1, args.num_classes))
+        args.stats[
+            Stream(
+                StreamNames.results_at_projection,
+                Statistics.meanx2,
+            )
+        ] = jnp.zeros(shape=())
+        args.stats[
+            Stream(
+                StreamNames.vanilla_grad_mask,
+                Statistics.meanx,
+            )
+        ] = (jnp.zeros(shape=args.input_shape),)
 
     inplace_update_method_and_kwargs(args)
     pretty_print_args(args)
@@ -257,7 +247,7 @@ def _process_args(args):
 def sampling_demo(args):
     if args.write_demo:
         print("sampling demo")
-        method_demo_switch[args.method](args)
+        methods_switch[args.method].inplace_demo(args)
 
 
 def pretty_print_args(args: argparse.Namespace):
@@ -275,15 +265,16 @@ def pretty_print_args(args: argparse.Namespace):
         {k: int(v) for k, v in pretty_kwargs.items() if isinstance(v, np.int64)}
     )
 
-    method_pretty_print_switch[args.method](pretty_kwargs)
+    methods_switch[args.method].inplace_pretty_print(pretty_kwargs)
     print("experiment args:", json.dumps(pretty_kwargs, indent=4, sort_keys=True))
 
 
 def inplace_update_method_and_kwargs(args):
-    method = methods_switch[args.method]
-    process_args_and_return_kwargs = args_processor_switch[args.method]
+    method_cls = methods_switch[args.method]
+    process_args_and_return_kwargs = method_cls.process_args[args.method]
+
     kwargs = process_args_and_return_kwargs(args)
-    args.abstract_process = method(**kwargs)
+    args.abstract_process = method_cls.sample(**kwargs)
 
 
 def inplace_save_stats(args):
@@ -343,8 +334,9 @@ def inplace_save_metadata(args):
 
 def inplace_delete_metadata_after_computation(args):
     inplace_delete_base_metadata(args)
-    delete_method_metadata_after_computation_switch[args.method](args)
+    methods_switch[args.method].inplace_delete_extra_metadata_after_computation(args)
     inplace_delete_none_metadata(args)
+
 
 def inplace_delete_base_metadata(args):
     del args.batch_index_key

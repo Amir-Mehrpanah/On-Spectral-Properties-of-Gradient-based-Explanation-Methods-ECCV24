@@ -1,83 +1,60 @@
-from source.utils import AbstractFunction
-from source import neighborhoods
+from typing import Callable
+import os
+import jax
+import sys
+
+sys.path.append(os.getcwd())
+from source.explanation_methods.noise_interpolation import NoiseInterpolation
+from source.data_manager import minmax_normalize
+from source.model_manager import forward_with_projection
+from source import neighborhoods, explainers, operations
+from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
 
-@AbstractFunction
-def fisher_information(
-    key,
-    *,
-    forward,
-    input_shape,
-    image,
-    label,
-):
-    assert len(input_shape) == 4
-    return normal_mask
+class FisherInformation(NoiseInterpolation):
+    @staticmethod
+    @AbstractFunction
+    def sample(
+        key,
+        *,
+        forward,
+        alpha_mask,
+        projection,
+        image,
+        baseline_mask,
+        demo=False,
+    ):
+        if isinstance(baseline_mask, Callable):
+            baseline_mask = baseline_mask(key=key)
+        if isinstance(alpha_mask, Callable):
+            alpha_mask = alpha_mask(key=key)
 
+        convex_combination_mask = operations.convex_combination_mask(
+            source_mask=image,
+            target_mask=baseline_mask,
+            alpha_mask=alpha_mask,
+        )
+        convex_combination_mask = minmax_normalize(convex_combination_mask)
+        sum_vanilla_grad_mask = 0
+        for p_ in projection:
+            (
+                vanilla_grad_mask,
+                results_at_projection,
+                log_probs,
+            ) = explainers.vanilla_gradient(
+                forward=forward_with_projection,
+                inputs=(convex_combination_mask, p_, forward),
+            )
+            sum_vanilla_grad_mask += vanilla_grad_mask
 
-# class SmoothGradient(Aggregator):
-#     def __init__(
-#         self,
-#         model: torch.nn.Module,
-#         input_shape: Tuple[int, int, int],
-#         prediction_stats: Dict[str, Statistic],
-#         explanation_stats: Dict[str, Statistic],
-#         noise_level: float = 0.3,
-#         # blur neighbor is not in the original paper but we found it to be helpful
-#         # empirically, as it reduces the artifacts in the final explanation
-#         blur_neighbor: bool = False,
-#         batch_size: int = 32,
-#     ) -> None:
-#         """
-#         Args:
-#             model: model to explain
-#             input_shape: shape of the input to the model (C,H,W)
-#             noise_level: intensity of the noise to add to the baseline in (0,1) range
-#             blur_neighbor: whether to blur the neighbor mask
-#             batch_size: number of samples to draw from the distribution
-#             explanation_stats: statistics to compute on the explanations
-#             prediction_stats: statistics to compute on the predictions
-#         An implementation of SmoothGrad from a probabilistic perspective.
-#         """
-#         assert 0 <= noise_level, "noise_level must be in (0,+inf)"
-#         device = get_device(model)
-#         alpha_source = torch.ones(1, 1, 1, 1)
-#         alpha_target = noise_level * torch.ones(1, 1, 1, 1)
-#         maybe_blur_neighbor: List[Distribution] = []
-#         if blur_neighbor:
-#             maybe_blur_neighbor.append(
-#                 BlurMask(name="neighbor", source_name="neighbor", device=device)
-#             )
-#         distribution = Compose(
-#             [
-#                 DeterministicMask(alpha_source, name="alpha_source", device=device),
-#                 DeterministicMask(alpha_target, name="alpha_target", device=device),
-#                 NormalMask(
-#                     shape=(batch_size, *input_shape),
-#                     name="baseline",
-#                     device=device,
-#                 ),
-#                 LinearCombination(
-#                     device=device,
-#                     name="neighbor",
-#                     source_mask="input",
-#                     alpha_source="alpha_source",
-#                     target_mask="baseline",
-#                     alpha_target="alpha_target",
-#                 ),
-#                 *maybe_blur_neighbor,
-#             ]
-#         )
-#         deterministic_explainer = VanillaGradient(model, returns="probs")
-#         probabilistic_explainer = ProbabilisticExplainer(
-#             deterministic_explainer, distribution
-#         )
-#         super().__init__(
-#             probabilistic_explainer,
-#             prediction_stats=prediction_stats,
-#             explanation_stats=explanation_stats,
-#             batch_size=batch_size,
-#         )
+        if demo:
+            raise NotImplementedError("demo is not implemented for FisherInformation")
+        return {
+            StreamNames.vanilla_grad_mask: sum_vanilla_grad_mask,
+            StreamNames.results_at_projection: results_at_projection,
+            StreamNames.log_probs: log_probs,
+        }
+
 
 
 # class IntegratedGradient(Aggregator):

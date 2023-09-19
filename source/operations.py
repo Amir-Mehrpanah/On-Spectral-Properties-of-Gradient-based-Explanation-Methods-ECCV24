@@ -245,7 +245,7 @@ def update_stats(
 ):
     monitored_statistic_old = stats[monitored_statistic_source_key]  # lookup
 
-    for key in stream_keys:  # optimize key, operation in stream.items():
+    for key in stream_keys:
         if key.statistic == Statistics.meanx:
             stats[key] = (1 / batch_index) * sampled_batch[key.name].mean(axis=0) + (
                 (batch_index - 1) / batch_index
