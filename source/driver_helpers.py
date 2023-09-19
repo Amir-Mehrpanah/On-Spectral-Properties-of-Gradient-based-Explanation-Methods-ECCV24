@@ -3,14 +3,17 @@ import copy
 from datetime import datetime
 import json
 import os
+import sys
 import numpy as np
 import pandas as pd
 import jax
 import jax.numpy as jnp
 
+sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
 from source.data_manager import query_imagenet
-from source import explanation_methods
+from source.explanation_methods.noise_interpolation import NoiseInterpolation
+from source.explanation_methods.fisher_information import FisherInformation
 from source.model_manager import init_resnet50_forward
 from source.utils import (
     Switch,
@@ -26,11 +29,11 @@ init_architecture_forward_switch = Switch()
 
 methods_switch.register(
     "noise_interpolation",
-    explanation_methods.noise_interpolation.NoiseInterpolation,
+    NoiseInterpolation,
 )
 methods_switch.register(
     "fisher_information",
-    explanation_methods.fisher_information.FisherInformation,
+    FisherInformation,
 )
 dataset_query_func_switch.register(
     "imagenet",
@@ -271,7 +274,7 @@ def pretty_print_args(args: argparse.Namespace):
 
 def inplace_update_method_and_kwargs(args):
     method_cls = methods_switch[args.method]
-    process_args_and_return_kwargs = method_cls.process_args[args.method]
+    process_args_and_return_kwargs = method_cls.process_args
 
     kwargs = process_args_and_return_kwargs(args)
     args.abstract_process = method_cls.sample(**kwargs)

@@ -29,7 +29,9 @@ def top_k_prediction_projection(*, forward, image, k):
     projection = []
     for i in uptok_max:
         projection.append(static_projection(num_classes=log_probs.shape[1], index=i))
-    return jnp.stack(projection, axis=0)
+    projection = jnp.stack(projection, axis=0)
+    projection = projection / projection.shape[0]
+    return
 
 
 def onehot_categorical(key, *, num_classes, indices):

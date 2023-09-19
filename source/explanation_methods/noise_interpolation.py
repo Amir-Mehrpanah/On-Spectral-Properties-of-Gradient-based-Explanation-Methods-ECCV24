@@ -73,7 +73,7 @@ class NoiseInterpolation:
             StreamNames.log_probs: log_probs,
         }
 
-    def inplace_add_args(self, base_parser):
+    def inplace_add_args(base_parser):
         base_parser.add_argument(
             "--alpha_mask_type",
             type=str,
@@ -114,11 +114,11 @@ class NoiseInterpolation:
             type=float,
         )
 
-    def process_args(self, args):
-        self.inplace_process_logics(args)
-        self.inplace_process_projection(args)
-        self.inplace_process_baseline(args)
-        self.inplace_process_alpha_mask(args)
+    def process_args(args):
+        NoiseInterpolation.inplace_process_logics(args)
+        NoiseInterpolation.inplace_process_projection(args)
+        NoiseInterpolation.inplace_process_baseline(args)
+        NoiseInterpolation.inplace_process_alpha_mask(args)
 
         return {
             "forward": args.forward,
@@ -128,7 +128,7 @@ class NoiseInterpolation:
             "baseline_mask": args.baseline_mask,
         }
 
-    def inplace_process_logics(self, args):
+    def inplace_process_logics(args):
         assert len(args.input_shape) == 4
 
         if args.alpha_mask_type == "static":
@@ -148,14 +148,14 @@ class NoiseInterpolation:
             assert args.projection_distribution is not None
         elif args.projection_type == "prediction":
             assert args.projection_distribution is None
-            assert args.projection_top_k is not None and args.projection_top_k >= 0
+            assert args.projection_top_k is not None and args.projection_top_k > 0
         elif args.projection_type == "static":
             assert args.projection_index is not None and args.projection_index >= 0
 
         if args.projection_distribution == "topk_uniform":
-            assert args.projection_top_k is not None and args.projection_top_k >= 0
+            assert args.projection_top_k is not None and args.projection_top_k > 0
 
-    def inplace_process_alpha_mask(self, args):
+    def inplace_process_alpha_mask(args):
         if args.alpha_mask_type == "static":
             args.alpha_mask = args.alpha_mask_value * jnp.ones(shape=(1, 1, 1, 1))
         elif args.alpha_mask_type == "scalar_uniform":
@@ -164,7 +164,7 @@ class NoiseInterpolation:
                 shape=(1, 1, 1, 1),
             )
 
-    def inplace_process_baseline(self, args):
+    def inplace_process_baseline(args):
         if args.baseline_mask_type == "static":
             args.baseline_mask = args.baseline_mask_value * jnp.ones(
                 shape=args.input_shape
@@ -175,7 +175,7 @@ class NoiseInterpolation:
                 shape=args.input_shape,
             )
 
-    def inplace_process_projection(self, args):
+    def inplace_process_projection(args):
         if args.projection_type == "label":
             args.projection = operations.static_projection(
                 num_classes=args.num_classes,
@@ -202,7 +202,6 @@ class NoiseInterpolation:
             )
 
     def inplace_delete_extra_metadata_after_computation(
-        self,
         args: argparse.Namespace,
     ):
         # things we added for computation but don't want to be saved as metadata
@@ -210,16 +209,18 @@ class NoiseInterpolation:
         del args.projection
         del args.baseline_mask
 
-    def inplace_pretty_print(self, pretty_kwargs: Dict):
+    def inplace_pretty_print(pretty_kwargs: Dict):
         # things we added but don't want to be shown in the pretty print
         del pretty_kwargs["projection"]
         del pretty_kwargs["alpha_mask"]
         del pretty_kwargs["baseline_mask"]
         return pretty_kwargs
 
-    def inplace_demo(self, args):
+    def inplace_demo(args):
         # we run a demo (one step of the algorithm after computations finished)
         key = jax.random.PRNGKey(args.seed)
-        kwargs = self.process_args(args)
-        demo_output = self.sample(demo=True, **kwargs).concretize()(key=key)
+        kwargs = NoiseInterpolation.process_args(args)
+        demo_output = NoiseInterpolation.sample(demo=True, **kwargs).concretize()(
+            key=key
+        )
         args.stats.update(demo_output)

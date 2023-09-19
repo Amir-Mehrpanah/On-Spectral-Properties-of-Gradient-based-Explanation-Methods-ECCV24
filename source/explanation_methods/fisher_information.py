@@ -12,7 +12,6 @@ from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
 
 class FisherInformation(NoiseInterpolation):
-    @staticmethod
     @AbstractFunction
     def sample(
         key,
@@ -41,7 +40,7 @@ class FisherInformation(NoiseInterpolation):
                 vanilla_grad_mask,
                 results_at_projection,
                 log_probs,
-            ) = explainers.vanilla_gradient(    
+            ) = explainers.vanilla_gradient(
                 forward=forward_with_projection,
                 inputs=(convex_combination_mask, p_, forward),
             )
@@ -55,7 +54,7 @@ class FisherInformation(NoiseInterpolation):
             StreamNames.log_probs: log_probs,
         }
 
-    def inplace_process_logics(self, args):
+    def inplace_process_logics(args):
         assert len(args.input_shape) == 4
 
         if args.alpha_mask_type == "static":
@@ -69,13 +68,26 @@ class FisherInformation(NoiseInterpolation):
             assert args.baseline_mask_value is None
 
         if args.projection_type == "prediction":
-            assert args.projection_distribution == "topk_uniform"
-            assert args.projection_top_k is not None and args.projection_top_k >= 0
-            assert args.label is None
+            assert args.projection_distribution == "uniform"
+            assert args.projection_top_k is not None and args.projection_top_k > 0
         else:
             raise NotImplementedError("other projection types are not implemented")
 
-    def inplace_process_projection(self, args):
+    def process_args(args):
+        FisherInformation.inplace_process_logics(args)
+        FisherInformation.inplace_process_projection(args)
+        NoiseInterpolation.inplace_process_baseline(args)
+        NoiseInterpolation.inplace_process_alpha_mask(args)
+
+        return {
+            "forward": args.forward,
+            "alpha_mask": args.alpha_mask,
+            "projection": args.projection,
+            "image": args.image,
+            "baseline_mask": args.baseline_mask,
+        }
+
+    def inplace_process_projection(args):
         if args.projection_type == "prediction":
             args.projection = operations.top_k_prediction_projection(
                 image=args.image,

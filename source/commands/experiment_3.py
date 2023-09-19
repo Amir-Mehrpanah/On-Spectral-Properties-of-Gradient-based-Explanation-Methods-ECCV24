@@ -6,17 +6,19 @@ import numpy as np
 job_array_image_index = "3,5,9,11"
 alphas = np.linspace(0.2, 0.6, 5)
 min_change = 5e-4
-method = "noise_interpolation"
+noise_interpolation = "noise_interpolation"
+fisher_information = "fisher_information"
 architecture = "resnet50"
 dataset = "imagenet"
 baseline_mask_type = "gaussian"
 projection_type = "prediction"
-projection_top_ks = range(1, 11)
+max_k = 10
+projection_top_ks = range(1, max_k + 1)
 alpha_mask_type = "static"
 save_raw_data_dir = f"/local_storage/users/amirme/raw_data/experiment_3"
 save_metadata_dir = f"/local_storage/users/amirme/metadata/experiment_3"
 sweeper_cmd = (
-    lambda alpha, projection_top_k: "sbatch --constraint=gondor "
+    lambda method, alpha, projection_top_k, projection_distribution: "sbatch --constraint=gondor "
     f"--array={job_array_image_index} --export "
     f"method={method},"
     f"architecture={architecture},"
@@ -28,6 +30,7 @@ sweeper_cmd = (
     f"--alpha_mask_value={alpha} "
     f"--projection_type={projection_type} "
     f"--projection_top_k={projection_top_k} "
+    f"--projection_distribution={projection_distribution}"
     f"--baseline_mask_type={baseline_mask_type} "
     f"--save_raw_data_dir={save_raw_data_dir} "
     f"--save_metadata_dir={save_metadata_dir}"
@@ -40,7 +43,8 @@ for projection_top_k in projection_top_ks:
         print(
             "sumbitting job for alpha", alpha, "and projection_top_k", projection_top_k
         )
-        os.system(sweeper_cmd(alpha, projection_top_k))
+        os.system(sweeper_cmd(noise_interpolation, alpha, projection_top_k, None))
+        os.system(sweeper_cmd(fisher_information, alpha, max_k, "uniform"))
         result = 10
         while result > 6:
             result = subprocess.run(["squeue", "-u", "amirme"], stdout=subprocess.PIPE)
