@@ -41,7 +41,7 @@ class FisherInformation(NoiseInterpolation):
                 vanilla_grad_mask,
                 results_at_projection,
                 log_probs,
-            ) = explainers.vanilla_gradient(
+            ) = explainers.vanilla_gradient(    
                 forward=forward_with_projection,
                 inputs=(convex_combination_mask, p_, forward),
             )
@@ -55,6 +55,35 @@ class FisherInformation(NoiseInterpolation):
             StreamNames.log_probs: log_probs,
         }
 
+    def inplace_process_logics(self, args):
+        assert len(args.input_shape) == 4
+
+        if args.alpha_mask_type == "static":
+            assert args.alpha_mask_value is not None
+        elif args.alpha_mask_type == "uniform":
+            assert args.alpha_mask_value is None
+
+        if args.baseline_mask_type == "static":
+            assert args.baseline_mask_value is not None
+        elif args.baseline_mask_type == "gaussian":
+            assert args.baseline_mask_value is None
+
+        if args.projection_type == "prediction":
+            assert args.projection_distribution == "topk_uniform"
+            assert args.projection_top_k is not None and args.projection_top_k >= 0
+            assert args.label is None
+        else:
+            raise NotImplementedError("other projection types are not implemented")
+
+    def inplace_process_projection(self, args):
+        if args.projection_type == "prediction":
+            args.projection = operations.top_k_prediction_projection(
+                image=args.image,
+                forward=args.forward,
+                k=args.projection_top_k,
+            )
+        else:
+            raise NotImplementedError("other projection types are not implemented")
 
 
 # class IntegratedGradient(Aggregator):
