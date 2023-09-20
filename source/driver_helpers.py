@@ -221,19 +221,20 @@ def _process_args(args):
         args.batch_index_key: 0,
     }
 
-    if args.stats_log_level == 1:
-        args.stats[
-            Stream(
-                StreamNames.log_probs,
-                Statistics.meanx2,
-            )
-        ] = jnp.zeros(shape=(1, args.num_classes))
-        args.stats[
-            Stream(
-                StreamNames.results_at_projection,
-                Statistics.meanx2,
-            )
-        ] = jnp.zeros(shape=())
+    if args.stats_log_level >= 1:
+        if args.stats_log_level >= 2:
+            args.stats[
+                Stream(
+                    StreamNames.log_probs,
+                    Statistics.meanx2,
+                )
+            ] = jnp.zeros(shape=(1, args.num_classes))
+            args.stats[
+                Stream(
+                    StreamNames.results_at_projection,
+                    Statistics.meanx2,
+                )
+            ] = jnp.zeros(shape=())
         args.stats[
             Stream(
                 StreamNames.vanilla_grad_mask,

@@ -14,16 +14,17 @@ baseline_mask_value = 0
 projection_type = "prediction"
 projection_top_k = 1
 alpha_mask_type = "static"
-save_raw_data_dir = f"/local_storage/users/amirme/raw_data/experiment_2"
-save_metadata_dir = f"/local_storage/users/amirme/metadata/experiment_2"
+save_raw_data_dir = f"/local_storage/users/amirme/raw_data/experiment_4"
+save_metadata_dir = f"/local_storage/users/amirme/metadata/experiment_4"
 sweeper_cmd = (
-    lambda alpha,baseline_mask_type, baseline_mask_value: "sbatch --constraint=gondor "
+    lambda alpha, baseline_mask_type, baseline_mask_value, demo, stats_log_level: "sbatch --constraint=gondor "
     f"--array={job_array_image_index} --export "
     f"method={method},"
     f"architecture={architecture},"
     f"dataset={dataset},"
     f'method_args="'
-    f"--no_demo "
+    f"{demo} "
+    f"--stats_log_level={stats_log_level} "
     f"--min_change={min_change} "
     f"--alpha_mask_type={alpha_mask_type} "
     f"--alpha_mask_value={alpha} "
@@ -44,8 +45,15 @@ for baseline_mask_type in baseline_mask_types:
             "and baseline_mask_type",
             baseline_mask_type,
         )
-        baseline_mask_value = "--baseline_mask_value=0"
-        os.system(sweeper_cmd(alpha,baseline_mask_type, baseline_mask_value))
+        if baseline_mask_type == "static":
+            baseline_mask_value = "--baseline_mask_value=0"
+            demo = ""
+            stats_log_level = 1
+        else:
+            baseline_mask_value = ""
+            demo = "--no_demo"
+            stats_log_level = 0
+        os.system(sweeper_cmd(alpha, baseline_mask_type, baseline_mask_value, demo, stats_log_level))
         result = 10
         while result > 6:
             result = subprocess.run(["squeue", "-u", "amirme"], stdout=subprocess.PIPE)
