@@ -18,7 +18,7 @@ def preprocess(x, img_size):
 # move to visualization.py
 def plot_masks(masks, titles, imshow_args={}, ncols=5):
     ncols = ncols
-    nrows = len(masks) // ncols
+    nrows = np.ceil(len(masks) / ncols).astype(int)
     scale_factor = 4
     fig, axes = plt.subplots(
         nrows, ncols, figsize=(ncols * scale_factor, nrows * scale_factor)
@@ -59,19 +59,14 @@ def fisher_information(dynamic_meanx2, static_meanx2, prior):
     $A = \sum_i^k E_x[(\nabla (\log f(x))_i)^2] q_i$
     $B = E_x[(\sum_i^k \nabla (\log f(x))_i q_i)^2]
     """
-    temp = static_meanx2.loc[:, "data_path"].apply(np.load)
-    static_meanx2 = temp.loc["meanx2"]
+    static_meanx2 = static_meanx2.loc[:,"data_path"].apply(np.load)
     static_meanx2 = np.stack(static_meanx2, axis=0)
 
-    temp = dynamic_meanx2.loc[:, "data_path"].apply(np.load)
-    dynamic_meanx2 = temp.loc["meanx2"]
-    
-    raise NotImplementedError
+    dynamic_meanx2 = dynamic_meanx2.loc[:, "data_path"].apply(np.load)
+    dynamic_meanx2 = dynamic_meanx2.to_numpy()[0]
     assert static_meanx2.shape[0] == prior.shape[0]
     e2q = (static_meanx2 * prior).sum(axis=0)
     eq2 = dynamic_meanx2
-    print(eq2.shape)
-    print(e2q.shape)
     return e2q - eq2
 
 
