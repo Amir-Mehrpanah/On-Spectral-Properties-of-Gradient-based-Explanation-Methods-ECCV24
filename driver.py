@@ -5,27 +5,31 @@ import sys
 
 sys.path.append(os.getcwd())
 from source import driver_helpers, configs
-from source.operations import gather_stats
+from source.operations import gather_stats, compute_stats
 
 parser = argparse.ArgumentParser()
 args = driver_helpers.base_parser(parser, configs.DefaultArgs)
 
 start = time.time()
-print("sampling started")
-args.stats = gather_stats(
-    args.seed,
-    args.abstract_process,
-    args.batch_size,
-    args.max_batches,
-    args.min_change,
-    args.stats,
-    args.monitored_statistic_source_key,
-    args.monitored_statistic_key,
-    args.batch_index_key,
-)
+if args.gather_stats:
+    print("sampling started")
+    args.stats = gather_stats(
+        args.seed,
+        args.abstract_process,
+        args.batch_size,
+        args.max_batches,
+        args.min_change,
+        args.stats,
+        args.monitored_statistic_source_key,
+        args.monitored_statistic_key,
+        args.batch_index_key,
+    )
+elif args.compute_stats:
+    print("loading stats")
+    args.stats = compute_stats(args)
 end = time.time()
 args.time_to_compute = end - start
-print(f"sampling finsied in {args.time_to_compute:.4f}s")
+print(f"task finsied in {args.time_to_compute:.4f}s")
 print("number of samples", args.stats[args.batch_index_key] * args.batch_size)
 
 driver_helpers.sampling_demo(args)

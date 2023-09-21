@@ -23,7 +23,8 @@ class DefaultArgs:
     min_change = 1e-2
     batch_size = 32
     max_batches = 10000 // batch_size
-
+    gather_stats = True
+    compute_stats = False
     dataset = "imagenet"
     num_classes = 1000
 

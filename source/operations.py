@@ -20,7 +20,7 @@ def static_projection(*, num_classes, index):
 def prediction_projection(*, forward, image, k):
     log_probs = forward(image)
     kth_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
-    return kth_max, static_projection(num_classes=log_probs.shape[1], index=kth_max)
+    return int(kth_max), static_projection(num_classes=log_probs.shape[1], index=kth_max)
 
 
 def top_k_prediction_projection(*, forward, image, k):
@@ -272,3 +272,7 @@ def update_stats(
         monitored_statistic_new - monitored_statistic_old
     ).max()  # lookup
     return stats
+
+
+def compute_stats(args):
+    raise NotImplementedError

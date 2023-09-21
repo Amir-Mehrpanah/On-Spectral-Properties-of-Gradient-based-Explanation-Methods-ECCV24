@@ -1,5 +1,7 @@
+import PIL
 from matplotlib import pyplot as plt
 import numpy as np
+from pandas import Series
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import jax.numpy as jnp
@@ -61,7 +63,7 @@ def fisher_information(dynamic_meanx2, static_meanx2, prior):
     $A = \sum_i^k E_x[(\nabla (\log f(x))_i)^2] q_i$
     $B = E_x[(\sum_i^k \nabla (\log f(x))_i q_i)^2]
     """
-    static_meanx2 = static_meanx2.loc[:,"data_path"].apply(np.load)
+    static_meanx2 = static_meanx2.loc[:, "data_path"].apply(np.load)
     static_meanx2 = np.stack(static_meanx2, axis=0)
 
     dynamic_meanx2 = dynamic_meanx2.loc[:, "data_path"].apply(np.load)
@@ -102,3 +104,9 @@ def query_imagenet(args):
     args.image_path = base_stream["image/filename"].decode()
 
     assert args.image.shape == args.input_shape
+
+
+def load_images(image_paths: Series, img_size):
+    image_paths = image_paths.apply(PIL.Image.open)
+    image_paths = image_paths.apply(lambda x: preprocess(x, img_size=img_size).squeeze())
+    return image_paths

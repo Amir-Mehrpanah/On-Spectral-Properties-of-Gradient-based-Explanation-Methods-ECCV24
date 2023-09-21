@@ -168,9 +168,21 @@ def add_base_args(parser, default_args):
         type=int,
         default=default_args.stats_log_level,
     )
+    parser.add_argument(
+        "--gather_stats",
+        action="store_true",
+        default=default_args.gather_stats,
+    )
+    parser.add_argument(
+        "--compute_stats",
+        action="store_true",
+        default=default_args.compute_stats,
+    )
 
 
 def _process_args(args):
+    assert args.gather_stats ^ args.compute_stats, "either gather or compute stats"
+
     if args.assert_device:
         assert jax.device_count() > 0, "jax devices are not available"
 
