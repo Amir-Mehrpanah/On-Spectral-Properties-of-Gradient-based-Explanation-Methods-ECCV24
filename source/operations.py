@@ -20,7 +20,7 @@ def static_projection(*, num_classes, index):
 def prediction_projection(*, forward, image, k):
     log_probs = forward(image)
     kth_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
-    return static_projection(num_classes=log_probs.shape[1], index=kth_max)
+    return kth_max, static_projection(num_classes=log_probs.shape[1], index=kth_max)
 
 
 def top_k_prediction_projection(*, forward, image, k):

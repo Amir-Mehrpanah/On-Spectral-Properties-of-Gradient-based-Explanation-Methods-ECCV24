@@ -200,7 +200,7 @@ class NoiseInterpolation:
                 k=args.projection_top_k,
             )
         elif args.projection_type == "prediction":
-            args.projection = operations.prediction_projection(
+            args.projection_index, args.projection = operations.prediction_projection(
                 image=args.image,
                 forward=args.forward,
                 k=args.projection_top_k,
