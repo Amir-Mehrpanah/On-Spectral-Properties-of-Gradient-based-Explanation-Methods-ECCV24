@@ -27,6 +27,7 @@ sweeper_cmd = (
     f"dataset={dataset},"
     f'method_args="'
     f"--no_demo "
+    f"--normalize_sample "
     f"--batch_size={batch_size} "
     f"--min_change={min_change} "
     f"--alpha_mask_type={alpha_mask_type} "

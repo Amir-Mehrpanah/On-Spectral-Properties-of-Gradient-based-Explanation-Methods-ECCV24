@@ -240,7 +240,7 @@ def _process_args(args):
                 StreamNames.vanilla_grad_mask,
                 Statistics.meanx,
             )
-        ] = (jnp.zeros(shape=args.input_shape),)
+        ] = jnp.zeros(shape=args.input_shape)
 
     inplace_update_method_and_kwargs(args)
     pretty_print_args(args)

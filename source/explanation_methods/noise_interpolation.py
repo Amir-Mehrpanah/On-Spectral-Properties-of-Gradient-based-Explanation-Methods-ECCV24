@@ -14,7 +14,6 @@ from source.utils import Statistics, Stream, StreamNames, AbstractFunction
 
 
 class NoiseInterpolation:
-
     @AbstractFunction
     def sampler(
         key,
@@ -24,6 +23,7 @@ class NoiseInterpolation:
         projection,
         image,
         baseline_mask,
+        normalize_sample=True,
         demo=False,
     ):
         if isinstance(baseline_mask, Callable):
@@ -38,9 +38,12 @@ class NoiseInterpolation:
             target_mask=baseline_mask,
             alpha_mask=alpha_mask,
         )
-        convex_combination_mask = minmax_normalize(
-            convex_combination_mask
-        )  # set image to the correct range [0,1]
+        # set image to the expected range [0,1]
+        # this transformation makes the resulting image
+        # invariant to fixed perturbations of the image
+        # (e.g. adding a constant to all pixels)
+        if normalize_sample:
+            convex_combination_mask = minmax_normalize(convex_combination_mask)
         (
             vanilla_grad_mask,
             results_at_projection,
@@ -113,6 +116,10 @@ class NoiseInterpolation:
             "--baseline_mask_value",
             type=float,
         )
+        base_parser.add_argument(
+            "--normalize_sample",
+            action="store_true",
+        )
 
     def process_args(args):
         NoiseInterpolation.inplace_process_logics(args)
@@ -126,6 +133,7 @@ class NoiseInterpolation:
             "projection": args.projection,
             "image": args.image,
             "baseline_mask": args.baseline_mask,
+            "normalize_sample": args.normalize_sample,
         }
 
     def inplace_process_logics(args):
@@ -138,6 +146,8 @@ class NoiseInterpolation:
 
         if args.baseline_mask_type == "static":
             assert args.baseline_mask_value is not None
+            if isinstance(args.baseline_mask_value, float):
+                assert args.normalize_sample is False
         elif args.baseline_mask_type == "gaussian":
             assert args.baseline_mask_value is None
 

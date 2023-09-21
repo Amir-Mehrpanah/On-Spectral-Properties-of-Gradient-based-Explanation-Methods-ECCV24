@@ -24,6 +24,8 @@ def plot_masks(masks, titles, imshow_args={}, ncols=5):
         nrows, ncols, figsize=(ncols * scale_factor, nrows * scale_factor)
     )
     for i, ax in enumerate(axes.flatten()):
+        if i >= len(masks):
+            break
         mask = masks.iloc[i]
         ax.imshow(mask, **imshow_args)
         ax.set_title(titles.iloc[i])
