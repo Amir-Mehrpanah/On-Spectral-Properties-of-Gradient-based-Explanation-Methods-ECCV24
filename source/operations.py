@@ -23,9 +23,7 @@ def ones_projection(*, num_classes):
 def prediction_projection(*, forward, image, k):
     log_probs = forward(image)
     kth_max = np.argpartition(log_probs.squeeze(), -k)[-k]
-    return int(kth_max), static_projection(
-        num_classes=log_probs.shape[1], index=kth_max
-    )
+    return kth_max, static_projection(num_classes=log_probs.shape[1], index=kth_max)
 
 
 def top_k_prediction_projection(*, forward, image, k):
@@ -158,7 +156,7 @@ def gather_stats(args):
 
 def init_loop(args):
     seed = args.seed
-    abstract_sampling_process: AbstractFunction = args.abstract_process
+    sampler = args.sampler
     batch_size = args.batch_size
     max_batches = args.max_batches
     min_change = args.min_change
@@ -174,14 +172,6 @@ def init_loop(args):
         monitored_statistic_key=monitored_statistic_key,
         batch_index_key=batch_index_key,
     ).concretize()
-
-    # concretize abstract sampling process
-    nones = tuple(None for dynamic_arg in args.dynamic_kwargs)
-    concrete_sampling_process = abstract_sampling_process.concretize()
-    vectorized_concrete_sampling_process = jax.vmap(
-        concrete_sampling_process,
-        in_axes=(0, *nones),
-    )
 
     # concretize abstract update stats
     static_keys = tuple(
@@ -199,10 +189,9 @@ def init_loop(args):
     concrete_sample_and_update_stats = sample_and_update_stats(
         seed=seed,
         batch_size=batch_size,
-        concrete_vectorized_process=vectorized_concrete_sampling_process,
+        sampler=sampler,
         concrete_update_stats=concrete_update_stats,
         batch_index_key=batch_index_key,
-        dynamic_args=args.dynamic_kwargs,
     ).concretize()
 
     return stats, concrete_stopping_condition, concrete_sample_and_update_stats
@@ -214,19 +203,19 @@ def sample_and_update_stats(
     *,
     seed,
     batch_size,
-    concrete_vectorized_process,
+    sampler,
     concrete_update_stats,
     batch_index_key,
-    dynamic_args,
 ):
-    stats[batch_index_key] += 1  # lookup
     batch_index = stats[batch_index_key]  # lookup
+    batch_index += 1
 
     key = jax.random.PRNGKey(seed + batch_index)
     batch_keys = jax.random.split(key, num=batch_size)
 
-    sampled_batch = concrete_vectorized_process(batch_keys, **dynamic_args)
+    sampled_batch = sampler(batch_keys, *stats["dynamic_args"])  # lookup
     stats = concrete_update_stats(sampled_batch, stats, batch_index)
+    stats[batch_index_key] = batch_index
     return stats
 
 
@@ -276,7 +265,3 @@ def update_stats(
         monitored_statistic_new - monitored_statistic_old
     ).max()  # lookup
     return stats
-
-
-def compute_stats(args):
-    raise NotImplementedError

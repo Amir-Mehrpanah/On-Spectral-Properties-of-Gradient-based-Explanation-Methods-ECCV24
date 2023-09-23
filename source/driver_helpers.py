@@ -1,6 +1,7 @@
 import argparse
 import copy
 from datetime import datetime
+import itertools
 import json
 import os
 import sys
@@ -165,20 +166,15 @@ def add_base_args(parser, default_args):
         default=default_args.stats_log_level,
     )
     parser.add_argument(
-        "--dynamic_kwargs",
+        "--static_argnames",
         type=str,
         nargs="*",
-        default=default_args.dynamic_kwargs,
+        default=default_args.static_argnames,
     )
     parser.add_argument(
         "--gather_stats",
         action="store_true",
         default=default_args.gather_stats,
-    )
-    parser.add_argument(
-        "--compute_stats",
-        action="store_true",
-        default=default_args.compute_stats,
     )
 
 
@@ -350,6 +346,25 @@ def inplace_delete_metadata_after_computation(args):
     inplace_delete_base_metadata(args)
     methods_switch[args.method].inplace_delete_extra_metadata_after_computation(args)
     inplace_delete_none_metadata(args)
+
+
+def iterate_pattern_sampler_args(args):
+    iterator = combine_patterns(args.sampler_args_pattern, args.sampler_args)
+    return iterator
+
+def combine_patterns(pattern, values):
+    pattern_keys = pattern.keys()
+    pattern_values = pattern.values()
+    inv_pattern = {k: v for v, k in pattern.items()}
+    len_values = {k: range(len(values[v])) for k, v in inv_pattern.items()}
+    combinations = list(itertools.product(*len_values.values()))
+
+    for combination in combinations:
+        pattern_combination = [combination[i] for i in pattern_values]
+        temp_values = {
+            k: values[k][i] for k, i in zip(pattern_keys, pattern_combination)
+        }
+        yield temp_values
 
 
 def inplace_delete_base_metadata(args):

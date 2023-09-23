@@ -24,10 +24,9 @@ class DefaultArgs:
     batch_size = 32
     max_batches = 10000 // batch_size
     gather_stats = True
-    compute_stats = False
     dataset = "imagenet"
     # args we don't want to be compiled by jax
-    dynamic_kwargs = []
+    static_argnames = ("forward",)
     num_classes = 1000
     dataset_dir = "/local_storage/datasets/imagenet"
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"

@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, List, Tuple
 import os
 import sys
 
+import numpy as np
+
 sys.path.append(os.getcwd())
 from source.data_manager import minmax_normalize
 from source.model_manager import forward_with_projection
@@ -25,13 +27,11 @@ class TypeOrNone:
 
 class NoiseInterpolation:
     @staticmethod
-    @AbstractFunction
     def sampler(
         key,
-        *,
+        projection,
         forward,
         alpha_mask,
-        projection,
         image,
         baseline_mask,
         normalize_sample=True,
@@ -152,16 +152,25 @@ class NoiseInterpolation:
         self.inplace_process_projection(args)
         self.inplace_process_baseline_mask(args)
         self.inplace_process_alpha_mask(args)
-
         self._inplace_process_sampler_args(args)
+        self.inplace_create_sampler(args)
+
+    def inplace_create_sampler(self, args):
+        nones = tuple(None for _ in args.dynamic_args)
+        concrete_sampling_process = sampler.concretize()
+        sampler = jax.vmap(
+            concrete_sampling_process,
+            in_axes=(0, *nones),
+        )
+
+        args.sampler = self.sampler
 
     def _inplace_process_sampler_args(self, args):
         mixed_args = self._get_mixed_args(args)
-        args.dynamic_kwargs, args.static_kwargs = self._sort_args(
+        args.dynamic_args, args.static_kwargs = self._sort_args(
             mixed_args,
-            force_dynamic_kwargs=args.dynamic_kwargs,
+            force_dynamic_args=args.dynamic_args,
         )
-        args.abstract_process = self.sampler(**args.static_kwargs)
 
     def _get_mixed_args(self, args):
         return {
@@ -173,19 +182,19 @@ class NoiseInterpolation:
             "normalize_sample": args.normalize_sample,
         }
 
-    def _sort_args(self, mixed_args, force_dynamic_kwargs):
-        dynamic_kwargs = {}
+    def _sort_args(self, mixed_args, force_dynamic_args):
+        dynamic_args = ()
         static_kwargs = {}
         for keyword, arg in mixed_args.items():
-            if len(arg) == 1 and not (keyword in force_dynamic_kwargs):
+            if len(arg) == 1 and not (keyword in force_dynamic_args):
                 static_kwargs[keyword] = arg[0]
             else:
-                assert (
-                    arg is not jax.Array
+                assert not isinstance(
+                    arg[0], jax.Array
                 ), f"{keyword} must not be a jax array due to concretization error"
-                dynamic_kwargs[keyword] = arg
+                dynamic_args = (dynamic_args, arg)
 
-        return dynamic_kwargs, static_kwargs
+        return dynamic_args, static_kwargs
 
     def inplace_process_logics(self, args):
         assert len(args.input_shape) == 4
@@ -196,13 +205,19 @@ class NoiseInterpolation:
         self.inplace_process_logics_projection(args)
 
     def inplace_process_logics_lengths(self, args):
-        assert len(args.projection_type) == len(args.projection_distribution)
-        assert len(args.projection_type) == len(args.projection_top_k)
-        assert len(args.projection_type) == len(args.projection_index)
+        self.check_length_patterns(args.sampler_args_pattern, args.sampler_args)
 
-        assert len(args.baseline_mask_type) == len(args.baseline_mask_value)
-
-        assert len(args.alpha_mask_type) == len(args.alpha_mask_value)
+    @staticmethod
+    def check_length_patterns(pattern, values):
+        pattern_values = set(pattern.values())
+        for pattern_value in pattern_values:
+            temp_keys = [k for k, v in pattern.items() if pattern_value == v]
+            temp_values = [len(values[k]) for k in temp_keys]
+            np.testing.assert_array_equal(
+                temp_values,
+                temp_values[0],
+                "lists in the same pattern id must have the same length",
+            )
 
     def inplace_process_logics_projection(self, args):
         for (
@@ -414,11 +429,18 @@ class NoiseInterpolation:
                 projection.append(temp_projection)
                 projection_indices.append(temp_projection_index)
 
-        args.projection = jnp.stack(projection, axis=0)
-        args.projection_index = jnp.stack(projection_indices, axis=0)
+        args.projection = np.stack(projection, axis=0)
+        args.projection_index = np.stack(projection_indices, axis=0)
 
     def _maybe_broadcast_arg(self, arg, target_arg):
-        return arg if len(arg) == len(target_arg) else arg * len(target_arg)
+        if len(arg) == len(target_arg):
+            return arg
+        elif len(arg) == 1:
+            return arg * len(target_arg)
+        else:
+            raise ValueError(
+                "arg and target_arg must have the same length or arg must be of length 1"
+            )
 
     def inplace_delete_extra_metadata_after_computation(
         self,
@@ -434,8 +456,6 @@ class NoiseInterpolation:
         del pretty_kwargs["projection"]
         del pretty_kwargs["alpha_mask"]
         del pretty_kwargs["baseline_mask"]
-        del pretty_kwargs["static_kwargs"]
-        pretty_kwargs["dynamic_kwargs"] = list(pretty_kwargs["dynamic_kwargs"].keys())
         pretty_kwargs["projection_index"] = str(pretty_kwargs["projection_index"])
 
         return pretty_kwargs
