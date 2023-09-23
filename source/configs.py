@@ -26,8 +26,9 @@ class DefaultArgs:
     gather_stats = True
     compute_stats = False
     dataset = "imagenet"
+    # args we don't want to be compiled by jax
+    dynamic_kwargs = []
     num_classes = 1000
-
     dataset_dir = "/local_storage/datasets/imagenet"
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
     save_metadata_dir = "/local_storage/users/amirme/metadata"

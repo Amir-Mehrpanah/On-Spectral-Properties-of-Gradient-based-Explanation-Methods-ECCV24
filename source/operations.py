@@ -2,36 +2,49 @@ import functools
 from typing import Any, Dict, List, Callable, Tuple
 import jax.numpy as jnp
 import jax
+import numpy as np
 
 from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 
 
 def static_projection(*, num_classes, index):
-    return (
-        jnp.zeros(
-            shape=(num_classes, 1),
-            dtype=jnp.float32,
-        )
-        .at[index, 0]
-        .set(1.0)
+    projection = np.zeros(
+        shape=(num_classes, 1),
+        dtype=np.float32,
     )
+    projection[index, 0] = 1.0
+    return projection
+
+
+def ones_projection(*, num_classes):
+    return np.ones(shape=(num_classes, 1), dtype=np.float32)
 
 
 def prediction_projection(*, forward, image, k):
     log_probs = forward(image)
-    kth_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
-    return int(kth_max), static_projection(num_classes=log_probs.shape[1], index=kth_max)
+    kth_max = np.argpartition(log_probs.squeeze(), -k)[-k]
+    return int(kth_max), static_projection(
+        num_classes=log_probs.shape[1], index=kth_max
+    )
 
 
 def top_k_prediction_projection(*, forward, image, k):
     log_probs = forward(image)
-    uptok_max = jnp.argpartition(log_probs.squeeze(), -k)[-k:]
+    uptok_max = np.argpartition(log_probs.squeeze(), -k)[-k:]
     projection = []
     for i in uptok_max:
-        projection.append(static_projection(num_classes=log_probs.shape[1], index=i))
-    projection = jnp.stack(projection, axis=0)
-    projection = projection / projection.shape[0]
-    return projection
+        projection.append(
+            static_projection(
+                num_classes=log_probs.shape[1],
+                index=i,
+            )
+        )
+    return [int(k) for k in uptok_max], projection
+
+
+def top_k_uniform_prediction_projection(*, forward, image, k):
+    uptok_max, projection = top_k_prediction_projection(forward, image, k)
+    return uptok_max, projection.sum(axis=0, keepdims=True)
 
 
 def onehot_categorical(key, *, num_classes, indices):
@@ -41,8 +54,8 @@ def onehot_categorical(key, *, num_classes, indices):
 
 def random_projection(*, forward, image, k, distribution):
     log_probs = forward(image)
-    uptok_max = jnp.argpartition(log_probs.squeeze(), -k)[-k:]
-    if distribution == "topk_uniform":
+    uptok_max = np.argpartition(log_probs.squeeze(), -k)[-k:]
+    if distribution == "categorical":
         return functools.partial(
             onehot_categorical, num_classes=log_probs.shape[1], indices=uptok_max
         )
@@ -123,17 +136,10 @@ def linear_combination_mask(
     return alpha_source_mask * source_mask + alpha_target_mask * target_mask
 
 
-def gather_stats(
-    seed,
-    abstract_sampling_process: AbstractFunction,
-    batch_size,
-    max_batches,
-    min_change,
-    stats: Dict[Stream, jax.Array],
-    monitored_statistic_source_key: Stream,
-    monitored_statistic_key: Stream,
-    batch_index_key,
-):
+def gather_stats(args):
+    stats: Dict[Stream, jax.Array] = args.stats
+    monitored_statistic_key: Stream = args.monitored_statistic_key
+
     assert monitored_statistic_key.statistic == Statistics.abs_delta
     assert stats[monitored_statistic_key] == jnp.inf
 
@@ -141,17 +147,7 @@ def gather_stats(
         loop_initials,
         concrete_stopping_condition,
         concrete_sample_and_update,
-    ) = init_loop(
-        seed,
-        abstract_sampling_process,
-        batch_size,
-        max_batches,
-        min_change,
-        stats,
-        monitored_statistic_source_key,
-        monitored_statistic_key,
-        batch_index_key,
-    )
+    ) = init_loop(args)
     stats = jax.lax.while_loop(
         cond_fun=concrete_stopping_condition,
         body_fun=concrete_sample_and_update,
@@ -160,17 +156,17 @@ def gather_stats(
     return stats
 
 
-def init_loop(
-    seed,
-    abstract_sampling_process: AbstractFunction,
-    batch_size,
-    max_batches,
-    min_change,
-    stats: Stream,
-    monitored_statistic_source_key: Stream,
-    monitored_statistic_key: Stream,
-    batch_index_key,
-):
+def init_loop(args):
+    seed = args.seed
+    abstract_sampling_process: AbstractFunction = args.abstract_process
+    batch_size = args.batch_size
+    max_batches = args.max_batches
+    min_change = args.min_change
+    stats: Dict[Stream, jax.Array] = args.stats
+    monitored_statistic_source_key: Stream = args.monitored_statistic_source_key
+    monitored_statistic_key: Stream = args.monitored_statistic_key
+    batch_index_key = args.batch_index_key
+
     # concretize abstract stopping condition
     concrete_stopping_condition = stopping_condition(
         max_batches=max_batches,
@@ -180,15 +176,21 @@ def init_loop(
     ).concretize()
 
     # concretize abstract sampling process
+    nones = tuple(None for dynamic_arg in args.dynamic_kwargs)
     concrete_sampling_process = abstract_sampling_process.concretize()
     vectorized_concrete_sampling_process = jax.vmap(
         concrete_sampling_process,
-        in_axes=(0),
+        in_axes=(0, *nones),
     )
 
     # concretize abstract update stats
+    static_keys = tuple(
+        key
+        for key in stats.keys()
+        if key.statistic in (Statistics.meanx, Statistics.meanx2)
+    )
     concrete_update_stats = update_stats(
-        stream_keys=tuple(stats.keys()),
+        stream_static_keys=static_keys,
         monitored_statistic_source_key=monitored_statistic_source_key,
         monitored_statistic_key=monitored_statistic_key,
     ).concretize()
@@ -200,6 +202,7 @@ def init_loop(
         concrete_vectorized_process=vectorized_concrete_sampling_process,
         concrete_update_stats=concrete_update_stats,
         batch_index_key=batch_index_key,
+        dynamic_args=args.dynamic_kwargs,
     ).concretize()
 
     return stats, concrete_stopping_condition, concrete_sample_and_update_stats
@@ -214,6 +217,7 @@ def sample_and_update_stats(
     concrete_vectorized_process,
     concrete_update_stats,
     batch_index_key,
+    dynamic_args,
 ):
     stats[batch_index_key] += 1  # lookup
     batch_index = stats[batch_index_key]  # lookup
@@ -221,7 +225,7 @@ def sample_and_update_stats(
     key = jax.random.PRNGKey(seed + batch_index)
     batch_keys = jax.random.split(key, num=batch_size)
 
-    sampled_batch = concrete_vectorized_process(batch_keys)
+    sampled_batch = concrete_vectorized_process(batch_keys, **dynamic_args)
     stats = concrete_update_stats(sampled_batch, stats, batch_index)
     return stats
 
@@ -250,13 +254,13 @@ def update_stats(
     stats: Dict[Stream, jax.Array],
     batch_index: int,
     *,
-    stream_keys: Tuple[Stream],
+    stream_static_keys: Tuple[Stream],
     monitored_statistic_source_key: Stream,
     monitored_statistic_key: Stream,
 ):
     monitored_statistic_old = stats[monitored_statistic_source_key]  # lookup
 
-    for key in stream_keys:
+    for key in stream_static_keys:
         if key.statistic == Statistics.meanx:
             stats[key] = (1 / batch_index) * sampled_batch[key.name].mean(axis=0) + (
                 (batch_index - 1) / batch_index

@@ -13,7 +13,6 @@ sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
 from source.data_manager import query_imagenet
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
-from source.explanation_methods.fisher_information import FisherInformation
 from source.model_manager import init_resnet50_forward
 from source.utils import (
     Switch,
@@ -29,11 +28,7 @@ init_architecture_forward_switch = Switch()
 
 methods_switch.register(
     "noise_interpolation",
-    NoiseInterpolation,
-)
-methods_switch.register(
-    "fisher_information",
-    FisherInformation,
+    NoiseInterpolation(),
 )
 dataset_query_func_switch.register(
     "imagenet",
@@ -125,6 +120,7 @@ def add_base_args(parser, default_args):
     parser.add_argument(
         "--image_index",
         type=int,
+        nargs="+",
         default=default_args.image_index,
     )
     parser.add_argument(
@@ -167,6 +163,12 @@ def add_base_args(parser, default_args):
         "--stats_log_level",
         type=int,
         default=default_args.stats_log_level,
+    )
+    parser.add_argument(
+        "--dynamic_kwargs",
+        type=str,
+        nargs="*",
+        default=default_args.dynamic_kwargs,
     )
     parser.add_argument(
         "--gather_stats",
@@ -268,18 +270,17 @@ def sampling_demo(args):
 
 def pretty_print_args(args: argparse.Namespace):
     pretty_kwargs = vars(copy.deepcopy(args))
+    del pretty_kwargs["forward"]
+
     pretty_kwargs["method"] = args.method
     pretty_kwargs["max_batches"] = args.max_batches
     pretty_kwargs["batch_size"] = args.batch_size
     pretty_kwargs["seed"] = args.seed
 
-    pretty_kwargs["forward"] = str(args.forward)[:50]
-    pretty_kwargs["image"] = str(args.image.shape)
+    pretty_kwargs["image"] = [str(img.shape) for img in args.image]
     pretty_kwargs["abstract_process"] = str(args.abstract_process)
     pretty_kwargs["stats"] = f"stats of len {len(args.stats)}"
-    pretty_kwargs.update(
-        {k: int(v) for k, v in pretty_kwargs.items() if isinstance(v, np.int64)}
-    )
+    pretty_kwargs["label"] = list(map(int, pretty_kwargs["label"]))
 
     methods_switch[args.method].inplace_pretty_print(pretty_kwargs)
     print("experiment args:", json.dumps(pretty_kwargs, indent=4, sort_keys=True))
@@ -287,10 +288,7 @@ def pretty_print_args(args: argparse.Namespace):
 
 def inplace_update_method_and_kwargs(args):
     method_cls = methods_switch[args.method]
-    process_args_and_return_kwargs = method_cls.process_args
-
-    kwargs = process_args_and_return_kwargs(args)
-    args.abstract_process = method_cls.sampler(**kwargs)
+    method_cls.inplace_process_args(args)
 
 
 def inplace_save_stats(args):

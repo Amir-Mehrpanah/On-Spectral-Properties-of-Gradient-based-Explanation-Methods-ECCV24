@@ -91,22 +91,28 @@ def sum_channels(x):
 
 
 def query_imagenet(args):
-    dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
-    dataset = dataset.as_dataset(split="val", shuffle_files=False)
-    dataset = dataset.skip(args.image_index)
-    base_stream = dataset.take(1).as_numpy_iterator().next()
+    args.image = []
+    args.label = []
+    args.image_path = []
+    for image_index in args.image_index:
+        dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
+        dataset = dataset.as_dataset(split="val", shuffle_files=False)
+        dataset = dataset.skip(image_index)
+        base_stream = dataset.take(1).as_numpy_iterator().next()
 
-    image_height = args.input_shape[1]  # (N, H, W, C)
-    base_stream["image"] = preprocess(base_stream["image"], image_height)
+        image_height = args.input_shape[1]  # (N, H, W, C)
+        base_stream["image"] = preprocess(base_stream["image"], image_height)
 
-    args.image = base_stream["image"]
-    args.label = base_stream["label"]
-    args.image_path = base_stream["image/filename"].decode()
+        args.image.append(base_stream["image"])
+        args.label.append(base_stream["label"])
+        args.image_path.append(base_stream["image/filename"].decode())
 
-    assert args.image.shape == args.input_shape
+        assert args.image[-1].shape == args.input_shape
 
 
 def load_images(image_paths: Series, img_size):
     image_paths = image_paths.apply(PIL.Image.open)
-    image_paths = image_paths.apply(lambda x: preprocess(x, img_size=img_size).squeeze())
+    image_paths = image_paths.apply(
+        lambda x: preprocess(x, img_size=img_size).squeeze()
+    )
     return image_paths

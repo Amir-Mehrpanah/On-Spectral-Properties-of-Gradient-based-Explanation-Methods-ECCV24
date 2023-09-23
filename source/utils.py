@@ -46,3 +46,6 @@ class Switch:
 
     def __getitem__(self, key):
         return self.key_values[key]
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError("switch is read only")
