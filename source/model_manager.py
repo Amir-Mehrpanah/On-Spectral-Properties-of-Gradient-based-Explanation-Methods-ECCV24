@@ -26,5 +26,10 @@ def init_resnet50_forward(args):
         params,
         train=False,
     )
-
-    args.forward = resnet50_forward
+    if hasattr(args, "forward"):
+        assert isinstance(
+            args.forward, list
+        ), f"forward must be a list recieved {type(args.forward)}"
+        args.forward.append(resnet50_forward)
+    else:
+        args.forward = [resnet50_forward]

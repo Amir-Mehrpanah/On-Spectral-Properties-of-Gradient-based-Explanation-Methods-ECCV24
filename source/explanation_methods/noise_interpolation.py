@@ -12,7 +12,13 @@ sys.path.append(os.getcwd())
 from source.data_manager import minmax_normalize
 from source.model_manager import forward_with_projection
 from source import neighborhoods, explainers, operations
-from source.utils import Statistics, Stream, StreamNames, AbstractFunction
+from source.utils import (
+    Statistics,
+    Stream,
+    StreamNames,
+    AbstractFunction,
+    combine_patterns,
+)
 
 
 class TypeOrNone:
@@ -27,6 +33,7 @@ class TypeOrNone:
 
 class NoiseInterpolation:
     @staticmethod
+    @AbstractFunction
     def sampler(
         key,
         projection,
@@ -152,60 +159,101 @@ class NoiseInterpolation:
         self.inplace_process_projection(args)
         self.inplace_process_baseline_mask(args)
         self.inplace_process_alpha_mask(args)
-        self._inplace_process_sampler_args(args)
+        self.inplace_process_sampler_args(args)
         self.inplace_create_sampler(args)
 
     def inplace_create_sampler(self, args):
-        nones = tuple(None for _ in args.dynamic_args)
-        concrete_sampling_process = sampler.concretize()
-        sampler = jax.vmap(
-            concrete_sampling_process,
-            in_axes=(0, *nones),
-        )
+        nones = tuple(None for _ in args.dynamic_args[0])
+        samplers = [
+            self.sampler(**compilation_pattern).concretize()
+            for compilation_pattern in args.static_kwargs
+        ]
+        vectorized_samplers = [jax.vmap(v, in_axes=(0, *nones)) for v in samplers]
+        args.samplers = vectorized_samplers
 
-        args.sampler = self.sampler
+    def inplace_process_sampler_args(self, args):
+        self.inplace_sort_dynamic_args(args)
+        self.inplace_extract_mixed_args(args)
+        self.inplace_process_logics_sampler_args(args)
 
-    def _inplace_process_sampler_args(self, args):
-        mixed_args = self._get_mixed_args(args)
-        args.dynamic_args, args.static_kwargs = self._sort_args(
-            mixed_args,
+        combined_patterns = combine_patterns(args.args_pattern, args.mixed_args)
+        args.dynamic_args, args.static_kwargs = self._split_args(
+            combined_patterns,
             force_dynamic_args=args.dynamic_args,
         )
 
-    def _get_mixed_args(self, args):
-        return {
-            "forward": [args.forward],
-            "alpha_mask": args.alpha_mask,
-            "projection": args.projection,
-            "image": args.image,
-            "baseline_mask": args.baseline_mask,
-            "normalize_sample": args.normalize_sample,
-        }
+    def inplace_sort_dynamic_args(self, args):
+        sampler_args_order = list(self.sampler.params.keys())
+        sampler_args_order.remove("key")
+        assert all(
+            arg in args.args_pattern for arg in args.dynamic_args
+        ), "dynamic_args contains an arg that is not in args_pattern please check the provided args"
+        assert not "key" in args.args_pattern, "key is a reserved word"
+        assert all(
+            arg in sampler_args_order for arg in args.args_pattern
+        ), "args_pattern contains an arg that is not in sampler args please check the provided args"
+        assert all(
+            arg in args.args_pattern for arg in sampler_args_order
+        ), "sampler expects an argument that is not in args_pattern please check the provided args"
+        # sort dynamic args according to sampler args order
+        args.args_pattern = {arg: args.args_pattern[arg] for arg in sampler_args_order}
 
-    def _sort_args(self, mixed_args, force_dynamic_args):
-        dynamic_args = ()
-        static_kwargs = {}
-        for keyword, arg in mixed_args.items():
-            if len(arg) == 1 and not (keyword in force_dynamic_args):
-                static_kwargs[keyword] = arg[0]
-            else:
-                assert not isinstance(
-                    arg[0], jax.Array
-                ), f"{keyword} must not be a jax array due to concretization error"
-                dynamic_args = (dynamic_args, arg)
+    @staticmethod
+    def inplace_extract_mixed_args(args):
+        mixed_args = {}
+        for arg_name in args.args_pattern:
+            assert hasattr(
+                args, arg_name
+            ), f"args_pattern contains an arg that is not in input args please check the name {arg_name}"
+            mixed_args[arg_name] = getattr(args, arg_name)
+        args.mixed_args = mixed_args
 
+    @staticmethod
+    def _split_args(combined_patterns, force_dynamic_args):
+        dynamic_args = []
+        static_kwargs = []
+        for combination in combined_patterns:
+            dynamic_args.append({k: combination[k] for k in force_dynamic_args})
+            static_kwargs.append(
+                {k: combination[k] for k in combination if k not in force_dynamic_args}
+            )
         return dynamic_args, static_kwargs
 
     def inplace_process_logics(self, args):
         assert len(args.input_shape) == 4
-
-        self.inplace_process_logics_lengths(args)
+        self.inplace_broadcast_args(args)
         self.inplace_process_logics_alpha_mask(args)
         self.inplace_process_logics_baseline_mask(args)
         self.inplace_process_logics_projection(args)
 
-    def inplace_process_logics_lengths(self, args):
-        self.check_length_patterns(args.sampler_args_pattern, args.sampler_args)
+    def inplace_process_logics_sampler_args(self, args):
+        self.check_length_patterns(args.args_pattern, args.mixed_args)
+
+    def inplace_broadcast_args(self, args):
+        # broadcast alpha mask values according to alpha mask type
+        args.alpha_mask_value = self._maybe_broadcast_arg(
+            args.alpha_mask_value, args.alpha_mask_type
+        )
+
+        # broadcast label, image, projection distribution, forward, projection top k and projection index according to projection type
+        args.label = self._maybe_broadcast_arg(args.label, args.projection_type)
+        args.image = self._maybe_broadcast_arg(args.image, args.projection_type)
+        args.forward = self._maybe_broadcast_arg(args.forward, args.projection_type)
+        args.demo = self._maybe_broadcast_arg([False], args.projection_type)
+        args.projection_distribution = self._maybe_broadcast_arg(
+            args.projection_distribution, args.projection_type
+        )
+        args.projection_top_k = self._maybe_broadcast_arg(
+            args.projection_top_k, args.projection_type
+        )
+        args.projection_index = self._maybe_broadcast_arg(
+            args.projection_index, args.projection_type
+        )
+
+        # broadcast baseline mask values according to baseline mask type
+        args.normalize_sample = self._maybe_broadcast_arg(
+            args.normalize_sample, args.baseline_mask_type
+        )
 
     @staticmethod
     def check_length_patterns(pattern, values):
@@ -220,19 +268,20 @@ class NoiseInterpolation:
             )
 
     def inplace_process_logics_projection(self, args):
+        iter_args = zip(
+            args.projection_type,
+            args.projection_distribution,
+            args.projection_top_k,
+            args.projection_index,
+            args.label,
+        )
         for (
             projection_type,
             projection_distribution,
             projection_top_k,
             projection_index,
             label,
-        ) in zip(
-            args.projection_type,
-            args.projection_distribution,
-            args.projection_top_k,
-            args.projection_index,
-            args.label,
-        ):
+        ) in iter_args:
             if projection_type == "label":
                 assert label is not None
                 assert projection_distribution is None
@@ -254,13 +303,10 @@ class NoiseInterpolation:
                 assert projection_top_k is None
 
     def inplace_process_logics_baseline_mask(self, args):
-        normalize_samples = self._maybe_broadcast_arg(
-            args.normalize_sample, args.baseline_mask_type
-        )
         for baseline_mask_type, baseline_mask_value, normalize_sample in zip(
             args.baseline_mask_type,
             args.baseline_mask_value,
-            normalize_samples,
+            args.normalize_sample,
         ):
             if baseline_mask_type == "static":
                 assert baseline_mask_value is not None
@@ -330,8 +376,16 @@ class NoiseInterpolation:
     def inplace_process_projection(self, args):
         projection = []
         projection_indices = []
-        labels = self._maybe_broadcast_arg(args.label, args.projection_type)
-        images = self._maybe_broadcast_arg(args.image, args.projection_type)
+
+        iter_args = zip(
+            args.projection_type,
+            args.projection_distribution,
+            args.projection_top_k,
+            args.projection_index,
+            args.label,
+            args.image,
+            args.forward,
+        )
         for (
             projection_type,
             projection_distribution,
@@ -339,14 +393,8 @@ class NoiseInterpolation:
             projection_index,
             label,
             image,
-        ) in zip(
-            args.projection_type,
-            args.projection_distribution,
-            args.projection_top_k,
-            args.projection_index,
-            labels,
-            images,
-        ):
+            forward,
+        ) in iter_args:
             if projection_type == "label":
                 temp_projection = operations.static_projection(
                     num_classes=args.num_classes,
@@ -356,7 +404,7 @@ class NoiseInterpolation:
             elif projection_type == "random":
                 temp_projection = operations.random_projection(
                     image=image,
-                    forward=args.forward,
+                    forward=forward,
                     distribution=projection_distribution,
                     k=projection_top_k,
                 )
@@ -371,7 +419,7 @@ class NoiseInterpolation:
                         temp_projection,
                     ) = operations.prediction_projection(
                         image=image,
-                        forward=args.forward,
+                        forward=forward,
                         k=projection_top_k,
                     )
                 elif projection_distribution == "uniform":
@@ -383,7 +431,7 @@ class NoiseInterpolation:
                         temp_projection,
                     ) = operations.top_k_uniform_prediction_projection(
                         image=image,
-                        forward=args.forward,
+                        forward=forward,
                         k=projection_top_k,
                     )
                 elif projection_distribution == "categorical":
@@ -396,7 +444,7 @@ class NoiseInterpolation:
                         temp_projection,
                     ) = operations.top_k_prediction_projection(
                         image=image,
-                        forward=args.forward,
+                        forward=forward,
                         k=projection_top_k,
                     )
                 else:
@@ -429,10 +477,11 @@ class NoiseInterpolation:
                 projection.append(temp_projection)
                 projection_indices.append(temp_projection_index)
 
-        args.projection = np.stack(projection, axis=0)
-        args.projection_index = np.stack(projection_indices, axis=0)
+        args.projection = projection
+        args.projection_index = projection_indices
 
-    def _maybe_broadcast_arg(self, arg, target_arg):
+    @staticmethod
+    def _maybe_broadcast_arg(arg, target_arg):
         if len(arg) == len(target_arg):
             return arg
         elif len(arg) == 1:

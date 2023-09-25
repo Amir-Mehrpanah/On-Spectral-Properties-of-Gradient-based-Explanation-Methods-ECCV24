@@ -134,7 +134,7 @@ def linear_combination_mask(
     return alpha_source_mask * source_mask + alpha_target_mask * target_mask
 
 
-def gather_stats(args):
+def gather_stats(sampler, args):
     stats: Dict[Stream, jax.Array] = args.stats
     monitored_statistic_key: Stream = args.monitored_statistic_key
 
@@ -145,7 +145,7 @@ def gather_stats(args):
         loop_initials,
         concrete_stopping_condition,
         concrete_sample_and_update,
-    ) = init_loop(args)
+    ) = init_loop(sampler, args)
     stats = jax.lax.while_loop(
         cond_fun=concrete_stopping_condition,
         body_fun=concrete_sample_and_update,
@@ -154,9 +154,8 @@ def gather_stats(args):
     return stats
 
 
-def init_loop(args):
+def init_loop(sampler, args):
     seed = args.seed
-    sampler = args.sampler
     batch_size = args.batch_size
     max_batches = args.max_batches
     min_change = args.min_change

@@ -1,22 +1,73 @@
 from collections import namedtuple
-from functools import partial, update_wrapper
+import inspect
+from collections import OrderedDict
+import itertools
 
 
 class AbstractFunction:
+    class NoArg:
+        pass
+
     def __init__(self, func) -> None:
         self.func = func
-        self.params = {}
-        update_wrapper(self, func)
+        params = inspect.signature(func).parameters.keys()
+        self.params = OrderedDict({k: self.NoArg for k in params})
 
     def __call__(self, **kwargs):
-        self.params.update(kwargs)
+        self.params.update(**kwargs)
         return self
 
     def __repr__(self) -> str:
         return f"abstract {self.func.__name__}(static_args={list(self.params.keys())})"
 
     def concretize(self):
-        return partial(self.func, **self.params)
+        def concrete_func(*args):
+            i = 0
+            for key, param in self.params.items():
+                if param is self.NoArg:
+                    self.params[key] = args[i]
+                    i += 1
+            assert i == len(
+                args
+            ), "number of positional arguments does not match the concrete function"
+            return self.func(**self.params)
+
+        return concrete_func
+
+
+def combine_patterns(pattern, values):
+    """
+    a pattern is not sensitive to actual values, but to the unique keys e.g.
+    {"a": "b", "c": "d"} == {"a": "e", "c": "f"}
+    {"a": "b", "c": "b"} == {"a": "f", "c": "f"}
+    {"a": "b", "c": "b"} != {"a": "b", "c": "f"}
+    returns a generator of values for each item in the list according to the pattern
+    e.g.
+    >>> pattern = {"a": "i", "c": "j"}
+    >>> values = {"a": [1, 2], "c": [3, 4]}
+    >>> list(combine_patterns(pattern, values))
+    [
+        {"a": 1, "c": 3},
+        {"a": 1, "c": 4},
+        {"a": 2, "c": 3},
+        {"a": 2, "c": 4},
+    ]
+    """
+    pattern_keys = list(pattern.keys())
+    pattern_values = list(pattern.values())
+    list_values = [values[k] for k in pattern_keys]
+    unique_pattern_values = list(set(pattern_values))
+    comb_index = [pattern_values.index(v) for v in unique_pattern_values]
+    len_values = [len(list_values[i]) for i in comb_index]
+    range_values = [range(l) for l in len_values]
+    combinations = list(itertools.product(*range_values))
+    pattern_index = [unique_pattern_values.index(v) for v in pattern_values]
+    results = []
+    for combination in combinations:
+        value_indices = [combination[index] for index in pattern_index]
+        temp_values = {k: values[k][i] for i,k in zip(value_indices,pattern_keys)}
+        results.append(temp_values)
+    return results
 
 
 class StreamNames:

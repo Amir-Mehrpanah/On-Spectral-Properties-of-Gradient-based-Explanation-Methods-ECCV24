@@ -20,6 +20,7 @@ from source.utils import (
     Stream,
     StreamNames,
     Statistics,
+    combine_patterns,
 )
 
 methods_switch = Switch()
@@ -166,10 +167,14 @@ def add_base_args(parser, default_args):
         default=default_args.stats_log_level,
     )
     parser.add_argument(
-        "--static_argnames",
-        type=str,
-        nargs="*",
-        default=default_args.static_argnames,
+        "--dynamic_args",
+        type=json.loads,
+        default=default_args.dynamic_args,
+    )
+    parser.add_argument(
+        "--args_pattern",
+        type=json.loads,
+        default=default_args.args_pattern,
     )
     parser.add_argument(
         "--gather_stats",
@@ -179,8 +184,6 @@ def add_base_args(parser, default_args):
 
 
 def _process_args(args):
-    assert args.gather_stats ^ args.compute_stats, "either gather or compute stats"
-
     if args.assert_device:
         assert jax.device_count() > 0, "jax devices are not available"
 
@@ -274,7 +277,7 @@ def pretty_print_args(args: argparse.Namespace):
     pretty_kwargs["seed"] = args.seed
 
     pretty_kwargs["image"] = [str(img.shape) for img in args.image]
-    pretty_kwargs["abstract_process"] = str(args.abstract_process)
+    pretty_kwargs["sampler"] = str(args.sampler)
     pretty_kwargs["stats"] = f"stats of len {len(args.stats)}"
     pretty_kwargs["label"] = list(map(int, pretty_kwargs["label"]))
 
@@ -348,23 +351,8 @@ def inplace_delete_metadata_after_computation(args):
     inplace_delete_none_metadata(args)
 
 
-def iterate_pattern_sampler_args(args):
-    iterator = combine_patterns(args.sampler_args_pattern, args.sampler_args)
-    return iterator
-
-def combine_patterns(pattern, values):
-    pattern_keys = pattern.keys()
-    pattern_values = pattern.values()
-    inv_pattern = {k: v for v, k in pattern.items()}
-    len_values = {k: range(len(values[v])) for k, v in inv_pattern.items()}
-    combinations = list(itertools.product(*len_values.values()))
-
-    for combination in combinations:
-        pattern_combination = [combination[i] for i in pattern_values]
-        temp_values = {
-            k: values[k][i] for k, i in zip(pattern_keys, pattern_combination)
-        }
-        yield temp_values
+def iterate_pattern_task(args):
+    return combine_patterns(args.args_pattern, args.dynamic_args)
 
 
 def inplace_delete_base_metadata(args):
@@ -376,7 +364,9 @@ def inplace_delete_base_metadata(args):
     del args.stats
     del args.forward
     del args.image
-    del args.abstract_process
+    del args.sampler
+    del args.dynamic_args
+    del args.args_pattern
     del args.save_raw_data_dir
     del args.save_metadata_dir
     del args.dataset_dir
