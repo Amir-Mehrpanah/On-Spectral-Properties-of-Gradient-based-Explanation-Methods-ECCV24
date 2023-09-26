@@ -155,6 +155,7 @@ class NoiseInterpolation:
         )
 
     def inplace_process_args(self, args):
+        self.inplace_extract_mixed_args(args)
         self.inplace_process_logics(args)
         self.inplace_process_projection(args)
         self.inplace_process_baseline_mask(args)
@@ -173,7 +174,6 @@ class NoiseInterpolation:
 
     def inplace_process_sampler_args(self, args):
         self.inplace_sort_dynamic_args(args)
-        self.inplace_extract_mixed_args(args)
         self.inplace_process_logics_sampler_args(args)
 
         combined_patterns = combine_patterns(args.args_pattern, args.mixed_args)
@@ -206,7 +206,7 @@ class NoiseInterpolation:
                 args, arg_name
             ), f"args_pattern contains an arg that is not in input args please check the name {arg_name}"
             mixed_args[arg_name] = getattr(args, arg_name)
-        args.mixed_args = mixed_args
+        return mixed_args
 
     @staticmethod
     def _split_args(combined_patterns, force_dynamic_args):
@@ -254,6 +254,9 @@ class NoiseInterpolation:
         args.normalize_sample = self._maybe_broadcast_arg(
             args.normalize_sample, args.baseline_mask_type
         )
+        args.baseline_mask_value = self._maybe_broadcast_arg(
+            args.baseline_mask_value, args.baseline_mask_type
+        )
 
     @staticmethod
     def check_length_patterns(pattern, values):
@@ -261,10 +264,13 @@ class NoiseInterpolation:
         for pattern_value in pattern_values:
             temp_keys = [k for k, v in pattern.items() if pattern_value == v]
             temp_values = [len(values[k]) for k in temp_keys]
+            key_value_pattern = {
+                k: (pattern_value, v) for k, v in zip(temp_keys, temp_values)
+            }
             np.testing.assert_array_equal(
                 temp_values,
                 temp_values[0],
-                "lists in the same pattern id must have the same length",
+                f"lists with the same pattern id must have the same length {key_value_pattern}",
             )
 
     def inplace_process_logics_projection(self, args):
