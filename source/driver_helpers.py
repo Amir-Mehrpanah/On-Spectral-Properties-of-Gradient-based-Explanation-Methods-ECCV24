@@ -189,6 +189,10 @@ def _process_args(args):
 
     if args.disable_jit:
         jax.config.update("jax_disable_jit", True)
+    
+    if args.dry_run:
+        pass
+        # jax.config.update('jax_platform_name', 'cpu')
 
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)

@@ -155,13 +155,45 @@ class NoiseInterpolation:
         )
 
     def inplace_process_args(self, args):
-        self.inplace_extract_mixed_args(args)
-        self.inplace_process_logics(args)
+        mixed_args = self.extract_mixed_args(args)
+        mixed_pattern = self.extract_mixed_pattern(args.args_pattern, mixed_args)
+        mixed_args = self.maybe_broad_cast_shapes(mixed_pattern, mixed_args)
+        combined_patterns = combine_patterns(mixed_pattern, mixed_args)
+        raise ValueError(combined_patterns[0])
+        self._process_logics(combined_patterns)
         self.inplace_process_projection(args)
         self.inplace_process_baseline_mask(args)
         self.inplace_process_alpha_mask(args)
         self.inplace_process_sampler_args(args)
         self.inplace_create_sampler(args)
+
+    @staticmethod
+    def extract_mixed_pattern(args_pattern, mixed_args):
+        # explicit pattern dependency:
+        # projection <-- label
+        # projection <-- projection_type
+        # projection <-- projection_distribution
+        # projection <-- projection_top_k
+        # projection <-- projection_index
+        # alpha_mask <-- alpha_mask_value
+        # alpha_mask <-- alpha_mask_type
+        # baseline_mask <-- baseline_mask_value
+        # baseline_mask <-- baseline_mask_type
+        # normalize_sample <-- {}
+        # image <-- {}
+        # forward <-- {}
+        # demo <-- forward (fixed to False)
+
+        args_pattern["label"] = args_pattern["projection"]
+
+        mixed_pattern = {}
+        for arg_name in mixed_args:
+            pattern_proposal = [v for k, v in args_pattern.items() if k in arg_name]
+            assert (
+                len(pattern_proposal) == 1
+            ), f"{arg_name} cannot be uniquely identified according to the provided {args_pattern}"
+            mixed_pattern[arg_name] = pattern_proposal[0]
+        return mixed_pattern
 
     def inplace_create_sampler(self, args):
         nones = tuple(None for _ in args.dynamic_args[0])
@@ -175,8 +207,7 @@ class NoiseInterpolation:
     def inplace_process_sampler_args(self, args):
         self.inplace_sort_dynamic_args(args)
         self.inplace_process_logics_sampler_args(args)
-
-        combined_patterns = combine_patterns(args.args_pattern, args.mixed_args)
+        combined_patterns = None
         args.dynamic_args, args.static_kwargs = self._split_args(
             combined_patterns,
             force_dynamic_args=args.dynamic_args,
@@ -199,13 +230,29 @@ class NoiseInterpolation:
         args.args_pattern = {arg: args.args_pattern[arg] for arg in sampler_args_order}
 
     @staticmethod
-    def inplace_extract_mixed_args(args):
+    def extract_mixed_args(args):
         mixed_args = {}
-        for arg_name in args.args_pattern:
+        input_args = [
+            "alpha_mask_type",
+            "alpha_mask_value",
+            "baseline_mask_type",
+            "baseline_mask_value",
+            "normalize_sample",
+            "projection_type",
+            "projection_distribution",
+            "projection_top_k",
+            "projection_index",
+            "label",
+            "image",
+            "forward",
+        ]
+        for arg_name in input_args:
             assert hasattr(
                 args, arg_name
-            ), f"args_pattern contains an arg that is not in input args please check the name {arg_name}"
+            ), f"method expects an arg that is not in the provided args: {arg_name}"
             mixed_args[arg_name] = getattr(args, arg_name)
+
+        mixed_args["demo"] = [False] * len(mixed_args["forward"])
         return mixed_args
 
     @staticmethod
@@ -219,15 +266,11 @@ class NoiseInterpolation:
             )
         return dynamic_args, static_kwargs
 
-    def inplace_process_logics(self, args):
+    def _process_logics(self, args):
         assert len(args.input_shape) == 4
-        self.inplace_broadcast_args(args)
-        self.inplace_process_logics_alpha_mask(args)
-        self.inplace_process_logics_baseline_mask(args)
-        self.inplace_process_logics_projection(args)
-
-    def inplace_process_logics_sampler_args(self, args):
-        self.check_length_patterns(args.args_pattern, args.mixed_args)
+        self._process_logics_alpha_mask(args)
+        self._process_logics_baseline_mask(args)
+        self._process_logics_projection(args)
 
     def inplace_broadcast_args(self, args):
         # broadcast alpha mask values according to alpha mask type
@@ -259,21 +302,35 @@ class NoiseInterpolation:
         )
 
     @staticmethod
-    def check_length_patterns(pattern, values):
-        pattern_values = set(pattern.values())
-        for pattern_value in pattern_values:
-            temp_keys = [k for k, v in pattern.items() if pattern_value == v]
-            temp_values = [len(values[k]) for k in temp_keys]
-            key_value_pattern = {
-                k: (pattern_value, v) for k, v in zip(temp_keys, temp_values)
-            }
-            np.testing.assert_array_equal(
-                temp_values,
-                temp_values[0],
-                f"lists with the same pattern id must have the same length {key_value_pattern}",
-            )
+    def maybe_broad_cast_shapes(pattern, values):
+        pattern_values = list(pattern.values())
+        pattern_keys = list(pattern.keys())
+        temp_values = [values[k] for k in pattern_keys]
+        len_values = [len(v) for v in temp_values]
+        unique_pattern_values = list(set(pattern_values))
+        for unique_pattern_value in unique_pattern_values:
+            # find the max length of lists with the same pattern id
+            temp_len_values = [
+                len_values[i]
+                for i, v in enumerate(pattern_values)
+                if v == unique_pattern_value
+            ]
+            # assert that shapes are either 1 or the same as the max
+            max_value = np.max(temp_len_values)
+            assert all(
+                v == 1 or v == max_value for v in temp_len_values
+            ), f"lists with the same pattern id must have the same length or one {pattern}"
 
-    def inplace_process_logics_projection(self, args):
+            # broadcast lists with the same pattern id to the max length
+            for i, pattern_value in enumerate(pattern_values):
+                if pattern_value == unique_pattern_value and len_values[i] != max_value:
+                    len_factor = max_value / len_values[i]
+                    pattern_key = pattern_keys[i]
+                    values[pattern_key] = np.repeat(values[pattern_key], len_factor)
+
+        return values
+
+    def _process_logics_projection(self, args):
         iter_args = zip(
             args.projection_type,
             args.projection_distribution,
@@ -308,7 +365,7 @@ class NoiseInterpolation:
                 assert projection_index is None
                 assert projection_top_k is None
 
-    def inplace_process_logics_baseline_mask(self, args):
+    def _process_logics_baseline_mask(self, args):
         for baseline_mask_type, baseline_mask_value, normalize_sample in zip(
             args.baseline_mask_type,
             args.baseline_mask_value,
@@ -323,7 +380,7 @@ class NoiseInterpolation:
             elif baseline_mask_type == "gaussian":
                 assert baseline_mask_value is None
 
-    def inplace_process_logics_alpha_mask(self, args):
+    def _process_logics_alpha_mask(self, args):
         for alpha_mask_type, alpha_mask_value in zip(
             args.alpha_mask_type, args.alpha_mask_value
         ):

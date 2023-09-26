@@ -31,8 +31,8 @@ class DefaultArgs:
     args_pattern = json.dumps(
         {
             "forward": "i",
-            "alpha_mask": "i",
-            "projection": "i",
+            "alpha_mask": "k",
+            "projection": "j",
             "image": "i",
             "baseline_mask": "i",
             "normalize_sample": "i",
