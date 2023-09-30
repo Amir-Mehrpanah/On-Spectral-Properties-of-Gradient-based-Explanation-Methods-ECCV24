@@ -167,9 +167,9 @@ def add_base_args(parser, default_args):
         default=default_args.stats_log_level,
     )
     parser.add_argument(
-        "--dynamic_args",
+        "--args_state",
         type=json.loads,
-        default=default_args.dynamic_args,
+        default=default_args.args_state,
     )
     parser.add_argument(
         "--args_pattern",
@@ -189,15 +189,13 @@ def _process_args(args):
 
     if args.disable_jit:
         jax.config.update("jax_disable_jit", True)
-    
+
     if args.dry_run:
         pass
         # jax.config.update('jax_platform_name', 'cpu')
 
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)
-
-    args.input_shape = tuple(args.input_shape)
 
     dataset_query_func_switch[args.dataset](args)
     init_architecture_forward_switch[args.architecture](args)
@@ -356,7 +354,7 @@ def inplace_delete_metadata_after_computation(args):
 
 
 def iterate_pattern_task(args):
-    return combine_patterns(args.args_pattern, args.dynamic_args)
+    raise NotImplementedError("iterate_pattern_task is not implemented")
 
 
 def inplace_delete_base_metadata(args):
@@ -369,7 +367,7 @@ def inplace_delete_base_metadata(args):
     del args.forward
     del args.image
     del args.sampler
-    del args.dynamic_args
+    del args.args_state
     del args.args_pattern
     del args.save_raw_data_dir
     del args.save_metadata_dir

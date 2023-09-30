@@ -16,33 +16,16 @@ def static_projection(*, num_classes, index):
     return projection
 
 
-def ones_projection(*, num_classes):
-    return np.ones(shape=(num_classes, 1), dtype=np.float32)
-
-
-def prediction_projection(*, forward, image, k):
+def topk_uniform_projection(*, forward, image, k):
     log_probs = forward(image)
-    kth_max = np.argpartition(log_probs.squeeze(), -k)[-k]
-    return kth_max, static_projection(num_classes=log_probs.shape[1], index=kth_max)
 
-
-def top_k_prediction_projection(*, forward, image, k):
-    log_probs = forward(image)
     uptok_max = np.argpartition(log_probs.squeeze(), -k)[-k:]
-    projection = []
-    for i in uptok_max:
-        projection.append(
-            static_projection(
-                num_classes=log_probs.shape[1],
-                index=i,
-            )
-        )
+    projection = static_projection(
+        num_classes=log_probs.shape[1],
+        index=uptok_max,
+    )
+
     return [int(k) for k in uptok_max], projection
-
-
-def top_k_uniform_prediction_projection(*, forward, image, k):
-    uptok_max, projection = top_k_prediction_projection(forward, image, k)
-    return uptok_max, projection.sum(axis=0, keepdims=True)
 
 
 def onehot_categorical(key, *, num_classes, indices):
@@ -50,15 +33,21 @@ def onehot_categorical(key, *, num_classes, indices):
     return static_projection(num_classes=num_classes, index=sparse)
 
 
-def random_projection(*, forward, image, k, distribution):
+def topk_static_projection(*, forward, image, k):
+    log_probs = forward(image)
+    k_max = np.argpartition(log_probs.squeeze(), -k)[-k]
+    return k_max, static_projection(num_classes=log_probs.shape[1], index=k_max)
+
+
+def topk_categorical_random_projection(*, forward, image, k):
     log_probs = forward(image)
     uptok_max = np.argpartition(log_probs.squeeze(), -k)[-k:]
-    if distribution == "categorical":
-        return functools.partial(
-            onehot_categorical, num_classes=log_probs.shape[1], indices=uptok_max
-        )
-    else:
-        raise NotImplementedError
+
+    return [int(k) for k in uptok_max], functools.partial(
+        onehot_categorical,
+        num_classes=log_probs.shape[1],
+        indices=uptok_max,
+    )
 
 
 def resize_mask(

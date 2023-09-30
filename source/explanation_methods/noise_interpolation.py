@@ -154,155 +154,61 @@ class NoiseInterpolation:
             nargs="+",
         )
 
-    def inplace_process_args(self, args):
-        mixed_args = self.extract_mixed_args(args)
-        mixed_pattern = self.extract_mixed_pattern(args.args_pattern, mixed_args)
-        mixed_args = self.maybe_broad_cast_shapes(mixed_pattern, mixed_args)
-        combined_patterns = combine_patterns(mixed_pattern, mixed_args)
-        raise ValueError(combined_patterns[0])
-        self._process_logics(combined_patterns)
-        self.inplace_process_projection(args)
-        self.inplace_process_baseline_mask(args)
-        self.inplace_process_alpha_mask(args)
-        self.inplace_process_sampler_args(args)
-        self.inplace_create_sampler(args)
-
-    @staticmethod
-    def extract_mixed_pattern(args_pattern, mixed_args):
-        # explicit pattern dependency:
-        # projection <-- label
-        # projection <-- projection_type
-        # projection <-- projection_distribution
-        # projection <-- projection_top_k
-        # projection <-- projection_index
-        # alpha_mask <-- alpha_mask_value
-        # alpha_mask <-- alpha_mask_type
-        # baseline_mask <-- baseline_mask_value
-        # baseline_mask <-- baseline_mask_type
-        # normalize_sample <-- {}
-        # image <-- {}
-        # forward <-- {}
-        # demo <-- forward (fixed to False)
-
-        args_pattern["label"] = args_pattern["projection"]
-
-        mixed_pattern = {}
-        for arg_name in mixed_args:
-            pattern_proposal = [v for k, v in args_pattern.items() if k in arg_name]
-            assert (
-                len(pattern_proposal) == 1
-            ), f"{arg_name} cannot be uniquely identified according to the provided {args_pattern}"
-            mixed_pattern[arg_name] = pattern_proposal[0]
-        return mixed_pattern
-
-    def inplace_create_sampler(self, args):
-        nones = tuple(None for _ in args.dynamic_args[0])
-        samplers = [
-            self.sampler(**compilation_pattern).concretize()
-            for compilation_pattern in args.static_kwargs
-        ]
-        vectorized_samplers = [jax.vmap(v, in_axes=(0, *nones)) for v in samplers]
-        args.samplers = vectorized_samplers
-
-    def inplace_process_sampler_args(self, args):
-        self.inplace_sort_dynamic_args(args)
-        self.inplace_process_logics_sampler_args(args)
-        combined_patterns = None
-        args.dynamic_args, args.static_kwargs = self._split_args(
-            combined_patterns,
-            force_dynamic_args=args.dynamic_args,
+    @classmethod
+    def inplace_process_args(cls, args):
+        mixed_args = cls.extract_mixed_args(args)
+        mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
+        mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
+        combined_mixed_args = combine_patterns(mixed_pattern, mixed_args)
+        list(map(cls._process_logics, combined_mixed_args))
+        combined_mixed_args = list(map(cls._process_args, combined_mixed_args))
+        (
+            combined_dynamic_kwargs,
+            combined_static_kwargs,
+            other_kwargs,
+        ) = cls._split_args_dicts(
+            combined_mixed_args,
+            args_state=args.args_state,
         )
-
-    def inplace_sort_dynamic_args(self, args):
-        sampler_args_order = list(self.sampler.params.keys())
-        sampler_args_order.remove("key")
-        assert all(
-            arg in args.args_pattern for arg in args.dynamic_args
-        ), "dynamic_args contains an arg that is not in args_pattern please check the provided args"
-        assert not "key" in args.args_pattern, "key is a reserved word"
-        assert all(
-            arg in sampler_args_order for arg in args.args_pattern
-        ), "args_pattern contains an arg that is not in sampler args please check the provided args"
-        assert all(
-            arg in args.args_pattern for arg in sampler_args_order
-        ), "sampler expects an argument that is not in args_pattern please check the provided args"
-        # sort dynamic args according to sampler args order
-        args.args_pattern = {arg: args.args_pattern[arg] for arg in sampler_args_order}
-
-    @staticmethod
-    def extract_mixed_args(args):
-        mixed_args = {}
-        input_args = [
-            "alpha_mask_type",
-            "alpha_mask_value",
-            "baseline_mask_type",
-            "baseline_mask_value",
-            "normalize_sample",
-            "projection_type",
-            "projection_distribution",
-            "projection_top_k",
-            "projection_index",
-            "label",
-            "image",
-            "forward",
-        ]
-        for arg_name in input_args:
-            assert hasattr(
-                args, arg_name
-            ), f"method expects an arg that is not in the provided args: {arg_name}"
-            mixed_args[arg_name] = getattr(args, arg_name)
-
-        mixed_args["demo"] = [False] * len(mixed_args["forward"])
-        return mixed_args
-
-    @staticmethod
-    def _split_args(combined_patterns, force_dynamic_args):
-        dynamic_args = []
-        static_kwargs = []
-        for combination in combined_patterns:
-            dynamic_args.append({k: combination[k] for k in force_dynamic_args})
-            static_kwargs.append(
-                {k: combination[k] for k in combination if k not in force_dynamic_args}
+        combined_dynamic_kwargs = list(
+            map(
+                cls._sort_dynamic_args,
+                combined_dynamic_kwargs,
             )
-        return dynamic_args, static_kwargs
-
-    def _process_logics(self, args):
-        assert len(args.input_shape) == 4
-        self._process_logics_alpha_mask(args)
-        self._process_logics_baseline_mask(args)
-        self._process_logics_projection(args)
-
-    def inplace_broadcast_args(self, args):
-        # broadcast alpha mask values according to alpha mask type
-        args.alpha_mask_value = self._maybe_broadcast_arg(
-            args.alpha_mask_value, args.alpha_mask_type
+        )
+        samplers = list(
+            map(
+                cls._create_sampler,
+                combined_static_kwargs,
+                combined_dynamic_kwargs,
+            )
         )
 
-        # broadcast label, image, projection distribution, forward, projection top k and projection index according to projection type
-        args.label = self._maybe_broadcast_arg(args.label, args.projection_type)
-        args.image = self._maybe_broadcast_arg(args.image, args.projection_type)
-        args.forward = self._maybe_broadcast_arg(args.forward, args.projection_type)
-        args.demo = self._maybe_broadcast_arg([False], args.projection_type)
-        args.projection_distribution = self._maybe_broadcast_arg(
-            args.projection_distribution, args.projection_type
-        )
-        args.projection_top_k = self._maybe_broadcast_arg(
-            args.projection_top_k, args.projection_type
-        )
-        args.projection_index = self._maybe_broadcast_arg(
-            args.projection_index, args.projection_type
-        )
+        print(f"created {len(samplers)} samplers (number of compilations)")
+        args.sampler = samplers
+        args.dynamic_args = combined_dynamic_kwargs
+        args.other_kwargs = other_kwargs
 
-        # broadcast baseline mask values according to baseline mask type
-        args.normalize_sample = self._maybe_broadcast_arg(
-            args.normalize_sample, args.baseline_mask_type
-        )
-        args.baseline_mask_value = self._maybe_broadcast_arg(
-            args.baseline_mask_value, args.baseline_mask_type
-        )
+    @classmethod
+    def _process_args(cls, args_dict):
+        args_dict = cls._process_projection(args_dict)
+        args_dict = cls._process_baseline_mask(args_dict)
+        args_dict = cls._process_alpha_mask(args_dict)
+
+        cls.sampler_args_order = list(cls.sampler.params.keys())
+        assert (
+            cls.sampler_args_order[0] == "key"
+        ), "key must be the first arg of sampler"
+        cls.sampler_args_order.remove("key")
+        for arg in cls.sampler_args_order:
+            assert (
+                arg in args_dict
+            ), "processed args_dict must contains all args that expected by sampler except key"
+        assert not "key" in args_dict, "key is a reserved word"
+        return args_dict
 
     @staticmethod
-    def maybe_broad_cast_shapes(pattern, values):
+    def maybe_broadcast_shapes(pattern, values):
         pattern_values = list(pattern.values())
         pattern_keys = list(pattern.keys())
         temp_values = [values[k] for k in pattern_keys]
@@ -330,218 +236,281 @@ class NoiseInterpolation:
 
         return values
 
-    def _process_logics_projection(self, args):
-        iter_args = zip(
-            args.projection_type,
-            args.projection_distribution,
-            args.projection_top_k,
-            args.projection_index,
-            args.label,
+    @classmethod
+    def extract_mixed_pattern(cls, args_pattern, mixed_args):
+        # explicit pattern dependency: todo make it more formal
+        # A <-- B means that B will be inferred from A
+        # projection <-- label
+        # projection <-- projection_type
+        # projection <-- projection_distribution
+        # projection <-- projection_top_k
+        # projection <-- projection_index
+        # alpha_mask <-- alpha_mask_value
+        # alpha_mask <-- alpha_mask_type
+        # baseline_mask <-- baseline_mask_value
+        # baseline_mask <-- baseline_mask_type
+        # normalize_sample <-- {}
+        # image <-- {}
+        # image <-- input_shape
+        # forward <-- {}
+        # num_classes <-- forward
+        # demo <-- forward (fixed to False)
+
+        args_pattern["label"] = args_pattern["projection"]
+        args_pattern["input_shape"] = args_pattern["image"]
+        args_pattern["num_classes"] = args_pattern["forward"]
+
+        mixed_pattern = {}
+        for arg_name in mixed_args:
+            pattern_proposal = [v for k, v in args_pattern.items() if k in arg_name]
+            assert (
+                len(pattern_proposal) == 1
+            ), f"{arg_name} cannot be uniquely identified according to the provided {args_pattern}"
+            mixed_pattern[arg_name] = pattern_proposal[0]
+        return mixed_pattern
+
+    @classmethod
+    def _create_sampler(cls, static_kwargs, dynamic_kwargs):
+        nones = tuple(None for _ in dynamic_kwargs)
+        sampler = cls.sampler(**static_kwargs).concretize()
+        sampler = jax.vmap(sampler, in_axes=(0, *nones))
+        return sampler
+
+    @classmethod
+    def _sort_dynamic_args(cls, dynamic_args_dict):
+        # sort dynamic args according to sampler args order
+        dynamic_args_dict = {
+            arg: dynamic_args_dict[arg]
+            for arg in cls.sampler_args_order
+            if arg in dynamic_args_dict
+        }
+        return dynamic_args_dict
+
+    @staticmethod
+    def extract_mixed_args(args):
+        mixed_args = {}
+        input_args = [
+            "alpha_mask_type",
+            "alpha_mask_value",
+            "baseline_mask_type",
+            "baseline_mask_value",
+            "normalize_sample",
+            "projection_type",
+            "projection_distribution",
+            "projection_top_k",
+            "projection_index",
+            "label",
+            "image",
+            "forward",
+            "input_shape",
+            "num_classes",
+        ]
+        for arg_name in input_args:
+            assert hasattr(
+                args, arg_name
+            ), f"method expects an arg that is not in the provided args: {arg_name}"
+            mixed_args[arg_name] = getattr(args, arg_name)
+
+        mixed_args["demo"] = [False] * len(mixed_args["forward"])
+        mixed_args["input_shape"] = [mixed_args["input_shape"]] * len(
+            mixed_args["image"]
         )
-        for (
-            projection_type,
-            projection_distribution,
-            projection_top_k,
-            projection_index,
-            label,
-        ) in iter_args:
-            if projection_type == "label":
-                assert label is not None
-                assert projection_distribution is None
-                assert projection_index is None
-            elif projection_type == "random":
-                assert projection_index is None
-                assert projection_distribution is not None
-                assert projection_top_k > 0
-            elif projection_type == "prediction":
-                assert projection_index is None
-                assert projection_distribution is not None
-                assert projection_top_k > 0
-            elif projection_type == "static":
-                assert projection_distribution is None
-                assert projection_index is not None and projection_index >= 0
-            elif projection_type == "ones":
-                assert projection_distribution is None
-                assert projection_index is None
-                assert projection_top_k is None
-
-    def _process_logics_baseline_mask(self, args):
-        for baseline_mask_type, baseline_mask_value, normalize_sample in zip(
-            args.baseline_mask_type,
-            args.baseline_mask_value,
-            args.normalize_sample,
-        ):
-            if baseline_mask_type == "static":
-                assert baseline_mask_value is not None
-                if isinstance(baseline_mask_value, float):
-                    assert (
-                        normalize_sample is False
-                    ), "normalization of convex interpolation with static baseline is not expected"
-            elif baseline_mask_type == "gaussian":
-                assert baseline_mask_value is None
-
-    def _process_logics_alpha_mask(self, args):
-        for alpha_mask_type, alpha_mask_value in zip(
-            args.alpha_mask_type, args.alpha_mask_value
-        ):
-            if alpha_mask_type == "static":
-                assert alpha_mask_value is not None
-            elif alpha_mask_type == "uniform":
-                assert alpha_mask_value is None
-
-    def inplace_process_alpha_mask(self, args):
-        alpha_mask = []
-        for alpha_mask_type, alpha_mask_value in zip(
-            args.alpha_mask_type, args.alpha_mask_value
-        ):
-            if alpha_mask_type == "static":
-                alpha_mask.append(alpha_mask_value * jnp.ones(shape=(1, 1, 1, 1)))
-            elif alpha_mask_type == "scalar_uniform":
-                alpha_mask.append(
-                    partial(
-                        jax.random.uniform,
-                        shape=(1, 1, 1, 1),
-                    )
-                )
-            elif alpha_mask_type == "image_uniform":
-                alpha_mask.append(
-                    partial(
-                        jax.random.uniform,
-                        shape=args.input_shape,
-                    )
-                )
-            else:
-                raise NotImplementedError
-
-        args.alpha_mask = alpha_mask
-
-    def inplace_process_baseline_mask(self, args):
-        baseline_mask = []
-        for baseline_mask_type, baseline_mask_value in zip(
-            args.baseline_mask_type, args.baseline_mask_value
-        ):
-            if baseline_mask_type == "static":
-                baseline_mask.append(
-                    baseline_mask_value * jnp.ones(shape=args.input_shape)
-                )
-            elif baseline_mask_type == "gaussian":
-                baseline_mask.append(
-                    partial(
-                        jax.random.normal,
-                        shape=args.input_shape,
-                    )
-                )
-            else:
-                raise NotImplementedError
-
-        args.baseline_mask = baseline_mask
-
-    def inplace_process_projection(self, args):
-        projection = []
-        projection_indices = []
-
-        iter_args = zip(
-            args.projection_type,
-            args.projection_distribution,
-            args.projection_top_k,
-            args.projection_index,
-            args.label,
-            args.image,
-            args.forward,
+        mixed_args["num_classes"] = [mixed_args["num_classes"]] * len(
+            mixed_args["forward"]
         )
-        for (
-            projection_type,
-            projection_distribution,
-            projection_top_k,
-            projection_index,
-            label,
-            image,
-            forward,
-        ) in iter_args:
-            if projection_type == "label":
-                temp_projection = operations.static_projection(
-                    num_classes=args.num_classes,
-                    index=label,
-                )
-                temp_projection_index = label
-            elif projection_type == "random":
-                temp_projection = operations.random_projection(
-                    image=image,
-                    forward=forward,
-                    distribution=projection_distribution,
-                    k=projection_top_k,
-                )
-                temp_projection_index = None
-            elif projection_type == "prediction":
-                if projection_distribution == "delta":
-                    """
-                    generates a delta distribution on the top k'th prediction.
-                    """
-                    (
-                        temp_projection_index,
-                        temp_projection,
-                    ) = operations.prediction_projection(
-                        image=image,
-                        forward=forward,
-                        k=projection_top_k,
-                    )
-                elif projection_distribution == "uniform":
-                    """
-                    generates a uniform distribution on top k predictions.
-                    """
-                    (
-                        temp_projection_index,
-                        temp_projection,
-                    ) = operations.top_k_uniform_prediction_projection(
-                        image=image,
-                        forward=forward,
-                        k=projection_top_k,
-                    )
-                elif projection_distribution == "categorical":
-                    """
-                    generates a categorical distribution on top k predictions.
-                    the result is a list of one-hot vectors.
-                    """
-                    (
-                        temp_projection_index,
-                        temp_projection,
-                    ) = operations.top_k_prediction_projection(
-                        image=image,
-                        forward=forward,
-                        k=projection_top_k,
-                    )
-                else:
-                    raise NotImplementedError
+        return mixed_args
 
-            elif projection_type == "ones":
-                """
-                generates a uniform distribution on all classes.
-                """
-                temp_projection = operations.ones_projection(
-                    num_classes=args.num_classes,
-                )
-                temp_projection_index = None
-            elif projection_type == "static":
-                """
-                generates a delta distribution on a single class specified by projection index.
-                """
-                temp_projection = operations.static_projection(
-                    num_classes=args.num_classes,
-                    index=projection_index,
-                )
-                temp_projection_index = projection_index
+    @classmethod
+    def _split_args_dicts(cls, combined_mixed_args, args_state):
+        static_keys = [k for k, v in args_state.items() if v == "static"]
+        dynamic_keys = [k for k, v in args_state.items() if v == "dynamic"]
+        dynamic_kwargs = []
+        static_kwargs = []
+        other_kwargs = []
+        for args_dict in combined_mixed_args:
+            (
+                temp_dynamic_args,
+                temp_static_kwargs,
+                temp_other_args,
+            ) = cls._split_args_dict(
+                args_dict,
+                static_keys,
+                dynamic_keys,
+            )
+            dynamic_kwargs.append(temp_dynamic_args)
+            static_kwargs.append(temp_static_kwargs)
+            other_kwargs.append(temp_other_args)
+
+        return dynamic_kwargs, static_kwargs, other_kwargs
+
+    @staticmethod
+    def _split_args_dict(args_dict, static_keys, dynamic_keys):
+        static_kwargs = {}
+        dynamic_kwargs = {}
+        other_kwargs = {}
+        for k, v in args_dict.items():
+            if k in static_keys:
+                static_kwargs[k] = v
+            elif k in dynamic_keys:
+                dynamic_kwargs[k] = v
+            else:
+                other_kwargs[k] = v
+        return dynamic_kwargs, static_kwargs, other_kwargs
+
+    @classmethod
+    def _process_logics(
+        cls,
+        args_dict,
+    ):
+        assert len(args_dict["input_shape"]) == 4
+        cls._process_logics_alpha_mask(args_dict)
+        cls._process_logics_baseline_mask(args_dict)
+        cls._process_logics_projection(args_dict)
+
+    @staticmethod
+    def _process_logics_projection(args_dict):
+        if args_dict["projection_type"] == "label":
+            assert args_dict["label"] is not None
+            assert args_dict["projection_distribution"] is None
+            assert args_dict["projection_index"] is None
+            print(
+                "Warning: projection_type is label, this means that the label will be used as the projection."
+                "this is not a good idea for explainability best practices, because it will not be available at test time."
+            )
+        elif args_dict["projection_type"] == "prediction":
+            assert args_dict["projection_distribution"] is not None
+            assert (
+                args_dict["projection_index"] is None
+            ), "when projection is prediction, projection_index will be inferred from the forward function"
+            if args_dict["projection_distribution"] == "delta":
+                assert args_dict["projection_top_k"] > 0
+            elif args_dict["projection_distribution"] == "uniform":
+                assert args_dict["projection_top_k"] > 1
+            elif args_dict["projection_distribution"] == "categorical":
+                assert args_dict["projection_top_k"] > 1
             else:
                 raise NotImplementedError
 
-            if isinstance(temp_projection, list):
-                projection.extend(temp_projection)
-                projection_indices.extend(temp_projection_index)
-            else:
-                projection.append(temp_projection)
-                projection_indices.append(temp_projection_index)
+        elif args_dict["projection_type"] == "static":
+            assert args_dict["projection_distribution"] == "delta"
+            assert args_dict["projection_top_k"] is None
+            assert args_dict["projection_index"] >= 0
+        else:
+            raise NotImplementedError
 
-        args.projection = projection
-        args.projection_index = projection_indices
+    @staticmethod
+    def _process_logics_baseline_mask(args_dict):
+        if args_dict["baseline_mask_type"] == "static":
+            assert args_dict["baseline_mask_value"] is not None
+            if isinstance(args_dict["baseline_mask_value"], float):
+                assert (
+                    args_dict["normalize_sample"] is False
+                ), "normalization of convex interpolation with static baseline is not expected"
+        elif args_dict["baseline_mask_type"] == "gaussian":
+            assert args_dict["baseline_mask_value"] is None
+
+    @staticmethod
+    def _process_logics_alpha_mask(args_dict):
+        if args_dict["alpha_mask_type"] == "static":
+            assert args_dict["alpha_mask_value"] is not None
+        elif args_dict["alpha_mask_type"] == "uniform":
+            assert args_dict["alpha_mask_value"] is None
+
+    @staticmethod
+    def _process_alpha_mask(args_dict):
+        if args_dict["alpha_mask_type"] == "static":
+            alpha_mask = args_dict["alpha_mask_value"] * jnp.ones(shape=(1, 1, 1, 1))
+        elif args_dict["alpha_mask_type"] == "scalar_uniform":
+            alpha_mask = partial(
+                jax.random.uniform,
+                shape=(1, 1, 1, 1),
+            )
+        elif args_dict["alpha_mask_type"] == "image_uniform":
+            alpha_mask = partial(
+                jax.random.uniform,
+                shape=args_dict["input_shape"],
+            )
+        else:
+            raise NotImplementedError
+
+        args_dict["alpha_mask"] = alpha_mask
+        return args_dict
+
+    @staticmethod
+    def _process_baseline_mask(args_dict):
+        if args_dict["baseline_mask_type"] == "static":
+            baseline_mask = args_dict["baseline_mask_value"] * jnp.ones(
+                shape=args_dict["input_shape"]
+            )
+        elif args_dict["baseline_mask_type"] == "gaussian":
+            baseline_mask = partial(
+                jax.random.normal,
+                shape=args_dict["input_shape"],
+            )
+        else:
+            raise NotImplementedError
+        args_dict["baseline_mask"] = baseline_mask
+        return args_dict
+
+    @staticmethod
+    def _process_projection(args_dict):
+        if args_dict["projection_type"] == "label":
+            temp_projection = operations.static_projection(
+                num_classes=args_dict["num_classes"],
+                index=args_dict["label"],
+            )
+            temp_projection_index = args_dict["label"]
+        elif args_dict["projection_type"] == "prediction":
+            if args_dict["projection_distribution"] == "categorical":
+                (
+                    temp_projection,
+                    temp_projection_index,
+                ) = operations.topk_categorical_random_projection(
+                    image=args_dict["image"],
+                    forward=args_dict["forward"],
+                    k=args_dict["projection_top_k"],
+                )
+            elif args_dict["projection_distribution"] == "delta":
+                """
+                generates a delta distribution on the top k'th prediction.
+                """
+                (
+                    temp_projection_index,
+                    temp_projection,
+                ) = operations.topk_static_projection(
+                    image=args_dict["image"],
+                    forward=args_dict["forward"],
+                    k=args_dict["projection_top_k"],
+                )
+            elif args_dict["projection_distribution"] == "uniform":
+                """
+                generates a uniform distribution on top k predictions.
+                """
+                (
+                    temp_projection_index,
+                    temp_projection,
+                ) = operations.topk_uniform_projection(
+                    image=args_dict["image"],
+                    forward=args_dict["forward"],
+                    k=args_dict["projection_top_k"],
+                )
+            else:
+                raise NotImplementedError
+        elif args_dict["projection_type"] == "static":
+            """
+            generates a delta distribution on a single class specified by projection index.
+            """
+            temp_projection = operations.static_projection(
+                num_classes=args_dict["num_classes"],
+                index=args_dict["projection_index"],
+            )
+            temp_projection_index = args_dict["projection_index"]
+        else:
+            raise NotImplementedError
+
+        args_dict["projection"] = temp_projection
+        args_dict["projection_index"] = temp_projection_index
+        return args_dict
 
     @staticmethod
     def _maybe_broadcast_arg(arg, target_arg):

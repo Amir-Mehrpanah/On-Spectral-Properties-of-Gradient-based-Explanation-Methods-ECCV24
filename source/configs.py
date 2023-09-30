@@ -9,6 +9,16 @@ class DefaultArgs:
     def __init__(self) -> None:
         raise NotImplementedError("This class is not meant to be instantiated")
 
+    _args_pattern_state = {
+        # "key": ["pattern", "state"],
+        "forward": ["i", "static"],
+        "alpha_mask": ["k", "dynamic"],
+        "projection": ["j", "dynamic"],
+        "image": ["i", "static"],
+        "baseline_mask": ["i", "static"],
+        "normalize_sample": ["i", "static"],
+        "demo": ["i", "static"],
+    }
     methods = ["noise_interpolation", "fisher_information"]
     architectures = ["resnet50"]
     output_layers = ["logits", "log_softmax", "softmax"]
@@ -27,18 +37,8 @@ class DefaultArgs:
     gather_stats = True
     dataset = "imagenet"
     # args we don't want to be compiled by jax
-    dynamic_args = {"projection": None, "alpha_mask": None}
-    args_pattern = json.dumps(
-        {
-            "forward": "i",
-            "alpha_mask": "k",
-            "projection": "j",
-            "image": "i",
-            "baseline_mask": "i",
-            "normalize_sample": "i",
-            "demo": "i",
-        }
-    )
+    args_state = json.dumps({k: v[1] for k, v in _args_pattern_state.items()})
+    args_pattern = json.dumps({k: v[0] for k, v in _args_pattern_state.items()})
     num_classes = 1000
     dataset_dir = "/local_storage/datasets/imagenet"
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
