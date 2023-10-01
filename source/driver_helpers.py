@@ -271,7 +271,7 @@ def sampling_demo(args):
 
 
 def pretty_print_args(args: argparse.Namespace):
-    pretty_kwargs = copy.deepcopy(args.other_kwargs)
+    pretty_kwargs = copy.deepcopy(args.meta_kwargs)
     inplace_propagate = lambda k, v: [item.update({k: v}) for item in pretty_kwargs]
     inplace_propagate("method", args.method)
     inplace_propagate("max_batches", args.max_batches)
@@ -288,6 +288,7 @@ def pretty_print_args(args: argparse.Namespace):
 def inplace_update_method_and_kwargs(args):
     method_cls = methods_switch[args.method]
     method_cls.inplace_process_args(args)
+    method_cls.inplace_clean_junk_after_processing_args(args)
 
 
 def inplace_save_stats(args):
@@ -329,8 +330,6 @@ def inplace_save_stats(args):
 def inplace_save_metadata(args):
     csv_file_name = f"{args.path_prefix}.csv"
     csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
-
-    inplace_delete_metadata_after_computation(args)
 
     # processing base metadata before saving
     args.csv_file_path = csv_file_path

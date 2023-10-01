@@ -32,6 +32,23 @@ class TypeOrNone:
 
 
 class NoiseInterpolation:
+    input_args = [
+        "alpha_mask_type",
+        "alpha_mask_value",
+        "baseline_mask_type",
+        "baseline_mask_value",
+        "normalize_sample",
+        "projection_type",
+        "projection_distribution",
+        "projection_top_k",
+        "projection_index",
+        "label",
+        "image",
+        "forward",
+        "input_shape",
+        "num_classes",
+    ]
+
     @staticmethod
     @AbstractFunction
     def sampler(
@@ -165,7 +182,7 @@ class NoiseInterpolation:
         (
             combined_dynamic_kwargs,
             combined_static_kwargs,
-            other_kwargs,
+            meta_kwargs,
         ) = cls._split_args_dicts(
             combined_mixed_args,
             args_state=args.args_state,
@@ -180,14 +197,14 @@ class NoiseInterpolation:
             map(
                 cls._create_sampler,
                 combined_static_kwargs,
-                combined_dynamic_kwargs,
+                vmap_axis=tuple(None for _ in combined_dynamic_kwargs),
             )
         )
 
-        print(f"created {len(samplers)} samplers")
         args.samplers = samplers
         args.dynamic_kwargs = combined_dynamic_kwargs
-        args.other_kwargs = other_kwargs
+        args.meta_kwargs = meta_kwargs
+        args.static_kwargs = combined_static_kwargs
 
     @classmethod
     def _process_args(cls, args_dict):
@@ -268,10 +285,10 @@ class NoiseInterpolation:
         return mixed_pattern
 
     @classmethod
-    def _create_sampler(cls, static_kwargs, dynamic_kwargs):
-        nones = tuple(None for _ in dynamic_kwargs)
+    def _create_sampler(cls, static_kwargs, vamp_axis=None):
         sampler = cls.sampler(**static_kwargs).concretize()
-        sampler = jax.vmap(sampler, in_axes=(0, *nones))
+        if vamp_axis is not None:
+            sampler = jax.vmap(sampler, in_axes=vamp_axis)
         return sampler
 
     @classmethod
@@ -284,26 +301,10 @@ class NoiseInterpolation:
         }
         return dynamic_kwargs_dict
 
-    @staticmethod
-    def extract_mixed_args(args):
+    @classmethod
+    def extract_mixed_args(cls, args):
         mixed_args = {}
-        input_args = [
-            "alpha_mask_type",
-            "alpha_mask_value",
-            "baseline_mask_type",
-            "baseline_mask_value",
-            "normalize_sample",
-            "projection_type",
-            "projection_distribution",
-            "projection_top_k",
-            "projection_index",
-            "label",
-            "image",
-            "forward",
-            "input_shape",
-            "num_classes",
-        ]
-        for arg_name in input_args:
+        for arg_name in cls.input_args:
             assert hasattr(
                 args, arg_name
             ), f"method expects an arg that is not in the provided args: {arg_name}"
@@ -515,22 +516,31 @@ class NoiseInterpolation:
         args_dict["projection_index"] = temp_projection_index
         return args_dict
 
-    def inplace_delete_extra_metadata_after_computation(
-        self,
+    @classmethod
+    def inplace_clean_junk_after_processing_args(
+        cls,
         args: argparse.Namespace,
     ):
-        # things we added for computation but don't want to be saved as metadata
-        del args.alpha_mask
-        del args.projection
-        del args.baseline_mask
+        # things we added for computation but don't need anymore
+        for k in cls.input_args:
+            delattr(args, k)
+        del args.stats_log_level
+        del args.output_layer
+        del args.args_pattern
+        del args.args_state
 
-    def inplace_make_pretty(self, pretty_kwargs: List):
+    @staticmethod
+    def inplace_make_pretty(pretty_kwargs: List):
         for item in pretty_kwargs:
             item["projection_index"] = int(item["projection_index"])
 
-    def inplace_demo(self, args):
+    @classmethod
+    def inplace_demo(cls, args):
         # we run a demo (one step of the algorithm after computations finished)
         key = jax.random.PRNGKey(args.seed)
-        kwargs = self.inplace_process_args(args)
-        demo_output = self.sampler(demo=True, **kwargs).concretize()(key=key)
+        kwargs = args.dynamic_kwargs[0]
+        kwargs.update(args.static_kwargs[0])
+        kwargs["demo"] = True
+        kwargs["key"] = key
+        demo_output = cls._create_sampler({}, kwargs)()
         args.stats.update(demo_output)
