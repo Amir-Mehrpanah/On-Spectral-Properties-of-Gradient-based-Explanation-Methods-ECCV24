@@ -270,20 +270,17 @@ def sampling_demo(args):
 
 
 def pretty_print_args(args: argparse.Namespace):
-    pretty_kwargs = vars(copy.deepcopy(args))
-    del pretty_kwargs["forward"]
-
-    pretty_kwargs["method"] = args.method
-    pretty_kwargs["max_batches"] = args.max_batches
-    pretty_kwargs["batch_size"] = args.batch_size
-    pretty_kwargs["seed"] = args.seed
-
-    pretty_kwargs["image"] = [str(img.shape) for img in args.image]
-    pretty_kwargs["sampler"] = str(args.sampler)
-    pretty_kwargs["stats"] = f"stats of len {len(args.stats)}"
-    pretty_kwargs["label"] = list(map(int, pretty_kwargs["label"]))
-
-    methods_switch[args.method].inplace_pretty_print(pretty_kwargs)
+    pretty_kwargs = copy.deepcopy(args.other_kwargs)
+    inplace_propagate = lambda k, v: [item.update({k: v}) for item in pretty_kwargs]
+    inplace_propagate("method", args.method)
+    inplace_propagate("max_batches", args.max_batches)
+    inplace_propagate("batch_size", args.batch_size)
+    inplace_propagate("seed", args.seed)
+    temp_stats = f"stats of len {len(args.stats)}"
+    inplace_propagate("stats", temp_stats)
+    temp_labels = [int(items["label"]) for items in pretty_kwargs]
+    inplace_propagate("label", temp_labels)
+    methods_switch[args.method].inplace_make_pretty(pretty_kwargs)
     print("experiment args:", json.dumps(pretty_kwargs, indent=4, sort_keys=True))
 
 

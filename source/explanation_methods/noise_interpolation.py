@@ -172,7 +172,7 @@ class NoiseInterpolation:
         )
         combined_dynamic_kwargs = list(
             map(
-                cls._sort_dynamic_args,
+                cls._sort_dynamic_kwargs,
                 combined_dynamic_kwargs,
             )
         )
@@ -184,9 +184,9 @@ class NoiseInterpolation:
             )
         )
 
-        print(f"created {len(samplers)} samplers (number of compilations)")
-        args.sampler = samplers
-        args.dynamic_args = combined_dynamic_kwargs
+        print(f"created {len(samplers)} samplers")
+        args.samplers = samplers
+        args.dynamic_kwargs = combined_dynamic_kwargs
         args.other_kwargs = other_kwargs
 
     @classmethod
@@ -195,12 +195,10 @@ class NoiseInterpolation:
         args_dict = cls._process_baseline_mask(args_dict)
         args_dict = cls._process_alpha_mask(args_dict)
 
-        cls.sampler_args_order = list(cls.sampler.params.keys())
-        assert (
-            cls.sampler_args_order[0] == "key"
-        ), "key must be the first arg of sampler"
-        cls.sampler_args_order.remove("key")
-        for arg in cls.sampler_args_order:
+        cls.sampler_args = list(cls.sampler.params.keys())
+        assert cls.sampler_args[0] == "key", "key must be the first arg of sampler"
+        cls.sampler_args.remove("key")
+        for arg in cls.sampler_args:
             assert (
                 arg in args_dict
             ), "processed args_dict must contains all args that expected by sampler except key"
@@ -277,14 +275,14 @@ class NoiseInterpolation:
         return sampler
 
     @classmethod
-    def _sort_dynamic_args(cls, dynamic_args_dict):
+    def _sort_dynamic_kwargs(cls, dynamic_kwargs_dict):
         # sort dynamic args according to sampler args order
-        dynamic_args_dict = {
-            arg: dynamic_args_dict[arg]
-            for arg in cls.sampler_args_order
-            if arg in dynamic_args_dict
+        dynamic_kwargs_dict = {
+            arg: dynamic_kwargs_dict[arg]
+            for arg in cls.sampler_args
+            if arg in dynamic_kwargs_dict
         }
-        return dynamic_args_dict
+        return dynamic_kwargs_dict
 
     @staticmethod
     def extract_mixed_args(args):
@@ -322,40 +320,47 @@ class NoiseInterpolation:
 
     @classmethod
     def _split_args_dicts(cls, combined_mixed_args, args_state):
-        static_keys = [k for k, v in args_state.items() if v == "static"]
-        dynamic_keys = [k for k, v in args_state.items() if v == "dynamic"]
+        static_keys = [k for k, v in args_state.items() if "static" in v]
+        dynamic_keys = [k for k, v in args_state.items() if "dynamic" in v]
+        meta_keys = [k for k, v in args_state.items() if "meta" in v]
+        assert (
+            len(static_keys) + len(dynamic_keys) == len(cls.sampler_args) - 1
+        )  # -1 is for key which is a reserved word
         dynamic_kwargs = []
         static_kwargs = []
-        other_kwargs = []
+        meta_kwargs = []
         for args_dict in combined_mixed_args:
             (
-                temp_dynamic_args,
+                temp_dynamic_kwargs,
                 temp_static_kwargs,
-                temp_other_args,
+                temp_meta_args,
             ) = cls._split_args_dict(
                 args_dict,
                 static_keys,
                 dynamic_keys,
+                meta_keys,
             )
-            dynamic_kwargs.append(temp_dynamic_args)
+            dynamic_kwargs.append(temp_dynamic_kwargs)
             static_kwargs.append(temp_static_kwargs)
-            other_kwargs.append(temp_other_args)
+            meta_kwargs.append(temp_meta_args)
 
-        return dynamic_kwargs, static_kwargs, other_kwargs
+        return dynamic_kwargs, static_kwargs, meta_kwargs
 
     @staticmethod
-    def _split_args_dict(args_dict, static_keys, dynamic_keys):
+    def _split_args_dict(args_dict, static_keys, dynamic_keys, meta_keys):
         static_kwargs = {}
         dynamic_kwargs = {}
-        other_kwargs = {}
+        meta_kwargs = {}
         for k, v in args_dict.items():
             if k in static_keys:
                 static_kwargs[k] = v
             elif k in dynamic_keys:
                 dynamic_kwargs[k] = v
+            elif k in meta_keys:
+                meta_kwargs[k] = v
             else:
-                other_kwargs[k] = v
-        return dynamic_kwargs, static_kwargs, other_kwargs
+                raise KeyError(f"key {k} is not in static, dynamic or meta keys")
+        return dynamic_kwargs, static_kwargs, meta_kwargs
 
     @classmethod
     def _process_logics(
@@ -512,17 +517,6 @@ class NoiseInterpolation:
         args_dict["projection_index"] = temp_projection_index
         return args_dict
 
-    @staticmethod
-    def _maybe_broadcast_arg(arg, target_arg):
-        if len(arg) == len(target_arg):
-            return arg
-        elif len(arg) == 1:
-            return arg * len(target_arg)
-        else:
-            raise ValueError(
-                "arg and target_arg must have the same length or arg must be of length 1"
-            )
-
     def inplace_delete_extra_metadata_after_computation(
         self,
         args: argparse.Namespace,
@@ -532,14 +526,9 @@ class NoiseInterpolation:
         del args.projection
         del args.baseline_mask
 
-    def inplace_pretty_print(self, pretty_kwargs: Dict):
-        # things we added but don't want to be shown in the pretty print
-        del pretty_kwargs["projection"]
-        del pretty_kwargs["alpha_mask"]
-        del pretty_kwargs["baseline_mask"]
-        pretty_kwargs["projection_index"] = str(pretty_kwargs["projection_index"])
-
-        return pretty_kwargs
+    def inplace_make_pretty(self, pretty_kwargs: List):
+        for item in pretty_kwargs:
+            item["projection_index"] = int(item["projection_index"])
 
     def inplace_demo(self, args):
         # we run a demo (one step of the algorithm after computations finished)

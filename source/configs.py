@@ -14,9 +14,9 @@ class DefaultArgs:
         "forward": ["i", "static"],
         "alpha_mask": ["k", "dynamic"],
         "projection": ["j", "dynamic"],
-        "image": ["i", "static"],
-        "baseline_mask": ["i", "static"],
-        "normalize_sample": ["i", "static"],
+        "image": ["i", "dynamic"],
+        "baseline_mask": ["i", "dynamic"],
+        "normalize_sample": ["i", "dynamic"],
         "demo": ["i", "static"],
     }
     methods = ["noise_interpolation", "fisher_information"]

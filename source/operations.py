@@ -123,18 +123,17 @@ def linear_combination_mask(
     return alpha_source_mask * source_mask + alpha_target_mask * target_mask
 
 
-def gather_stats(sampler, args):
-    stats: Dict[Stream, jax.Array] = args.stats
+def gather_stats(sindex, args):
     monitored_statistic_key: Stream = args.monitored_statistic_key
 
     assert monitored_statistic_key.statistic == Statistics.abs_delta
-    assert stats[monitored_statistic_key] == jnp.inf
+    assert args.stats[monitored_statistic_key] == jnp.inf
 
     (
         loop_initials,
         concrete_stopping_condition,
         concrete_sample_and_update,
-    ) = init_loop(sampler, args)
+    ) = init_loop(sindex, args)
     stats = jax.lax.while_loop(
         cond_fun=concrete_stopping_condition,
         body_fun=concrete_sample_and_update,
@@ -143,16 +142,18 @@ def gather_stats(sampler, args):
     return stats
 
 
-def init_loop(sampler, args):
+def init_loop(sindex, args):
     seed = args.seed
     batch_size = args.batch_size
     max_batches = args.max_batches
     min_change = args.min_change
-    stats: Dict[Stream, jax.Array] = args.stats
     monitored_statistic_source_key: Stream = args.monitored_statistic_source_key
     monitored_statistic_key: Stream = args.monitored_statistic_key
     batch_index_key = args.batch_index_key
 
+    sampler = args.samplers[sindex]
+    stats = args.stats
+    stats["dynamic_args"] = tuple(args.dynamic_kwargs[sindex].values())
     # concretize abstract stopping condition
     concrete_stopping_condition = stopping_condition(
         max_batches=max_batches,

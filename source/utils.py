@@ -5,6 +5,7 @@ import itertools
 
 
 class AbstractFunction:
+    __cache = {}
     class NoArg:
         pass
 
@@ -14,6 +15,8 @@ class AbstractFunction:
         self.params = OrderedDict({k: self.NoArg for k in params})
 
     def __call__(self, **kwargs):
+        for k in kwargs:
+            assert k in self.params, f"partial input \"{k}\" is unknown"
         self.params.update(**kwargs)
         return self
 
@@ -21,6 +24,10 @@ class AbstractFunction:
         return f"abstract {self.func.__name__}(static_args={list(self.params.keys())})"
 
     def concretize(self):
+        hash_args = tuple(self.params.values())
+        if hash_args in self.__cache:
+            print("concretization returned the cached function for repeated params")  
+            return self.__cache[hash_args]
         def concrete_func(*args):
             i = 0
             for key, param in self.params.items():
@@ -31,7 +38,7 @@ class AbstractFunction:
                 args
             ), "number of positional arguments does not match the concrete function"
             return self.func(**self.params)
-
+        self.__cache[hash_args] = concrete_func
         return concrete_func
 
 

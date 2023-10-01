@@ -10,11 +10,11 @@ from source.operations import gather_stats
 parser = argparse.ArgumentParser()
 args = driver_helpers.base_parser(parser, configs.DefaultArgs)
 
+num_samplers = len(args.samplers)
 if args.gather_stats:
-    for sampler in args.samplers:
+    for sindex in range(num_samplers):
         start = time.time()
-        print("sampling started")
-        stats = gather_stats(sampler, args)
+        stats = gather_stats(sindex, args)
         end = time.time()
         args.time_to_compute = end - start
         print(f"task finsied in {args.time_to_compute:.4f}s")

@@ -102,7 +102,7 @@ def query_imagenet(args):
 
         image_height = args.input_shape[1]  # (N, H, W, C)
         base_stream["image"] = preprocess(base_stream["image"], image_height)
-
+        base_stream["label"] = int(base_stream["label"])
         args.image.append(base_stream["image"])
         args.label.append(base_stream["label"])
         args.image_path.append(base_stream["image/filename"].decode())
