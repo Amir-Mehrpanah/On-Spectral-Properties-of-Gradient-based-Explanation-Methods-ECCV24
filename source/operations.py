@@ -166,7 +166,8 @@ def init_loop(sindex, args):
     static_keys = tuple(
         key
         for key in stats.keys()
-        if key.statistic in (Statistics.meanx, Statistics.meanx2)
+        if hasattr(key, "statistic")
+        and key.statistic in (Statistics.meanx, Statistics.meanx2)
     )
     concrete_update_stats = update_stats(
         stream_static_keys=static_keys,

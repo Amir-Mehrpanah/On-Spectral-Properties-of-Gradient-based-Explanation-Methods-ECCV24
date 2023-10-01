@@ -17,7 +17,7 @@ class DefaultArgs:
         "image": ["i", "dynamic"],
         "baseline_mask": ["i", "dynamic"],
         "normalize_sample": ["i", "dynamic"],
-        "demo": ["i", "static"],
+        "demo": ["i", "static,meta"],
     }
     methods = ["noise_interpolation", "fisher_information"]
     architectures = ["resnet50"]

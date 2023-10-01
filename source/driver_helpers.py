@@ -192,6 +192,7 @@ def _process_args(args):
 
     if args.dry_run:
         pass
+        # jax.config.update("jax_log_compiles", True)
         # jax.config.update('jax_platform_name', 'cpu')
 
     os.makedirs(args.save_raw_data_dir, exist_ok=True)

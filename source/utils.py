@@ -6,6 +6,7 @@ import itertools
 
 class AbstractFunction:
     __cache = {}
+
     class NoArg:
         pass
 
@@ -16,7 +17,7 @@ class AbstractFunction:
 
     def __call__(self, **kwargs):
         for k in kwargs:
-            assert k in self.params, f"partial input \"{k}\" is unknown"
+            assert k in self.params, f'partial input "{k}" is unknown'
         self.params.update(**kwargs)
         return self
 
@@ -26,18 +27,21 @@ class AbstractFunction:
     def concretize(self):
         hash_args = tuple(self.params.values())
         if hash_args in self.__cache:
-            print("concretization returned the cached function for repeated params")  
+            print("concretization returned the cached function for repeated params")
             return self.__cache[hash_args]
+
         def concrete_func(*args):
             i = 0
-            for key, param in self.params.items():
+            temp_params = self.params.copy()
+            for key, param in temp_params.items():
                 if param is self.NoArg:
-                    self.params[key] = args[i]
+                    temp_params[key] = args[i]
                     i += 1
             assert i == len(
                 args
             ), "number of positional arguments does not match the concrete function"
-            return self.func(**self.params)
+            return self.func(**temp_params)
+
         self.__cache[hash_args] = concrete_func
         return concrete_func
 
@@ -72,7 +76,7 @@ def combine_patterns(pattern, values):
     results = []
     for combination in combinations:
         value_indices = [combination[index] for index in pattern_index]
-        temp_values = {k: values[k][i] for i,k in zip(value_indices,pattern_keys)}
+        temp_values = {k: values[k][i] for i, k in zip(value_indices, pattern_keys)}
         results.append(temp_values)
     return results
 

@@ -36,8 +36,8 @@ class NoiseInterpolation:
     @AbstractFunction
     def sampler(
         key,
-        projection,
         forward,
+        projection,
         alpha_mask,
         image,
         baseline_mask,
@@ -323,9 +323,9 @@ class NoiseInterpolation:
         static_keys = [k for k, v in args_state.items() if "static" in v]
         dynamic_keys = [k for k, v in args_state.items() if "dynamic" in v]
         meta_keys = [k for k, v in args_state.items() if "meta" in v]
-        assert (
-            len(static_keys) + len(dynamic_keys) == len(cls.sampler_args) - 1
-        )  # -1 is for key which is a reserved word
+        assert len(static_keys) + len(dynamic_keys) == len(
+            cls.sampler_args
+        ), f"static and dynamic keys must be equal to sampler args {cls.sampler_args}"
         dynamic_kwargs = []
         static_kwargs = []
         meta_kwargs = []
@@ -356,10 +356,8 @@ class NoiseInterpolation:
                 static_kwargs[k] = v
             elif k in dynamic_keys:
                 dynamic_kwargs[k] = v
-            elif k in meta_keys:
+            if k in meta_keys or (not (k in static_keys)) and (not (k in dynamic_keys)):
                 meta_kwargs[k] = v
-            else:
-                raise KeyError(f"key {k} is not in static, dynamic or meta keys")
         return dynamic_kwargs, static_kwargs, meta_kwargs
 
     @classmethod
