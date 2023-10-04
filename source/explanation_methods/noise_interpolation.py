@@ -193,11 +193,15 @@ class NoiseInterpolation:
                 combined_dynamic_kwargs,
             )
         )
+        vmap_axis_for_one = (0,) + tuple(
+            None for _ in combined_dynamic_kwargs[0]
+        )  # 0 for key, None for dynamic args
+        vmap_axis_for_all = [vmap_axis_for_one] * len(combined_dynamic_kwargs)
         samplers = list(
             map(
                 cls._create_sampler,
                 combined_static_kwargs,
-                vmap_axis=tuple(None for _ in combined_dynamic_kwargs),
+                vmap_axis_for_all,
             )
         )
 
@@ -535,7 +539,7 @@ class NoiseInterpolation:
             item["projection_index"] = int(item["projection_index"])
 
     @classmethod
-    def inplace_demo(cls, args):
+    def inplace_demo(cls, args, stats):
         # we run a demo (one step of the algorithm after computations finished)
         key = jax.random.PRNGKey(args.seed)
         kwargs = args.dynamic_kwargs[0]
@@ -543,4 +547,4 @@ class NoiseInterpolation:
         kwargs["demo"] = True
         kwargs["key"] = key
         demo_output = cls._create_sampler({}, kwargs)()
-        args.stats.update(demo_output)
+        stats.update(demo_output)

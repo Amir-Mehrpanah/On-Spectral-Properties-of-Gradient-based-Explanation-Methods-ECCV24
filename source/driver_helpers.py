@@ -264,10 +264,10 @@ def _process_args(args):
     return args
 
 
-def sampling_demo(args):
+def sampling_demo(args,stats):
     if args.write_demo:
         print("sampling demo")
-        methods_switch[args.method].inplace_demo(args)
+        methods_switch[args.method].inplace_demo(args,stats)
 
 
 def pretty_print_args(args: argparse.Namespace):
