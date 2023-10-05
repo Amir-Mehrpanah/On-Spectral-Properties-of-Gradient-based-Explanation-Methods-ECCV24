@@ -14,7 +14,7 @@ class DefaultArgs:
         "forward": ["i", "static"],
         "alpha_mask": ["k", "dynamic"],
         "projection": ["j", "dynamic"],
-        "image": ["i", "dynamic"],
+        "image": ["i", "static"],
         "baseline_mask": ["i", "dynamic"],
         "normalize_sample": ["i", "dynamic"],
         "demo": ["i", "static,meta"],

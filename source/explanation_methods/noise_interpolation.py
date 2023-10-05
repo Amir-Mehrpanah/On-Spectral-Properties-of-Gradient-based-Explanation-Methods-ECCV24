@@ -546,5 +546,5 @@ class NoiseInterpolation:
         kwargs.update(args.static_kwargs[0])
         kwargs["demo"] = True
         kwargs["key"] = key
-        demo_output = cls._create_sampler({}, kwargs)()
+        demo_output = cls._create_sampler(kwargs)()
         stats.update(demo_output)

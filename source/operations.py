@@ -8,18 +8,18 @@ from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 
 
 def static_projection(*, num_classes, index):
-    projection = np.zeros(
+    projection = jnp.zeros(
         shape=(num_classes, 1),
-        dtype=np.float32,
+        dtype=jnp.float32,
     )
-    projection[index, 0] = 1.0
+    projection = projection.at[index, 0].set(1.0)
     return projection
 
 
 def topk_uniform_projection(*, forward, image, k):
     log_probs = forward(image)
 
-    uptok_max = np.argpartition(log_probs.squeeze(), -k)[-k:]
+    uptok_max = jnp.argpartition(log_probs.squeeze(), -k)[-k:]
     projection = static_projection(
         num_classes=log_probs.shape[1],
         index=uptok_max,
@@ -35,13 +35,13 @@ def onehot_categorical(key, *, num_classes, indices):
 
 def topk_static_projection(*, forward, image, k):
     log_probs = forward(image)
-    k_max = np.argpartition(log_probs.squeeze(), -k)[-k]
+    k_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
     return k_max, static_projection(num_classes=log_probs.shape[1], index=k_max)
 
 
 def topk_categorical_random_projection(*, forward, image, k):
     log_probs = forward(image)
-    uptok_max = np.argpartition(log_probs.squeeze(), -k)[-k:]
+    uptok_max = jnp.argpartition(log_probs.squeeze(), -k)[-k:]
 
     return [int(k) for k in uptok_max], functools.partial(
         onehot_categorical,
@@ -124,11 +124,6 @@ def linear_combination_mask(
 
 
 def gather_stats(sindex, args):
-    monitored_statistic_key: Stream = args.monitored_statistic_key
-
-    assert monitored_statistic_key.statistic == Statistics.abs_delta
-    assert args.stats[monitored_statistic_key] == jnp.inf
-
     (
         loop_initials,
         concrete_stopping_condition,
@@ -139,16 +134,23 @@ def gather_stats(sindex, args):
         body_fun=concrete_sample_and_update,
         init_val=loop_initials,
     )
+
+    # post processing loop
+    del stats["dynamic_args"]
+
     return stats
 
 
 def init_loop(sindex, args):
+    monitored_statistic_key: Stream = args.monitored_statistic_key
+    assert monitored_statistic_key.statistic == Statistics.abs_delta
+    assert args.stats[monitored_statistic_key] == jnp.inf
+
     seed = args.seed
     batch_size = args.batch_size
     max_batches = args.max_batches
     min_change = args.min_change
     monitored_statistic_source_key: Stream = args.monitored_statistic_source_key
-    monitored_statistic_key: Stream = args.monitored_statistic_key
     batch_index_key = args.batch_index_key
 
     sampler = args.samplers[sindex]

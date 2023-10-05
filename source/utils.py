@@ -25,9 +25,11 @@ class AbstractFunction:
         return f"abstract {self.func.__name__}(static_args={list(self.params.keys())})"
 
     def concretize(self):
-        hash_args = tuple(self.params.values())
+        hash_args = tuple(id(arg) for arg in self.params.values())
         if hash_args in self.__cache:
-            print("concretization returned the cached function for repeated params")
+            print(
+                "concretization returned a cached abstact function for identical signature in partial calls"
+            )
             return self.__cache[hash_args]
 
         def concrete_func(*args):
