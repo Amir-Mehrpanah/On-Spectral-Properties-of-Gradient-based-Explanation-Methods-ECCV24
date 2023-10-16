@@ -264,10 +264,10 @@ def _process_args(args):
     return args
 
 
-def sampling_demo(args,stats):
+def sampling_demo(args, stats):
     if args.write_demo:
         print("sampling demo")
-        methods_switch[args.method].inplace_demo(args,stats)
+        methods_switch[args.method].inplace_demo(args, stats)
 
 
 def pretty_print_args(args: argparse.Namespace):
@@ -288,10 +288,9 @@ def pretty_print_args(args: argparse.Namespace):
 def inplace_update_method_and_kwargs(args):
     method_cls = methods_switch[args.method]
     method_cls.inplace_process_args(args)
-    method_cls.inplace_clean_junk_after_processing_args(args)
 
 
-def inplace_save_stats(args):
+def save_stats(args, stats, sindex):
     path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
     get_npy_file_path = lambda key: os.path.join(
         args.save_raw_data_dir, f"{path_prefix}.{key}.npy"
@@ -301,15 +300,33 @@ def inplace_save_stats(args):
     npy_file_paths = []
     stream_name = []
     stream_statistic = []
+    metadata = {}
 
-    # update metadata before deleting keys
-    args.batch_index = args.stats[args.batch_index_key]
-    args.monitored_statistic_change = args.stats[args.monitored_statistic_key]
-    del args.stats[args.batch_index_key]
-    del args.stats[args.monitored_statistic_key]
+    # update metadata
+    metadata["batch_index"] = stats[args.batch_index_key]
+    metadata["monitored_statistic_change"] = float(stats[args.monitored_statistic_key])
+
+    metadata["path_prefix"] = path_prefix
+    csv_file_name = f"{metadata['path_prefix']}.csv"
+    metadata_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
+    metadata["metadata_file_path"] = metadata_file_path
+    metadata["method"] = args.method
+    metadata["architecture"] = args.architecture
+    metadata["output_layer"] = args.output_layer
+    metadata["dataset"] = args.dataset
+    metadata["time_to_compute"] = args.time_to_compute
+    metakwargs = args.meta_kwargs[sindex]
+    metakwargs = {k: w for k, w in metakwargs.items() if w != None}
+    metadata.update(metakwargs)
+    metadata["label"] = int(metadata["label"])
+    metadata["projection_index"] = int(metadata["projection_index"])
+    metadata["input_shape"] = str(metadata["input_shape"])
+
+    del stats[args.batch_index_key]
+    del stats[args.monitored_statistic_key]
 
     # save stats
-    for key, value in args.stats.items():
+    for key, value in stats.items():
         npy_file_path = get_npy_file_path(f"{key.name}.{key.statistic}")
         np.save(npy_file_path, value.squeeze())
 
@@ -318,64 +335,18 @@ def inplace_save_stats(args):
         stream_name.append(key.name)
         stream_statistic.append(key.statistic)
 
-    # add metadata to args
-    args.data_path = npy_file_paths
-    args.stream_name = stream_name
-    args.stream_statistic = stream_statistic
-    args.path_prefix = path_prefix
+    metadata["data_path"] = npy_file_paths
+    metadata["stream_name"] = stream_name
+    metadata["stream_statistic"] = stream_statistic
 
     print("saved the raw data to", get_npy_file_path("*"))
 
+    return metadata
 
-def inplace_save_metadata(args):
-    csv_file_name = f"{args.path_prefix}.csv"
-    csv_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
 
-    # processing base metadata before saving
-    args.csv_file_path = csv_file_path
-    args.input_shape = str(args.input_shape)
-
-    # convert metadata from namespace to dict
-    args = vars(args)
-
+def save_metadata(metadata):
+    metadata_file_path = metadata["metadata_file_path"]
     # convert metadata from dict to dataframe and save
-    dataframe = pd.DataFrame(args)
-    dataframe.to_csv(csv_file_path, index=False)
-    print("saved the correspoding meta data to", csv_file_path)
-
-
-def inplace_delete_metadata_after_computation(args):
-    inplace_delete_base_metadata(args)
-    methods_switch[args.method].inplace_delete_extra_metadata_after_computation(args)
-    inplace_delete_none_metadata(args)
-
-
-def iterate_pattern_task(args):
-    raise NotImplementedError("iterate_pattern_task is not implemented")
-
-
-def inplace_delete_base_metadata(args):
-    del args.batch_index_key
-    del args.assert_device
-    del args.dry_run
-    del args.monitored_statistic_source_key
-    del args.monitored_statistic_key
-    del args.stats
-    del args.forward
-    del args.image
-    del args.sampler
-    del args.args_state
-    del args.args_pattern
-    del args.save_raw_data_dir
-    del args.save_metadata_dir
-    del args.dataset_dir
-    del args.disable_jit
-    del args.path_prefix
-    del args.stats_log_level
-
-
-def inplace_delete_none_metadata(args):
-    temp_args = vars(copy.deepcopy(args))
-    for key, value in temp_args.items():
-        if value is None:
-            delattr(args, key)
+    dataframe = pd.DataFrame(metadata)
+    dataframe.to_csv(metadata_file_path, index=False)
+    print("saved the correspoding meta data to", metadata_file_path)

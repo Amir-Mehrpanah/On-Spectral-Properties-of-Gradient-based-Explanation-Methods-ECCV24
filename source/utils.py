@@ -41,7 +41,7 @@ class AbstractFunction:
                     i += 1
             assert i == len(
                 args
-            ), "number of positional arguments does not match the concrete function"
+            ), f"number of positional arguments does not match the concrete function when calling {self.func} with {self.params} and positional arguments {args}"
             return self.func(**temp_params)
 
         self.__cache[hash_args] = concrete_func

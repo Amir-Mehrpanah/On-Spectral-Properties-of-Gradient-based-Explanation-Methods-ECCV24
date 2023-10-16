@@ -23,8 +23,8 @@ if args.gather_stats:
             stats[args.batch_index_key] * args.batch_size,
         )
 
-        driver_helpers.sampling_demo(args,stats)
-        driver_helpers.inplace_save_stats(args)
-        driver_helpers.inplace_save_metadata(args)
+        driver_helpers.sampling_demo(args, stats)
+        metadata = driver_helpers.save_stats(args, stats, sindex)
+        driver_helpers.save_metadata(metadata)
 else:
     raise NotImplementedError

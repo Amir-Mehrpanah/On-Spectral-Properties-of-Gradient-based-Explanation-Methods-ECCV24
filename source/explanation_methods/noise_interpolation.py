@@ -50,7 +50,6 @@ class NoiseInterpolation:
     ]
 
     @staticmethod
-    @AbstractFunction
     def sampler(
         key,
         forward,
@@ -110,6 +109,11 @@ class NoiseInterpolation:
             StreamNames.results_at_projection: results_at_projection,
             StreamNames.log_probs: log_probs,
         }
+
+    static_sampler = AbstractFunction(sampler.__func__)
+    sampler_args = list(static_sampler.params.keys())
+    assert sampler_args[0] == "key", "key must be the first arg of sampler"
+    sampler_args.remove("key")
 
     def inplace_add_args(self, base_parser):
         base_parser.add_argument(
@@ -216,9 +220,6 @@ class NoiseInterpolation:
         args_dict = cls._process_baseline_mask(args_dict)
         args_dict = cls._process_alpha_mask(args_dict)
 
-        cls.sampler_args = list(cls.sampler.params.keys())
-        assert cls.sampler_args[0] == "key", "key must be the first arg of sampler"
-        cls.sampler_args.remove("key")
         for arg in cls.sampler_args:
             assert (
                 arg in args_dict
@@ -268,10 +269,10 @@ class NoiseInterpolation:
         # alpha_mask <-- alpha_mask_type
         # baseline_mask <-- baseline_mask_value
         # baseline_mask <-- baseline_mask_type
-        # normalize_sample <-- {}
-        # image <-- {}
+        # {} <-- normalize_sample
+        # {} <-- image
         # image <-- input_shape
-        # forward <-- {}
+        # {} <-- forward
         # num_classes <-- forward
         # demo <-- forward (fixed to False)
 
@@ -290,7 +291,7 @@ class NoiseInterpolation:
 
     @classmethod
     def _create_sampler(cls, static_kwargs, vamp_axis=None):
-        sampler = cls.sampler(**static_kwargs).concretize()
+        sampler = AbstractFunction(cls.sampler)(**static_kwargs).concretize()
         if vamp_axis is not None:
             sampler = jax.vmap(sampler, in_axes=vamp_axis)
         return sampler
@@ -519,19 +520,6 @@ class NoiseInterpolation:
         args_dict["projection"] = temp_projection
         args_dict["projection_index"] = temp_projection_index
         return args_dict
-
-    @classmethod
-    def inplace_clean_junk_after_processing_args(
-        cls,
-        args: argparse.Namespace,
-    ):
-        # things we added for computation but don't need anymore
-        for k in cls.input_args:
-            delattr(args, k)
-        del args.stats_log_level
-        del args.output_layer
-        del args.args_pattern
-        del args.args_state
 
     @staticmethod
     def inplace_make_pretty(pretty_kwargs: List):

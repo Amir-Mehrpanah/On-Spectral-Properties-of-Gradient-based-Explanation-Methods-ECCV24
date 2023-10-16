@@ -154,7 +154,7 @@ def init_loop(sindex, args):
     batch_index_key = args.batch_index_key
 
     sampler = args.samplers[sindex]
-    stats = args.stats
+    stats = args.stats.copy()
     stats["dynamic_args"] = tuple(args.dynamic_kwargs[sindex].values())
     # concretize abstract stopping condition
     concrete_stopping_condition = stopping_condition(
