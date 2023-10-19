@@ -136,7 +136,7 @@ def gather_stats(sindex, args):
     )
 
     # post processing loop
-    del stats["dynamic_args"]
+    del stats[Stream("dynamic_args", "none")]
 
     return stats
 
@@ -155,7 +155,7 @@ def init_loop(sindex, args):
 
     sampler = args.samplers[sindex]
     stats = args.stats.copy()
-    stats["dynamic_args"] = tuple(args.dynamic_kwargs[sindex].values())
+    stats[Stream("dynamic_args", "none")] = tuple(args.dynamic_kwargs[sindex].values())
     # concretize abstract stopping condition
     concrete_stopping_condition = stopping_condition(
         max_batches=max_batches,
@@ -199,13 +199,16 @@ def sample_and_update_stats(
     concrete_update_stats,
     batch_index_key,
 ):
+    jax.debug.print("sample and update stats")
     batch_index = stats[batch_index_key]  # lookup
     batch_index += 1
 
     key = jax.random.PRNGKey(seed + batch_index)
     batch_keys = jax.random.split(key, num=batch_size)
 
-    sampled_batch = sampler(batch_keys, *stats["dynamic_args"])  # lookup
+    sampled_batch = sampler(
+        batch_keys, *stats[Stream("dynamic_args", "none")]
+    )  # lookup
     stats = concrete_update_stats(sampled_batch, stats, batch_index)
     stats[batch_index_key] = batch_index
     return stats
@@ -220,6 +223,7 @@ def stopping_condition(
     monitored_statistic_key: Stream,
     batch_index_key,
 ):
+    jax.debug.print("stopping condition")
     change = stats[monitored_statistic_key]  # lookup
     batch_index = stats[batch_index_key]  # lookup
 
@@ -240,7 +244,7 @@ def update_stats(
     monitored_statistic_key: Stream,
 ):
     monitored_statistic_old = stats[monitored_statistic_source_key]  # lookup
-
+    jax.debug.print("update stats")
     for key in stream_static_keys:
         if key.statistic == Statistics.meanx:
             stats[key] = (1 / batch_index) * sampled_batch[key.name].mean(axis=0) + (

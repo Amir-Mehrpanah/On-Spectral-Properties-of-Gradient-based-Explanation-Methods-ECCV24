@@ -180,7 +180,6 @@ class NoiseInterpolation:
         mixed_args = cls.extract_mixed_args(args)
         mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
-        print(mixed_args["input_shape"])
         combined_mixed_args = combine_patterns(mixed_pattern, mixed_args)
         list(map(cls._process_logics, combined_mixed_args))
         combined_mixed_args = list(map(cls._process_args, combined_mixed_args))
