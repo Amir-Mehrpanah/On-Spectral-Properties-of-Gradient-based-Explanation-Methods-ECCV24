@@ -2,7 +2,7 @@ import numpy as np
 import json
 from experiment_base import run_experiment
 
-job_array_image_index = "3,5"  # ,9,11
+job_array_image_index = "3"  # ,5,9,11
 alpha_mask_value = "0.3 0.5"  # 4
 alpha_mask_value = alpha_mask_value
 min_change = 1e-3  # 5e-4

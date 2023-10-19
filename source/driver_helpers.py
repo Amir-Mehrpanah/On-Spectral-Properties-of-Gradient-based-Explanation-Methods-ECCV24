@@ -53,7 +53,6 @@ def base_parser(parser, default_args: DefaultArgs):
         choices=default_args.methods,
     )
     args, _ = parser.parse_known_args()
-    print(_)
     methods_switch[args.method].inplace_add_args(parser)
 
     add_base_args(parser, default_args)

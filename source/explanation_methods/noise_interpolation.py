@@ -180,6 +180,7 @@ class NoiseInterpolation:
         mixed_args = cls.extract_mixed_args(args)
         mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
+        print(mixed_args["input_shape"])
         combined_mixed_args = combine_patterns(mixed_pattern, mixed_args)
         list(map(cls._process_logics, combined_mixed_args))
         combined_mixed_args = list(map(cls._process_args, combined_mixed_args))
@@ -250,9 +251,12 @@ class NoiseInterpolation:
             # broadcast lists with the same pattern id to the max length
             for i, pattern_value in enumerate(pattern_values):
                 if pattern_value == unique_pattern_value and len_values[i] != max_value:
-                    len_factor = max_value / len_values[i]
+                    len_factor = int(max_value / len_values[i])
                     pattern_key = pattern_keys[i]
-                    values[pattern_key] = np.repeat(values[pattern_key], len_factor)
+                    # assumed that values[pattern_key] has only one element see assertion above
+                    values[pattern_key] = [
+                        values[pattern_key][0] for j in range(len_factor)
+                    ]
 
         return values
 
@@ -322,7 +326,6 @@ class NoiseInterpolation:
         mixed_args["num_classes"] = [mixed_args["num_classes"]] * len(
             mixed_args["forward"]
         )
-        print("mixed_args", mixed_args)
         return mixed_args
 
     @classmethod

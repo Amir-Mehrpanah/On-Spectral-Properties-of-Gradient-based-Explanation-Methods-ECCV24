@@ -12,11 +12,11 @@ class DefaultArgs:
     _args_pattern_state = {
         # "key": ["pattern", "compilation state"],
         "forward": ["i", "static"],
-        "alpha_mask": ["k", "dynamic"],
-        "projection": ["j", "dynamic"],
+        "alpha_mask": ["i", "dynamic"],
+        "projection": ["i", "static"],
         "image": ["i", "static"],
-        "baseline_mask": ["i", "dynamic"],
-        "normalize_sample": ["i", "dynamic"],
+        "baseline_mask": ["i", "static"],
+        "normalize_sample": ["i", "static"],
         "demo": ["i", "static,meta"],
     }
     methods = ["noise_interpolation", "fisher_information"]
