@@ -15,6 +15,6 @@ conda activate xmodel
 
 echo SLURM_ARRAY_JOB_ID $SLURM_ARRAY_TASK_ID
 echo method args $method_args
-python driver.py --assert_device --method $method --architecture $architecture --dataset $dataset --image_index=$SLURM_ARRAY_TASK_ID $method_args
+python driver.py --assert_device --image_index=$SLURM_ARRAY_TASK_ID $method_args
 
 echo "Job ${SLURM_JOB_ID} on ${SLURMD_NODENAME} finished"

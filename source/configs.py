@@ -10,7 +10,7 @@ class DefaultArgs:
         raise NotImplementedError("This class is not meant to be instantiated")
 
     _args_pattern_state = {
-        # "key": ["pattern", "state"],
+        # "key": ["pattern", "compilation state"],
         "forward": ["i", "static"],
         "alpha_mask": ["k", "dynamic"],
         "projection": ["j", "dynamic"],
