@@ -322,6 +322,7 @@ class NoiseInterpolation:
         mixed_args["num_classes"] = [mixed_args["num_classes"]] * len(
             mixed_args["forward"]
         )
+        print("mixed_args", mixed_args)
         return mixed_args
 
     @classmethod

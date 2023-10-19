@@ -8,17 +8,17 @@ def _sweeper_cmd(
     job_array_image_index,
     **kwargs,
 ):
-    method_args = " ".join([f"--{k}={v}" for k, v in kwargs.items()])
+    method_args = " ".join([f"--{k} {v}" for k, v in kwargs.items()])
 
-    method_args = method_args.replace("--demo=False", "--no_demo")
-    method_args = method_args.replace("--demo=True", "")
+    method_args = method_args.replace("--demo False", "--no_demo")
+    method_args = method_args.replace("--demo True", "")
 
     return (
         "sbatch --constraint=gondor "
         f"--array={job_array_image_index} --export "
-        f'method_args="'
+        f"method_args='"
         f"{method_args}"
-        f'" '
+        f"' "
         "commands/_sweeper.sbatch"
     )
 
@@ -26,7 +26,6 @@ def _sweeper_cmd(
 def run_experiment(job_array_image_index, **args):
     print("sumbitting a job")
     cmd = _sweeper_cmd(job_array_image_index, **args)
-    print(cmd)
     os.system(cmd)
     _wait_in_queue()
 

@@ -1,7 +1,6 @@
 import argparse
 import copy
 from datetime import datetime
-import itertools
 import json
 import os
 import sys
@@ -20,8 +19,12 @@ from source.utils import (
     Stream,
     StreamNames,
     Statistics,
-    combine_patterns,
 )
+
+
+def json_semicolon_loads(string):
+    return json.loads(string.replace(";", ","))
+
 
 methods_switch = Switch()
 dataset_query_func_switch = Switch()
@@ -50,6 +53,7 @@ def base_parser(parser, default_args: DefaultArgs):
         choices=default_args.methods,
     )
     args, _ = parser.parse_known_args()
+    print(_)
     methods_switch[args.method].inplace_add_args(parser)
 
     add_base_args(parser, default_args)
@@ -168,12 +172,12 @@ def add_base_args(parser, default_args):
     )
     parser.add_argument(
         "--args_state",
-        type=json.loads,
+        type=json_semicolon_loads,
         default=default_args.args_state,
     )
     parser.add_argument(
         "--args_pattern",
-        type=json.loads,
+        type=json_semicolon_loads,
         default=default_args.args_pattern,
     )
     parser.add_argument(

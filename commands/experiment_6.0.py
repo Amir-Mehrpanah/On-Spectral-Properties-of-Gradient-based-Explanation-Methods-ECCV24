@@ -3,8 +3,8 @@ import json
 from experiment_base import run_experiment
 
 job_array_image_index = "3,5"  # ,9,11
-alpha_mask_values = "0.3 0.5"  # 4
-alpha_mask_values = alpha_mask_values
+alpha_mask_value = "0.3 0.5"  # 4
+alpha_mask_value = alpha_mask_value
 min_change = 1e-3  # 5e-4
 batch_size = 16
 normalize_sample = True
@@ -28,8 +28,12 @@ _args_pattern_state = {
     "normalize_sample": ["i", "static"],
     "demo": ["i", "static,meta"],
 }
-args_state = json.dumps({k: v[1] for k, v in _args_pattern_state.items()})
-args_pattern = json.dumps({k: v[0] for k, v in _args_pattern_state.items()})
+args_state = json.dumps(
+    {k: v[1] for k, v in _args_pattern_state.items()}, separators=(";", ":")
+)
+args_pattern = json.dumps(
+    {k: v[0] for k, v in _args_pattern_state.items()}, separators=(";", ":")
+)
 
 run_experiment(
     job_array_image_index,
@@ -38,7 +42,7 @@ run_experiment(
     dataset=dataset,
     min_change=min_change,
     alpha_mask_type=alpha_mask_type,
-    alpha_mask_values=alpha_mask_values,
+    alpha_mask_value=alpha_mask_value,
     projection_type=projection_type,
     projection_top_k=projection_top_k,
     baseline_mask_type=baseline_mask_type,

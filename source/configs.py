@@ -37,8 +37,12 @@ class DefaultArgs:
     gather_stats = True
     dataset = "imagenet"
     # args we don't want to be compiled by jax
-    args_state = json.dumps({k: v[1] for k, v in _args_pattern_state.items()})
-    args_pattern = json.dumps({k: v[0] for k, v in _args_pattern_state.items()})
+    args_state = json.dumps(
+        {k: v[1] for k, v in _args_pattern_state.items()}, separators=(";", ":")
+    )
+    args_pattern = json.dumps(
+        {k: v[0] for k, v in _args_pattern_state.items()}, separators=(";", ":")
+    )
     num_classes = 1000
     dataset_dir = "/local_storage/datasets/imagenet"
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
