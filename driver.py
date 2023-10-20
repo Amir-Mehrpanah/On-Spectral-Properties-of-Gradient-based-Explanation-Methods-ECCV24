@@ -13,13 +13,14 @@ args = driver_helpers.base_parser(parser, configs.DefaultArgs)
 num_samplers = len(args.samplers)
 if args.gather_stats:
     for sindex in range(num_samplers):
+        print(f"task {sindex}/{num_samplers} started.")
         start = time.time()
         stats = gather_stats(sindex, args)
         end = time.time()
         args.time_to_compute = end - start
-        print(f"task finsied in {args.time_to_compute:.4f}s")
         print(
-            "number of samples",
+            f"task {sindex}/{num_samplers} finsied in {args.time_to_compute:.4f}s",
+            "\nnumber of samples",
             stats[args.batch_index_key] * args.batch_size,
         )
 
