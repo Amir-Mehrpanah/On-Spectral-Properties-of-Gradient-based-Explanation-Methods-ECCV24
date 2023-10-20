@@ -12,12 +12,9 @@ class DefaultArgs:
 
     _args_pattern_state = {
         # "key": ["pattern", "compilation state"],
-        "forward": ["i", "static"],
-        "alpha_mask": ["i", "dynamic"],
+        # default behavior is to compile all args (all static)
+        "alpha_mask": ["j", "dynamic"],
         "projection": ["i", "static"],
-        "image": ["i", "static"],
-        "baseline_mask": ["i", "static"],
-        "normalize_sample": ["i", "static"],
     }
     methods = ["noise_interpolation", "fisher_information"]
     logging_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]

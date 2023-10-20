@@ -24,7 +24,6 @@ from source.utils import (
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 class TypeOrNone:
@@ -209,7 +208,7 @@ class NoiseInterpolation:
 
     @classmethod
     def pretty_print_args(cls, mixed_args: argparse.Namespace):
-        if logger.getEffectiveLevel() > logging.INFO:
+        if not logger.isEnabledFor(logging.INFO):
             return
 
         pretty_kwargs = copy.deepcopy(mixed_args)

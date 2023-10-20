@@ -21,7 +21,6 @@ from source.utils import (
     Statistics,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +63,11 @@ def base_parser(parser, default_args: DefaultArgs):
         choices=default_args.logging_levels,
     )
     args, _ = parser.parse_known_args()
-    logger.setLevel(args.logging_level)
+    logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
+    logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
+        args.logging_level
+    )
+    logging.getLogger("__main__").setLevel(args.logging_level)
 
     methods_switch[args.method].inplace_add_args(parser)
     logger.debug("added method args to parser.")
@@ -337,7 +340,7 @@ def save_stats(save_raw_data_dir, stats):
     metadata["stream_name"] = stream_name
     metadata["stream_statistic"] = stream_statistic
 
-    logger.info("saved the raw data to", get_npy_file_path("*"))
+    logger.info(f"saved the raw data to {get_npy_file_path('*')}")
 
     return metadata
 
@@ -347,6 +350,11 @@ def save_metadata(save_metadata_dir, metadata):
     metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
     metadata["metadata_file_path"] = metadata_file_path
 
+    del metadata["monitored_statistic_source_key"]
+    del metadata["monitored_statistic_key"]
+    del metadata["batch_index_key"]
+    del metadata["stats"]
+    
     metadata = {k: w for k, w in metadata.items() if w != None}
 
     metadata["projection_index"] = int(metadata["projection_index"])
@@ -355,4 +363,4 @@ def save_metadata(save_metadata_dir, metadata):
     # convert metadata from dict to dataframe and save
     dataframe = pd.DataFrame(metadata)
     dataframe.to_csv(metadata_file_path, index=False)
-    logger.info("saved the correspoding meta data to", metadata_file_path)
+    logger.info(f"saved the correspoding meta data to {metadata_file_path}")

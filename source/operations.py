@@ -148,6 +148,7 @@ def gather_stats(sampler, dynamic_kwargs, meta_kwargs):
 
     del stats[Stream("dynamic_args", "none")]
     del stats[batch_index_key]
+    del stats[monitored_statistic_key]
 
     return stats, metadata
 
