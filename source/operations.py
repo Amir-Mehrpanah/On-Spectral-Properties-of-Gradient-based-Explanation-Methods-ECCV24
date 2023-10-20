@@ -1,4 +1,5 @@
 import functools
+import time
 from typing import Any, Dict, List, Callable, Tuple
 import jax.numpy as jnp
 import jax
@@ -123,39 +124,50 @@ def linear_combination_mask(
     return alpha_source_mask * source_mask + alpha_target_mask * target_mask
 
 
-def gather_stats(sindex, args):
+def gather_stats(sampler, dynamic_kwargs, meta_kwargs):
+    start = time.time()
     (
         loop_initials,
         concrete_stopping_condition,
         concrete_sample_and_update,
-    ) = init_loop(sindex, args)
+    ) = init_loop(sampler, dynamic_kwargs, meta_kwargs)
     stats = jax.lax.while_loop(
         cond_fun=concrete_stopping_condition,
         body_fun=concrete_sample_and_update,
         init_val=loop_initials,
     )
+    end = time.time()
 
-    # post processing stats
+    # post processing stats dependent metadata
+    batch_index_key = meta_kwargs["batch_index_key"]
+    monitored_statistic_key = meta_kwargs["monitored_statistic_key"]
+    metadata = {}
+    metadata["time_to_compute"] = end - start
+    metadata["batch_index"] = stats[batch_index_key]
+    metadata["monitored_statistic_change"] = float(stats[monitored_statistic_key])
+
     del stats[Stream("dynamic_args", "none")]
+    del stats[batch_index_key]
 
-    return stats
+    return stats, metadata
 
 
-def init_loop(sindex, args):
-    monitored_statistic_key: Stream = args.monitored_statistic_key
+def init_loop(sampler, dynamic_kwargs, meta_kwargs):
+    monitored_statistic_key: Stream = meta_kwargs["monitored_statistic_key"]
+    stats = meta_kwargs["stats"].copy()
     assert monitored_statistic_key.statistic == Statistics.abs_delta
-    assert args.stats[monitored_statistic_key] == jnp.inf
+    assert stats[monitored_statistic_key] == jnp.inf
 
-    seed = args.seed
-    batch_size = args.batch_size
-    max_batches = args.max_batches
-    min_change = args.min_change
-    monitored_statistic_source_key: Stream = args.monitored_statistic_source_key
-    batch_index_key = args.batch_index_key
+    seed = meta_kwargs["seed"]
+    batch_size = meta_kwargs["batch_size"]
+    max_batches = meta_kwargs["max_batches"]
+    min_change = meta_kwargs["min_change"]
+    monitored_statistic_source_key: Stream = meta_kwargs[
+        "monitored_statistic_source_key"
+    ]
+    batch_index_key = meta_kwargs["batch_index_key"]
 
-    sampler = args.samplers[sindex]
-    stats = args.stats.copy()
-    stats[Stream("dynamic_args", "none")] = tuple(args.dynamic_kwargs[sindex].values())
+    stats[Stream("dynamic_args", "none")] = tuple(dynamic_kwargs.values())
     # concretize abstract stopping condition
     concrete_stopping_condition = stopping_condition(
         max_batches=max_batches,

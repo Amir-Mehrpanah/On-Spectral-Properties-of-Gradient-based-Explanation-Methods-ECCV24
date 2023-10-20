@@ -1,6 +1,9 @@
 import argparse
+import copy
 from functools import partial
+import logging
 import jax
+import json
 import jax.numpy as jnp
 from typing import Any, Callable, Dict, List, Tuple
 import os
@@ -20,6 +23,9 @@ from source.utils import (
     combine_patterns,
 )
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 
 class TypeOrNone:
     def __init__(self, type) -> None:
@@ -32,23 +38,6 @@ class TypeOrNone:
 
 
 class NoiseInterpolation:
-    input_args = [
-        "alpha_mask_type",
-        "alpha_mask_value",
-        "baseline_mask_type",
-        "baseline_mask_value",
-        "normalize_sample",
-        "projection_type",
-        "projection_distribution",
-        "projection_top_k",
-        "projection_index",
-        "label",
-        "image",
-        "forward",
-        "input_shape",
-        "num_classes",
-    ]
-
     @staticmethod
     def sampler(
         key,
@@ -176,7 +165,7 @@ class NoiseInterpolation:
         )
 
     @classmethod
-    def inplace_process_args(cls, args):
+    def process_args(cls, args):
         mixed_args = cls.extract_mixed_args(args)
         mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
@@ -209,10 +198,33 @@ class NoiseInterpolation:
             )
         )
 
-        args.samplers = samplers
-        args.dynamic_kwargs = combined_dynamic_kwargs
-        args.meta_kwargs = meta_kwargs
-        args.static_kwargs = combined_static_kwargs
+        cls.pretty_print_args(mixed_args)
+
+        return argparse.Namespace(
+            samplers=samplers,
+            static_kwargs=combined_static_kwargs,
+            dynamic_kwargs=combined_dynamic_kwargs,
+            meta_kwargs=meta_kwargs,
+        )
+
+    @classmethod
+    def pretty_print_args(cls, mixed_args: argparse.Namespace):
+        if logger.getEffectiveLevel() > logging.INFO:
+            return
+
+        pretty_kwargs = copy.deepcopy(mixed_args)
+        pretty_kwargs["image"] = f"{len(pretty_kwargs['image'])} number of images"
+        pretty_kwargs["forward"] = f"forward of len {len(pretty_kwargs['forward'])}"
+
+        temp_stats = f"[{len(pretty_kwargs['stats'])} stats of len {len(pretty_kwargs['stats'][0])}]"
+        pretty_kwargs["stats"] = temp_stats
+        # pretty_kwargs["label"] = int(pretty_kwargs["label"])
+        pretty_kwargs["projection_index"] = [
+            int(v) if v else v for v in pretty_kwargs["projection_index"]
+        ]
+        logger.info(
+            f"experiment args:\n{json.dumps(pretty_kwargs, indent=4, sort_keys=True)}",
+        )
 
     @classmethod
     def _process_args(cls, args_dict):
@@ -261,27 +273,34 @@ class NoiseInterpolation:
 
     @classmethod
     def extract_mixed_pattern(cls, args_pattern, mixed_args):
-        # explicit pattern dependency: todo make it more formal
-        # A <-- B means that B will be inferred from A
-        # projection <-- label
-        # projection <-- projection_type
-        # projection <-- projection_distribution
-        # projection <-- projection_top_k
-        # projection <-- projection_index
-        # alpha_mask <-- alpha_mask_value
-        # alpha_mask <-- alpha_mask_type
-        # baseline_mask <-- baseline_mask_value
-        # baseline_mask <-- baseline_mask_type
-        # {} <-- normalize_sample
-        # {} <-- image
-        # image <-- input_shape
-        # {} <-- forward
-        # num_classes <-- forward
-        # demo <-- forward (fixed to False)
+        def inplace_infer(pattern, k1, k2):
+            if k1 not in pattern:
+                pattern[k1] = pattern[k2]
 
-        args_pattern["label"] = args_pattern["projection"]
-        args_pattern["input_shape"] = args_pattern["image"]
-        args_pattern["num_classes"] = args_pattern["forward"]
+        if "method" not in args_pattern:
+            args_pattern["method"] = "method"
+
+        inplace_infer(args_pattern, "baseline_mask", "method")
+        inplace_infer(args_pattern, "normalize_sample", "method")
+        inplace_infer(args_pattern, "projection", "method")
+        inplace_infer(args_pattern, "alpha_mask", "method")
+        inplace_infer(args_pattern, "image", "method")
+        inplace_infer(args_pattern, "forward", "method")
+        inplace_infer(args_pattern, "label", "image")
+        inplace_infer(args_pattern, "input_shape", "forward")
+        inplace_infer(args_pattern, "num_classes", "forward")
+        inplace_infer(args_pattern, "architecture", "forward")
+        inplace_infer(args_pattern, "output_layer", "forward")
+        inplace_infer(args_pattern, "seed", "method")
+        inplace_infer(args_pattern, "stats", "method")
+        inplace_infer(args_pattern, "demo", "method")
+        inplace_infer(args_pattern, "dataset", "method")
+        inplace_infer(args_pattern, "monitored_statistic_key", "method")
+        inplace_infer(args_pattern, "batch_size", "method")
+        inplace_infer(args_pattern, "max_batches", "method")
+        inplace_infer(args_pattern, "min_change", "method")
+        inplace_infer(args_pattern, "monitored_statistic_source_key", "method")
+        inplace_infer(args_pattern, "batch_index_key", "method")
 
         mixed_pattern = {}
         for arg_name in mixed_args:
@@ -309,28 +328,52 @@ class NoiseInterpolation:
         }
         return dynamic_kwargs_dict
 
-    @classmethod
-    def extract_mixed_args(cls, args):
+    @staticmethod
+    def extract_mixed_args(args):
+        input_args = [
+            "alpha_mask_type",
+            "alpha_mask_value",
+            "baseline_mask_type",
+            "baseline_mask_value",
+            "normalize_sample",
+            "projection_type",
+            "projection_distribution",
+            "projection_top_k",
+            "projection_index",
+            "label",
+            "image",
+            "forward",
+            "architecture",
+            "method",
+            "output_layer",
+            "dataset",
+            "image_index",
+            "input_shape",
+            "num_classes",
+            "monitored_statistic_key",
+            "seed",
+            "batch_size",
+            "max_batches",
+            "min_change",
+            "monitored_statistic_source_key",
+            "batch_index_key",
+            "stats",
+        ]
         mixed_args = {}
-        for arg_name in cls.input_args:
+        for arg_name in input_args:
             assert hasattr(
                 args, arg_name
             ), f"method expects an arg that is not in the provided args: {arg_name}"
-            mixed_args[arg_name] = getattr(args, arg_name)
+            item = getattr(args, arg_name)
+            mixed_args[arg_name] = item if isinstance(item, list) else [item]
 
-        mixed_args["demo"] = [False] * len(mixed_args["forward"])
-        mixed_args["input_shape"] = [mixed_args["input_shape"]] * len(
-            mixed_args["image"]
-        )
-        mixed_args["num_classes"] = [mixed_args["num_classes"]] * len(
-            mixed_args["forward"]
-        )
+        mixed_args["demo"] = [False]
         return mixed_args
 
     @classmethod
     def _split_args_dicts(cls, combined_mixed_args, args_state):
-        static_keys = [k for k, v in args_state.items() if "static" in v]
         dynamic_keys = [k for k, v in args_state.items() if "dynamic" in v]
+        static_keys = [k for k in cls.sampler_args if k not in dynamic_keys]
         meta_keys = [k for k, v in args_state.items() if "meta" in v]
         assert len(static_keys) + len(dynamic_keys) == len(
             cls.sampler_args
@@ -385,9 +428,9 @@ class NoiseInterpolation:
             assert args_dict["label"] is not None
             assert args_dict["projection_distribution"] is None
             assert args_dict["projection_index"] is None
-            print(
-                "Warning: projection_type is label, this means that the label will be used as the projection."
-                "this is not a good idea for explainability best practices, because it will not be available at test time."
+            logger.warning(
+                "projection_type is label, this means that the label will be used as the projection."
+                "this is not a good idea for explainability best practices, because it will not be available at test time.",
             )
         elif args_dict["projection_type"] == "prediction":
             assert args_dict["projection_distribution"] is not None
@@ -524,18 +567,13 @@ class NoiseInterpolation:
         args_dict["projection_index"] = temp_projection_index
         return args_dict
 
-    @staticmethod
-    def inplace_make_pretty(pretty_kwargs: List):
-        for item in pretty_kwargs:
-            item["projection_index"] = int(item["projection_index"])
-
     @classmethod
-    def inplace_demo(cls, args, stats):
+    def sample_demo(cls, static_kwargs, dynamic_kwargs, meta_kwargs):
         # we run a demo (one step of the algorithm after computations finished)
-        key = jax.random.PRNGKey(args.seed)
-        kwargs = args.dynamic_kwargs[0]
-        kwargs.update(args.static_kwargs[0])
-        kwargs["demo"] = True
-        kwargs["key"] = key
-        demo_output = cls._create_sampler(kwargs)()
-        stats.update(demo_output)
+        static_kwargs = static_kwargs.copy()
+        key = jax.random.PRNGKey(meta_kwargs["seed"])
+        static_kwargs["demo"] = True
+        static_kwargs["key"] = key
+        static_kwargs.update(dynamic_kwargs)
+        demo_output = cls._create_sampler(static_kwargs)()
+        return demo_output

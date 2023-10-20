@@ -2,6 +2,7 @@ from collections import namedtuple
 import inspect
 from collections import OrderedDict
 import itertools
+import logging
 
 
 class AbstractFunction:
@@ -27,8 +28,9 @@ class AbstractFunction:
     def concretize(self):
         hash_args = tuple(id(arg) for arg in self.params.values())
         if hash_args in self.__cache:
-            print(
-                "concretization returned a cached abstact function for identical signature in partial calls"
+            logging.log(
+                logging.WARNING,
+                "concretization returned a cached abstact function for identical signature in partial calls",
             )
             return self.__cache[hash_args]
 

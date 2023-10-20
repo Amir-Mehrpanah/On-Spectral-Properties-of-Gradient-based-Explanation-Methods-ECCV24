@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 
@@ -17,16 +18,16 @@ class DefaultArgs:
         "image": ["i", "static"],
         "baseline_mask": ["i", "static"],
         "normalize_sample": ["i", "static"],
-        "demo": ["i", "static,meta"],
     }
     methods = ["noise_interpolation", "fisher_information"]
+    logging_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]
     architectures = ["resnet50"]
     output_layers = ["logits", "log_softmax", "softmax"]
 
     seed = 42
     write_demo = True
     input_shape = (1, 224, 224, 3)
-
+    logging_level = logging.INFO
     stats_log_level = 0
     monitored_statistic = "meanx2"
     output_layer = output_layers[1]  # see paper for why
@@ -34,7 +35,7 @@ class DefaultArgs:
     min_change = 1e-2
     batch_size = 32
     max_batches = 10000 // batch_size
-    gather_stats = True
+    action = "gather_stats"
     dataset = "imagenet"
     # args we don't want to be compiled by jax
     args_state = json.dumps(

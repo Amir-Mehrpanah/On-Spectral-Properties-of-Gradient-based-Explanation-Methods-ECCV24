@@ -1,9 +1,9 @@
 import argparse
-import copy
 from datetime import datetime
 import json
 import os
 import sys
+import logging
 import numpy as np
 import pandas as pd
 import jax
@@ -20,6 +20,9 @@ from source.utils import (
     StreamNames,
     Statistics,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def json_semicolon_loads(string):
@@ -46,20 +49,32 @@ init_architecture_forward_switch.register(
 
 
 def base_parser(parser, default_args: DefaultArgs):
+    # assumed we only run gather stats
+    # parse gather stat's container first if something else is intended
     parser.add_argument(
         "--method",
         type=str,
         required=True,
         choices=default_args.methods,
     )
+    parser.add_argument(
+        "--logging_level",
+        type=int,
+        default=default_args.logging_level,
+        choices=default_args.logging_levels,
+    )
     args, _ = parser.parse_known_args()
+    logger.setLevel(args.logging_level)
+
     methods_switch[args.method].inplace_add_args(parser)
+    logger.debug("added method args to parser.")
 
     add_base_args(parser, default_args)
+    logger.debug("added base args to parser.")
 
     args = parser.parse_args()
     args = _process_args(args)
-
+    logger.debug("processing args finished.")
     return args
 
 
@@ -180,9 +195,9 @@ def add_base_args(parser, default_args):
         default=default_args.args_pattern,
     )
     parser.add_argument(
-        "--gather_stats",
-        action="store_true",
-        default=default_args.gather_stats,
+        "--action",
+        type=str,
+        default=default_args.action,
     )
 
 
@@ -191,18 +206,21 @@ def _process_args(args):
         assert jax.device_count() > 0, "jax devices are not available"
 
     if args.disable_jit:
+        logger.info("jit is disabled.")
         jax.config.update("jax_disable_jit", True)
 
     if args.dry_run:
-        pass
-        # jax.config.update("jax_log_compiles", True)
+        jax.config.update("jax_log_compiles", True)
         # jax.config.update('jax_platform_name', 'cpu')
 
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)
+    logger.debug("created the save directories.")
 
     dataset_query_func_switch[args.dataset](args)
+    logger.debug("queried the dataset.")
     init_architecture_forward_switch[args.architecture](args)
+    logger.debug("initialized the architecture.")
 
     if args.monitored_statistic == "meanx2":
         monitored_statistic = Statistics.meanx2
@@ -260,43 +278,40 @@ def _process_args(args):
                 Statistics.meanx,
             )
         ] = jnp.zeros(shape=args.input_shape)
+    logger.debug("initialized the stats.")
 
-    inplace_update_method_and_kwargs(args)
-    pretty_print_args(args)
+    method_args = _process_method_kwargs(args)
+    logger.debug("updated the method and kwargs.")
 
+    driver_args = argparse.Namespace(
+        action=args.action,
+        write_demo=args.write_demo,
+        save_raw_data_dir=args.save_raw_data_dir,
+        save_metadata_dir=args.save_metadata_dir,
+    )
+    return driver_args, method_args
+
+
+def sample_demo(static_kwargs, dynamic_kwargs, meta_kwargs, stats):
+    logger.info("sampling the demo.")
+    method = meta_kwargs["method"]
+    demo_stats = methods_switch[method].sample_demo(
+        static_kwargs, dynamic_kwargs, meta_kwargs
+    )
+    stats.update(demo_stats)
+
+
+def _process_method_kwargs(args):
+    method_cls = methods_switch[args.method]
+    args = method_cls.process_args(args)
+    logger.debug("processed the method args.")
     return args
 
 
-def sampling_demo(args, stats):
-    if args.write_demo:
-        print("sampling demo")
-        methods_switch[args.method].inplace_demo(args, stats)
-
-
-def pretty_print_args(args: argparse.Namespace):
-    pretty_kwargs = copy.deepcopy(args.meta_kwargs)
-    inplace_propagate = lambda k, v: [item.update({k: v}) for item in pretty_kwargs]
-    inplace_propagate("method", args.method)
-    inplace_propagate("max_batches", args.max_batches)
-    inplace_propagate("batch_size", args.batch_size)
-    inplace_propagate("seed", args.seed)
-    temp_stats = f"stats of len {len(args.stats)}"
-    inplace_propagate("stats", temp_stats)
-    temp_labels = [int(items["label"]) for items in pretty_kwargs]
-    inplace_propagate("label", temp_labels)
-    methods_switch[args.method].inplace_make_pretty(pretty_kwargs)
-    print("experiment args:", json.dumps(pretty_kwargs, indent=4, sort_keys=True))
-
-
-def inplace_update_method_and_kwargs(args):
-    method_cls = methods_switch[args.method]
-    method_cls.inplace_process_args(args)
-
-
-def save_stats(args, stats, sindex):
+def save_stats(save_raw_data_dir, stats):
     path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
     get_npy_file_path = lambda key: os.path.join(
-        args.save_raw_data_dir, f"{path_prefix}.{key}.npy"
+        save_raw_data_dir, f"{path_prefix}.{key}.npy"
     )
 
     # temporary metadata
@@ -305,30 +320,10 @@ def save_stats(args, stats, sindex):
     stream_statistic = []
     metadata = {}
 
-    # update metadata
-    metadata["batch_index"] = stats[args.batch_index_key]
-    metadata["monitored_statistic_change"] = float(stats[args.monitored_statistic_key])
-
+    logger.debug("updating metadata experiment keys.")
     metadata["path_prefix"] = path_prefix
-    csv_file_name = f"{metadata['path_prefix']}.csv"
-    metadata_file_path = os.path.join(args.save_metadata_dir, csv_file_name)
-    metadata["metadata_file_path"] = metadata_file_path
-    metadata["method"] = args.method
-    metadata["architecture"] = args.architecture
-    metadata["output_layer"] = args.output_layer
-    metadata["dataset"] = args.dataset
-    metadata["time_to_compute"] = args.time_to_compute
-    metakwargs = args.meta_kwargs[sindex]
-    metakwargs = {k: w for k, w in metakwargs.items() if w != None}
-    metadata.update(metakwargs)
-    metadata["label"] = int(metadata["label"])
-    metadata["projection_index"] = int(metadata["projection_index"])
-    metadata["input_shape"] = str(metadata["input_shape"])
 
-    del stats[args.batch_index_key]
-    del stats[args.monitored_statistic_key]
-
-    # save stats
+    logger.debug("saving the raw data and updating metadata sample keys.")
     for key, value in stats.items():
         npy_file_path = get_npy_file_path(f"{key.name}.{key.statistic}")
         np.save(npy_file_path, value.squeeze())
@@ -342,14 +337,22 @@ def save_stats(args, stats, sindex):
     metadata["stream_name"] = stream_name
     metadata["stream_statistic"] = stream_statistic
 
-    print("saved the raw data to", get_npy_file_path("*"))
+    logger.info("saved the raw data to", get_npy_file_path("*"))
 
     return metadata
 
 
-def save_metadata(metadata):
-    metadata_file_path = metadata["metadata_file_path"]
+def save_metadata(save_metadata_dir, metadata):
+    csv_file_name = f"{metadata['path_prefix']}.csv"
+    metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
+    metadata["metadata_file_path"] = metadata_file_path
+
+    metadata = {k: w for k, w in metadata.items() if w != None}
+
+    metadata["projection_index"] = int(metadata["projection_index"])
+    metadata["input_shape"] = str(metadata["input_shape"])
+
     # convert metadata from dict to dataframe and save
     dataframe = pd.DataFrame(metadata)
     dataframe.to_csv(metadata_file_path, index=False)
-    print("saved the correspoding meta data to", metadata_file_path)
+    logger.info("saved the correspoding meta data to", metadata_file_path)

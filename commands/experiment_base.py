@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import time
@@ -12,7 +13,7 @@ def _sweeper_cmd(
 
     method_args = method_args.replace("--demo False", "--no_demo")
     method_args = method_args.replace("--demo True", "")
-
+    logging.log(logging.DEBUG, f"method_args: {method_args}")
     return (
         "sbatch --constraint=gondor "
         f"--array={job_array_image_index} --export "
@@ -24,7 +25,7 @@ def _sweeper_cmd(
 
 
 def run_experiment(job_array_image_index, **args):
-    print("sumbitting a job")
+    logging.log(logging.DEBUG, "sumbitting a job")
     cmd = _sweeper_cmd(job_array_image_index, **args)
     os.system(cmd)
     _wait_in_queue()
@@ -36,7 +37,8 @@ def _wait_in_queue():
         result = subprocess.run(["squeue", "-u", "amirme"], stdout=subprocess.PIPE)
         result = result.stdout.decode()
         result = len(result.split("\n")) - 2
-        print(
-            f"there are {result} number of jobs in the queue, waiting for finishing the jobs"
+        logging.log(
+            logging.DEBUG,
+            f"there are {result} number of jobs in the queue, waiting for finishing the jobs",
         )
         time.sleep(5)

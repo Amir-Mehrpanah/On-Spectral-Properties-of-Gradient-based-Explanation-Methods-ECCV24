@@ -1,11 +1,13 @@
 import numpy as np
 import json
 from experiment_base import run_experiment
+import logging
 
-job_array_image_index = "3"  # ,5,9,11
+logging_level = logging.INFO
+job_array_image_index = "3,5"  # ,5,9,11
 alpha_mask_value = "0.3 0.5"  # 4
 alpha_mask_value = alpha_mask_value
-min_change = 1e-3  # 5e-4
+min_change = 5e-4
 batch_size = 16
 normalize_sample = True
 method = "noise_interpolation"
