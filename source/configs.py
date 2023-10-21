@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+from utils import Action
 
 sys.path.append(os.getcwd())
 
@@ -20,6 +21,7 @@ class DefaultArgs:
     logging_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]
     architectures = ["resnet50"]
     output_layers = ["logits", "log_softmax", "softmax"]
+    actions = [v for v in dir(Action) if "__" not in v]
 
     seed = 42
     write_demo = True
@@ -32,7 +34,7 @@ class DefaultArgs:
     min_change = 1e-2
     batch_size = 32
     max_batches = 10000 // batch_size
-    action = "gather_stats"
+    action = Action.gather_stats
     dataset = "imagenet"
     # args we don't want to be compiled by jax
     args_state = json.dumps(

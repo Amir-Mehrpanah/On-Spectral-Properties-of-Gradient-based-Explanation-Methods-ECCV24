@@ -24,12 +24,10 @@ def check_file_exists(metadata: pd.Series, selected_rows: pd.Series = None):
     return metadata[selected_rows].apply(os.path.exists)
 
 
-def load_experiment_metadata(glob_path: str = "*.csv", list_of_paths: list = None):
-    if list_of_paths is None:
-        metadata_glob_path = os.path.join(DefaultArgs.save_metadata_dir, glob_path)
-        metadata_paths = glob(metadata_glob_path)
-    else:
-        metadata_paths = list_of_paths
+def merge_experiment_metadata(save_metadata_dir: str, path_prefix: str):
+    glob_path: str = "*.csv"
+    metadata_glob_path = os.path.join(save_metadata_dir, glob_path)
+    metadata_paths = glob(metadata_glob_path)
     dataframes = []
     if metadata_paths:
         for metadata_path in metadata_paths:
@@ -41,4 +39,9 @@ def load_experiment_metadata(glob_path: str = "*.csv", list_of_paths: list = Non
         )
 
     project_data = pd.concat(dataframes)
+    save_metadata_path = os.path.join(save_metadata_dir, f"{path_prefix}_merged.csv")
+    project_data.to_csv(save_metadata_path, index=False)
+
+
+def load_experiment_metadata(glob_path: str = "*.csv", list_of_paths: list = None):
     return project_data

@@ -4,6 +4,9 @@ from collections import OrderedDict
 import itertools
 import logging
 
+class Action:
+    gather_stats = "gather_stats"
+    compute_consistency = "compute_consistency"
 
 class AbstractFunction:
     __cache = {}

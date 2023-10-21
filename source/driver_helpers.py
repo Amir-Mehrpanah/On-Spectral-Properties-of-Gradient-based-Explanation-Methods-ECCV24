@@ -201,6 +201,7 @@ def add_base_args(parser, default_args):
         "--action",
         type=str,
         default=default_args.action,
+        choices=default_args.actions,
     )
 
 
