@@ -1,12 +1,18 @@
 import numpy as np
 import json
-from experiment_base import run_experiment
+from experiment_base import _wait_in_queue, run_experiment
 import logging
 
+from source.utils import Action
+
+# Slurm args
+job_array_image_index = "3,5"  # ,9,11
+constraint = "gondor"
+
+# Method args
 logging_level = logging.INFO
-job_array_image_index = "3,5"  # ,5,9,11
+number_of_gpus = 4
 alpha_mask_value = "0.3 0.5"  # 4
-alpha_mask_value = alpha_mask_value
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
@@ -38,7 +44,8 @@ args_pattern = json.dumps(
 )
 
 run_experiment(
-    job_array_image_index,
+    job_array_image_index=job_array_image_index,
+    constraint=constraint,
     method=method,
     architecture=architecture,
     dataset=dataset,
@@ -53,6 +60,16 @@ run_experiment(
     args_state=args_state,
     args_pattern=args_pattern,
     normalize_sample=normalize_sample,
+    save_raw_data_dir=save_raw_data_dir,
+    save_metadata_dir=save_metadata_dir,
+)
+
+_wait_in_queue(0)
+
+run_experiment(
+    constraint=constraint,
+    action=Action.compute_consistency,
+    number_of_gpus=number_of_gpus,
     save_raw_data_dir=save_raw_data_dir,
     save_metadata_dir=save_metadata_dir,
 )

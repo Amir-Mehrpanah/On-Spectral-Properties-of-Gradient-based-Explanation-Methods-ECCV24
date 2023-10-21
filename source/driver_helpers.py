@@ -15,6 +15,7 @@ from source.data_manager import query_imagenet
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
 from source.model_manager import init_resnet50_forward
 from source.utils import (
+    Action,
     Switch,
     Stream,
     StreamNames,
@@ -48,31 +49,26 @@ init_architecture_forward_switch.register(
 
 
 def base_parser(parser, default_args: DefaultArgs):
-    # assumed we only run gather stats
-    # parse gather stat's container first if something else is intended
+    args = _parse_general_args(parser, default_args)
+
+    if args.action == Action.gather_stats:
+        args = _parse_gather_stats_args(parser, default_args)
+    return args
+
+
+def _parse_gather_stats_args(parser, default_args):
     parser.add_argument(
         "--method",
         type=str,
         required=True,
         choices=default_args.methods,
     )
-    parser.add_argument(
-        "--logging_level",
-        type=int,
-        default=default_args.logging_level,
-        choices=default_args.logging_levels,
-    )
     args, _ = parser.parse_known_args()
-    logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
-    logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
-        args.logging_level
-    )
-    logging.getLogger("__main__").setLevel(args.logging_level)
 
     methods_switch[args.method].inplace_add_args(parser)
     logger.debug("added method args to parser.")
 
-    add_base_args(parser, default_args)
+    _add_base_args(parser, default_args)
     logger.debug("added base args to parser.")
 
     args = parser.parse_args()
@@ -81,12 +77,28 @@ def base_parser(parser, default_args: DefaultArgs):
     return args
 
 
-def add_base_args(parser, default_args):
+def _parse_general_args(parser, default_args):
     parser.add_argument(
-        "--no_demo",
-        action="store_false",
-        dest="write_demo",
-        default=default_args.write_demo,
+        "--action",
+        type=str,
+        default=default_args.action,
+        choices=default_args.actions,
+    )
+    parser.add_argument(
+        "--logging_level",
+        type=int,
+        default=default_args.logging_level,
+        choices=default_args.logging_levels,
+    )
+    parser.add_argument(
+        "--save_raw_data_dir",
+        type=str,
+        default=default_args.save_raw_data_dir,
+    )
+    parser.add_argument(
+        "--save_metadata_dir",
+        type=str,
+        default=default_args.save_metadata_dir,
     )
     parser.add_argument(
         "--dry_run",
@@ -102,6 +114,37 @@ def add_base_args(parser, default_args):
         "--assert_device",
         action="store_true",
         default=False,
+    )
+
+    args, _ = parser.parse_known_args()
+
+    logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
+    logging.getLogger("commands.experiment_base").setLevel(args.logging_level)
+    logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
+        args.logging_level
+    )
+    logging.getLogger("__main__").setLevel(args.logging_level)
+
+    if args.assert_device:
+        assert jax.device_count() > 0, "jax devices are not available"
+
+    if args.disable_jit:
+        logger.info("jit is disabled.")
+        jax.config.update("jax_disable_jit", True)
+
+    if args.dry_run:
+        jax.config.update("jax_log_compiles", True)
+        # jax.config.update('jax_platform_name', 'cpu')
+        
+    return args
+
+
+def _add_base_args(parser, default_args):
+    parser.add_argument(
+        "--no_demo",
+        action="store_false",
+        dest="write_demo",
+        default=default_args.write_demo,
     )
     parser.add_argument(
         "--architecture",
@@ -162,16 +205,6 @@ def add_base_args(parser, default_args):
         default=default_args.dataset,
     )
     parser.add_argument(
-        "--save_raw_data_dir",
-        type=str,
-        default=default_args.save_raw_data_dir,
-    )
-    parser.add_argument(
-        "--save_metadata_dir",
-        type=str,
-        default=default_args.save_metadata_dir,
-    )
-    parser.add_argument(
         "--dataset_dir",
         type=str,
         default=default_args.dataset_dir,
@@ -197,26 +230,9 @@ def add_base_args(parser, default_args):
         type=json_semicolon_loads,
         default=default_args.args_pattern,
     )
-    parser.add_argument(
-        "--action",
-        type=str,
-        default=default_args.action,
-        choices=default_args.actions,
-    )
 
 
 def _process_args(args):
-    if args.assert_device:
-        assert jax.device_count() > 0, "jax devices are not available"
-
-    if args.disable_jit:
-        logger.info("jit is disabled.")
-        jax.config.update("jax_disable_jit", True)
-
-    if args.dry_run:
-        jax.config.update("jax_log_compiles", True)
-        # jax.config.update('jax_platform_name', 'cpu')
-
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)
     logger.debug("created the save directories.")
@@ -355,7 +371,7 @@ def save_metadata(save_metadata_dir, metadata):
     del metadata["monitored_statistic_key"]
     del metadata["batch_index_key"]
     del metadata["stats"]
-    
+
     metadata = {k: w for k, w in metadata.items() if w != None}
 
     metadata["projection_index"] = int(metadata["projection_index"])
