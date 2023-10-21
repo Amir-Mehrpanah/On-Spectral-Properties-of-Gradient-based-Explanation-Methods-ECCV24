@@ -41,7 +41,3 @@ def merge_experiment_metadata(save_metadata_dir: str, path_prefix: str):
     project_data = pd.concat(dataframes)
     save_metadata_path = os.path.join(save_metadata_dir, f"{path_prefix}_merged.csv")
     project_data.to_csv(save_metadata_path, index=False)
-
-
-def load_experiment_metadata(glob_path: str = "*.csv", list_of_paths: list = None):
-    return project_data
