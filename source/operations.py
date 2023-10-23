@@ -4,13 +4,46 @@ from typing import Any, Dict, List, Callable, Tuple
 import jax.numpy as jnp
 import jax
 import numpy as np
+import pandas as pd
 
 from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 
-def measure_consistency(
-    *,
-    blah):
-    raise NotImplementedError()
+
+@functools.partial(jax.jit)
+def _measure_consistency(
+    image_batch: jnp.ndarray,
+    downsampling_factor=10,
+    downsampling_method=jax.image.ResizeMethod.LINEAR,
+):
+    assert image_batch.ndim == 4, (
+        "image batched group should be 5D (B,A,H,W,C) "
+        "where B is the batch size and A is the number of alphas"
+    )
+    batch_size = image_batch.shape[0]
+    alpha = image_batch.shape[0]
+    new_size = image_batch.shape[1] // downsampling_factor
+    downsampled = jax.image.resize(
+        image_batch,
+        shape=(
+            batch_size,
+            alpha,
+            new_size,
+            new_size,
+            1,
+        ),
+        method=downsampling_method,
+    )
+    return downsampled.prod(axis=1).mean(axis=(2, 3, 4))
+
+
+def measure_consistency(numpy_iterator):
+    results = []
+    for image_batch in numpy_iterator:
+        temp = {"consistency": _measure_consistency(image_batch["data"])}
+        temp.update(image_batch["indices"])
+        results.append(temp)
+    return results
+
 
 def static_projection(*, num_classes, index):
     projection = jnp.zeros(

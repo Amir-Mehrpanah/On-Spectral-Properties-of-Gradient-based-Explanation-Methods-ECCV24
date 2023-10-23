@@ -36,10 +36,15 @@ if driver_args.action == Action.gather_stats:
         )
         if driver_args.write_demo:
             driver_helpers.sample_demo(
-                static_kwargs, dynamic_kwargs, meta_kwargs, stats
+                static_kwargs,
+                dynamic_kwargs,
+                meta_kwargs,
+                stats,
             )
         saving_metadata = driver_helpers.save_stats(
-            driver_args.save_raw_data_dir, stats
+            driver_args.save_raw_data_dir,
+            stats,
+            driver_args.path_prefix,
         )
         driver_helpers.save_metadata(
             driver_args.save_metadata_dir,
@@ -50,19 +55,19 @@ if driver_args.action == Action.gather_stats:
             },
         )
         project_manager.merge_experiment_metadata(
-            driver_args.save_metadata_dir, saving_metadata["path_prefix"]
+            driver_args.save_metadata_dir,
+            driver_args.path_prefix,
         )
 elif driver_args.action == Action.compute_consistency:
-    merged_metadata = project_manager.load_experiment_merged_metadata(
+    data_loader = project_manager.alpha_group_loader(
         driver_args.save_metadata_dir,
+        driver_args.batch_size,
+        driver_args.path_prefix,
     )
-    stats = measure_consistency(merged_metadata)
-    saving_metadata = driver_helpers.save_stats(driver_args.save_raw_data_dir, stats)
+    stats = measure_consistency(data_loader)
     driver_helpers.save_metadata(
         driver_args.save_metadata_dir,
-        {
-            **saving_metadata,  # raw data dependent metadata
-        },
+        stats,  # raw data dependent metadata
     )
 else:
     raise NotImplementedError

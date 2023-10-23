@@ -1,3 +1,4 @@
+import datetime
 import numpy as np
 import json
 from experiment_base import _wait_in_queue, run_experiment
@@ -10,6 +11,7 @@ job_array_image_index = "3,5"  # ,9,11
 constraint = "gondor"
 
 # Method args
+path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
 logging_level = logging.INFO
 number_of_gpus = 4
 alpha_mask_value = "0.3 0.5"  # 4
@@ -46,6 +48,7 @@ args_pattern = json.dumps(
 run_experiment(
     job_array_image_index=job_array_image_index,
     constraint=constraint,
+    path_prefix=path_prefix,
     method=method,
     architecture=architecture,
     dataset=dataset,
@@ -66,10 +69,10 @@ run_experiment(
 
 _wait_in_queue(0)
 
-# for over num gpus:
 run_experiment(
     constraint=constraint,
     action=Action.compute_consistency,
+    path_prefix=path_prefix,
     number_of_gpus=number_of_gpus,
     save_raw_data_dir=save_raw_data_dir,
     save_metadata_dir=save_metadata_dir,

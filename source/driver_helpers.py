@@ -115,6 +115,11 @@ def _parse_general_args(parser, default_args):
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--path_prefix",
+        type=str,
+        default=default_args.path_prefix,
+    )
 
     args, _ = parser.parse_known_args()
 
@@ -136,7 +141,7 @@ def _parse_general_args(parser, default_args):
     if args.dry_run:
         jax.config.update("jax_log_compiles", True)
         # jax.config.update('jax_platform_name', 'cpu')
-        
+
     return args
 
 
@@ -329,8 +334,7 @@ def _process_method_kwargs(args):
     return args
 
 
-def save_stats(save_raw_data_dir, stats):
-    path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+def save_stats(save_raw_data_dir, stats, path_prefix):
     get_npy_file_path = lambda key: os.path.join(
         save_raw_data_dir, f"{path_prefix}.{key}.npy"
     )
