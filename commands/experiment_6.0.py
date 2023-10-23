@@ -1,9 +1,12 @@
-import datetime
-import numpy as np
+from datetime import datetime
 import json
-from experiment_base import _wait_in_queue, run_experiment
+from experiment_base import wait_in_queue, run_experiment, set_logging_level
 import logging
 
+import sys
+import os
+
+sys.path.append(os.getcwd())
 from source.utils import Action
 
 # Slurm args
@@ -12,7 +15,7 @@ constraint = "gondor"
 
 # Method args
 path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
-logging_level = logging.INFO
+set_logging_level(logging.DEBUG)
 number_of_gpus = 4
 alpha_mask_value = "0.3 0.5"  # 4
 min_change = 5e-4
@@ -67,13 +70,13 @@ run_experiment(
     save_metadata_dir=save_metadata_dir,
 )
 
-_wait_in_queue(0)
+wait_in_queue(0)  # wait for all jobs to finish
 
-run_experiment(
-    constraint=constraint,
-    action=Action.compute_consistency,
-    path_prefix=path_prefix,
-    number_of_gpus=number_of_gpus,
-    save_raw_data_dir=save_raw_data_dir,
-    save_metadata_dir=save_metadata_dir,
-)
+# run_experiment(
+#     constraint=constraint,
+#     action=Action.compute_consistency,
+#     path_prefix=path_prefix,
+#     number_of_gpus=number_of_gpus,
+#     save_raw_data_dir=save_raw_data_dir,
+#     save_metadata_dir=save_metadata_dir,
+# )

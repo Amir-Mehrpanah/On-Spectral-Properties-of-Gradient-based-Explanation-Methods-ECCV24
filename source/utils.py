@@ -5,7 +5,7 @@ import itertools
 import logging
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logger.getEffectiveLevel())
 
 class Action:
     gather_stats = "gather_stats"

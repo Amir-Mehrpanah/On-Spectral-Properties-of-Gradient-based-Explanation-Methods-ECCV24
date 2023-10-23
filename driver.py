@@ -10,6 +10,7 @@ from source import project_manager
 from source.utils import Action
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logger.getEffectiveLevel())
 
 parser = argparse.ArgumentParser()
 driver_args, method_args = driver_helpers.base_parser(parser, configs.DefaultArgs)
@@ -59,7 +60,7 @@ if driver_args.action == Action.gather_stats:
             driver_args.path_prefix,
         )
 elif driver_args.action == Action.compute_consistency:
-    data_loader = project_manager.alpha_group_loader(
+    data_loader = project_manager.alpha_group_loader(  # todo move this to driver_helpers._parse_measure_consistency_args
         driver_args.save_metadata_dir,
         driver_args.batch_size,
         driver_args.path_prefix,

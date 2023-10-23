@@ -23,6 +23,7 @@ from source.utils import (
 )
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logger.getEffectiveLevel())
 
 
 def json_semicolon_loads(string):
@@ -52,8 +53,27 @@ def base_parser(parser, default_args: DefaultArgs):
     args = _parse_general_args(parser, default_args)
 
     if args.action == Action.gather_stats:
-        args = _parse_gather_stats_args(parser, default_args)
-    return args
+        action_args = _parse_gather_stats_args(parser, default_args)
+        driver_args = argparse.Namespace(
+            path_prefix=args.path_prefix,
+            action=args.action,
+            write_demo=args.write_demo,
+            save_raw_data_dir=args.save_raw_data_dir,
+            save_metadata_dir=args.save_metadata_dir,
+        )
+    elif args.action == Action.measure_consistency:
+        # args = _parse_measure_consistency_args(parser, default_args)
+        action_args = argparse.Namespace()
+        driver_args = argparse.Namespace(
+            path_prefix=args.path_prefix,
+            action=args.action,
+            save_metadata_dir=args.save_metadata_dir,
+        )
+    return driver_args, action_args
+
+
+def _parse_measure_consistency_args(parser, default_args):
+    raise NotImplementedError("parser for measure consistency is not implemented")
 
 
 def _parse_gather_stats_args(parser, default_args):
@@ -72,7 +92,7 @@ def _parse_gather_stats_args(parser, default_args):
     logger.debug("added base args to parser.")
 
     args = parser.parse_args()
-    args = _process_args(args)
+    args = _process_gather_stats_args(args)
     logger.debug("processing args finished.")
     return args
 
@@ -83,12 +103,6 @@ def _parse_general_args(parser, default_args):
         type=str,
         default=default_args.action,
         choices=default_args.actions,
-    )
-    parser.add_argument(
-        "--logging_level",
-        type=int,
-        default=default_args.logging_level,
-        choices=default_args.logging_levels,
     )
     parser.add_argument(
         "--save_raw_data_dir",
@@ -122,14 +136,6 @@ def _parse_general_args(parser, default_args):
     )
 
     args, _ = parser.parse_known_args()
-
-    logging.getLogger("source.utils").setLevel(args.logging_level)
-    logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
-    logging.getLogger("commands.experiment_base").setLevel(args.logging_level)
-    logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
-        args.logging_level
-    )
-    logging.getLogger("__main__").setLevel(args.logging_level)
 
     if args.assert_device:
         assert jax.device_count() > 0, "jax devices are not available"
@@ -238,7 +244,7 @@ def _add_base_args(parser, default_args):
     )
 
 
-def _process_args(args):
+def _process_gather_stats_args(args):
     os.makedirs(args.save_raw_data_dir, exist_ok=True)
     os.makedirs(args.save_metadata_dir, exist_ok=True)
     logger.debug("created the save directories.")
@@ -309,13 +315,7 @@ def _process_args(args):
     method_args = _process_method_kwargs(args)
     logger.debug("updated the method and kwargs.")
 
-    driver_args = argparse.Namespace(
-        action=args.action,
-        write_demo=args.write_demo,
-        save_raw_data_dir=args.save_raw_data_dir,
-        save_metadata_dir=args.save_metadata_dir,
-    )
-    return driver_args, method_args
+    return method_args
 
 
 def sample_demo(static_kwargs, dynamic_kwargs, meta_kwargs, stats):

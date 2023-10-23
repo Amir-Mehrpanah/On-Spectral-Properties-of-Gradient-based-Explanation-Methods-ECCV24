@@ -24,7 +24,7 @@ from source.utils import (
 )
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logger.getEffectiveLevel())
 
 class TypeOrNone:
     def __init__(self, type) -> None:

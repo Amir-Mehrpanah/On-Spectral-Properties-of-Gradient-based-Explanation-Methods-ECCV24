@@ -2,9 +2,9 @@ import json
 import logging
 import os
 import sys
-from utils import Action
 
 sys.path.append(os.getcwd())
+from source.utils import Action
 
 
 class DefaultArgs:
