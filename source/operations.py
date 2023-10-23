@@ -7,6 +7,10 @@ import numpy as np
 
 from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 
+def measure_consistency(
+    *,
+    blah):
+    raise NotImplementedError()
 
 def static_projection(*, num_classes, index):
     projection = jnp.zeros(

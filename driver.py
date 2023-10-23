@@ -5,7 +5,7 @@ import sys
 
 sys.path.append(os.getcwd())
 from source import driver_helpers, configs
-from source.operations import gather_stats
+from source.operations import gather_stats, measure_consistency
 from source import project_manager
 from source.utils import Action
 
@@ -53,6 +53,16 @@ if driver_args.action == Action.gather_stats:
             driver_args.save_metadata_dir, saving_metadata["path_prefix"]
         )
 elif driver_args.action == Action.compute_consistency:
-    raise NotImplementedError
+    merged_metadata = project_manager.load_experiment_merged_metadata(
+        driver_args.save_metadata_dir,
+    )
+    stats = measure_consistency(merged_metadata)
+    saving_metadata = driver_helpers.save_stats(driver_args.save_raw_data_dir, stats)
+    driver_helpers.save_metadata(
+        driver_args.save_metadata_dir,
+        {
+            **saving_metadata,  # raw data dependent metadata
+        },
+    )
 else:
     raise NotImplementedError

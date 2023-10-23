@@ -66,6 +66,7 @@ run_experiment(
 
 _wait_in_queue(0)
 
+# for over num gpus:
 run_experiment(
     constraint=constraint,
     action=Action.compute_consistency,
