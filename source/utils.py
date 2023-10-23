@@ -1,12 +1,59 @@
 from collections import namedtuple
 import inspect
+import numpy as np
+import jax
 from collections import OrderedDict
 import itertools
 import logging
+import functools
+
+logger = logging.getLogger(__name__)
+
 
 class Action:
     gather_stats = "gather_stats"
     compute_consistency = "compute_consistency"
+
+
+def batched_pmap(f, b=8, axis=0):
+    n_devices = jax.device_count()  # to distribute over devices
+    vf = jax.vmap(f)  # over batches
+    vvf = jax.vmap(vf)  # over items in each batch
+
+    @functools.partial(jax.pmap)
+    def _distribute(x):
+        x = jax.numpy.array_split(x, n_devices)
+        logging.debug(
+            f"batched_pmap._distribute splitted on {n_devices} devices list of inputs {len(x)}"
+        )
+        results = _automatic_batching(x)
+        logging.debug(f"batched_pmap._distribute: {results.shape}")
+        return results
+
+    def _automatic_batching(x):
+        original_shape = x.shape
+        num_batches = np.cumsum([b] * int(np.ceil(x.shape[axis] // b)))
+        is_equally_sized_batches = x.shape[axis] % b == 0
+        x = jax.numpy.array_split(x, num_batches)
+        if not is_equally_sized_batches:
+            x_end = x[-1]
+            x = x[:-1]
+            defect_results = vf(x_end)
+        else:
+            defect_results = jax.numpy.empty()
+        x = jax.numpy.stack(x)
+        results = vvf(x)
+        results = results.reshape((-1, *original_shape[1:]))
+        logging.debug(
+            f"batched_pmap._automatic_batching"
+            f" results shape: {results.shape}"
+            f" defect_results shape: {defect_results.shape}",
+        )
+        results = jax.numpy.vstack([results, defect_results])
+        return results
+
+    return _distribute
+
 
 class AbstractFunction:
     __cache = {}

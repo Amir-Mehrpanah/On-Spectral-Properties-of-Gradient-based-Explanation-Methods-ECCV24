@@ -118,6 +118,7 @@ def _parse_general_args(parser, default_args):
 
     args, _ = parser.parse_known_args()
 
+    logging.getLogger("source.utils").setLevel(args.logging_level)
     logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
     logging.getLogger("commands.experiment_base").setLevel(args.logging_level)
     logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
