@@ -7,16 +7,11 @@ import os
 logger = logging.getLogger(__name__)
 
 
+save_raw_data_base_dir = "/local_storage/users/amirme/raw_data/"
+save_metadata_base_dir = "/local_storage/users/amirme/metadata/"
+
+
 def set_logging_level(logging_level):
-    logging.getLogger("source").setLevel(logging_level)
-    logging.getLogger("commands").setLevel(logging_level)
-    # logging.getLogger("source.utils").setLevel(logging_level)
-    # logging.getLogger("source.driver_helpers").setLevel(logging_level)
-    # logging.getLogger("commands.experiment_base").setLevel(logging_level)
-    # logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
-    #     logging_level
-    # )
-    logging.getLogger("__main__").setLevel(logging_level)
     logger.setLevel(logging_level)
 
 
@@ -26,6 +21,12 @@ def _sweeper_cmd(
     # handle slurm args
     job_array_image_index = ""
     constrain = ""
+    if "experiment_name" in kwargs:
+        experiment_name = kwargs["experiment_name"]
+        del kwargs["experiment_name"]
+    else:
+        experiment_name = "debug"
+
     if "job_array_image_index" in kwargs:
         job_array_image_index = f"--array={kwargs['job_array_image_index']}"
         logger.debug(f"job_array_image_index: {job_array_image_index}")
@@ -42,6 +43,7 @@ def _sweeper_cmd(
     logger.debug(f"method_args: {method_args}")
     return (
         "sbatch "
+        f"--job-name {experiment_name}"
         f"{constrain} "
         f"{job_array_image_index} "
         f"--export "

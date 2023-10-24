@@ -9,11 +9,12 @@ from source.operations import gather_stats, measure_consistency
 from source import project_manager
 from source.utils import Action
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logger.getEffectiveLevel())
 
 parser = argparse.ArgumentParser()
 driver_args, action_args = driver_helpers.base_parser(parser, configs.DefaultArgs)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logger.getEffectiveLevel())
 
 
 if driver_args.action == Action.gather_stats:
@@ -45,7 +46,6 @@ if driver_args.action == Action.gather_stats:
         saving_metadata = driver_helpers.save_stats(
             driver_args.save_raw_data_dir,
             stats,
-            driver_args.path_prefix,
         )
         driver_helpers.save_metadata(
             driver_args.save_metadata_dir,
@@ -55,15 +55,14 @@ if driver_args.action == Action.gather_stats:
                 **meta_kwargs,  # stats independent metadata
             },
         )
-        project_manager.merge_experiment_metadata(
-            driver_args.save_metadata_dir,
-            driver_args.path_prefix,
-        )
+elif driver_args.action == Action.merge_experiment_metadata:
+    project_manager.merge_experiment_metadata(
+        driver_args.save_metadata_dir,
+    )
 elif driver_args.action == Action.compute_consistency:
     data_loader = project_manager.alpha_group_loader(  # todo move this to driver_helpers._parse_measure_consistency_args
         driver_args.save_metadata_dir,
         driver_args.batch_size,
-        driver_args.path_prefix,
     )
     stats = measure_consistency(data_loader)
     driver_helpers.save_metadata(

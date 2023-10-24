@@ -55,7 +55,6 @@ def base_parser(parser, default_args: DefaultArgs):
     if args.action == Action.gather_stats:
         action_args, write_demo = _parse_gather_stats_args(parser, default_args)
         driver_args = argparse.Namespace(
-            path_prefix=args.path_prefix,
             action=args.action,
             write_demo=write_demo,
             save_raw_data_dir=args.save_raw_data_dir,
@@ -65,7 +64,6 @@ def base_parser(parser, default_args: DefaultArgs):
         # args = _parse_measure_consistency_args(parser, default_args)
         action_args = argparse.Namespace()
         driver_args = argparse.Namespace(
-            path_prefix=args.path_prefix,
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
         )
@@ -131,9 +129,9 @@ def _parse_general_args(parser, default_args):
         default=False,
     )
     parser.add_argument(
-        "--path_prefix",
-        type=str,
-        default=default_args.path_prefix,
+        "--logging_level",
+        type=int,
+        default=default_args.stats_log_level,
     )
 
     args, _ = parser.parse_known_args()
@@ -148,6 +146,16 @@ def _parse_general_args(parser, default_args):
     if args.dry_run:
         jax.config.update("jax_log_compiles", True)
         # jax.config.update('jax_platform_name', 'cpu')
+
+    logging.getLogger("source").setLevel(args.logging_level)
+    logging.getLogger("commands").setLevel(args.logging_level)
+    # logging.getLogger("source.utils").setLevel(args.logging_level)
+    # logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
+    # logging.getLogger("commands.experiment_base").setLevel(args.logging_level)
+    # logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
+    #     args.logging_level
+    # )
+    logging.getLogger("__main__").setLevel(args.logging_level)
 
     return args
 
@@ -335,7 +343,8 @@ def _process_method_kwargs(args):
     return args
 
 
-def save_stats(save_raw_data_dir, stats, path_prefix):
+def save_stats(save_raw_data_dir, stats):
+    path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
     get_npy_file_path = lambda key: os.path.join(
         save_raw_data_dir, f"{path_prefix}.{key}.npy"
     )

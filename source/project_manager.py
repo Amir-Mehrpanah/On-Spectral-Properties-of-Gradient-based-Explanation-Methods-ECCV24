@@ -25,6 +25,18 @@ def check_file_exists(metadata: pd.Series, selected_rows: pd.Series = None):
     return metadata[selected_rows].apply(os.path.exists)
 
 
+def load_experiment_metadata(glob_path: str):
+    metadata_paths = glob(glob_path)
+    print(metadata_paths)
+    metadata_paths_merged = [path for path in metadata_paths if "merged" in path]
+    assert (
+        len(metadata_paths_merged) == 1
+    ), f"Could not find any metadata files in {glob_path}"
+
+    metadata_path = metadata_paths_merged[0]
+    return pd.read_csv(metadata_path, index_col=False)
+
+
 def merge_experiment_metadata(save_metadata_dir: str, path_prefix: str):
     glob_path: str = "*.csv"
     metadata_glob_path = os.path.join(save_metadata_dir, glob_path)
@@ -51,11 +63,12 @@ def alpha_group_loader(
     input_shape: tuple = None,
     prefetch_factor=4,
 ):
-    merged_metadata_path = os.path.join(save_metadata_dir, f"{path_prefix}_merged.csv")
-    if not os.path.exists(merged_metadata_path):
-        raise FileNotFoundError(
-            f"Could not find any merged metadata files in {merged_metadata_path}"
-        )
+    glob_path = os.path.join(save_metadata_dir, f"*_merged.csv")
+    merged_metadata_path = glob(glob_path)
+    assert (
+        len(merged_metadata_path) == 1
+    ), f"Could not determine merged metadata files in {glob_path} found {merged_metadata_path}"
+    merged_metadata_path = merged_metadata_path[0]
     merged_metadata = pd.read_csv(merged_metadata_path)
     assert "data_path" in merged_metadata.columns, (
         f"Could not find data_path column in {merged_metadata_path}. "
