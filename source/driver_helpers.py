@@ -53,11 +53,11 @@ def base_parser(parser, default_args: DefaultArgs):
     args = _parse_general_args(parser, default_args)
 
     if args.action == Action.gather_stats:
-        action_args = _parse_gather_stats_args(parser, default_args)
+        action_args, write_demo = _parse_gather_stats_args(parser, default_args)
         driver_args = argparse.Namespace(
             path_prefix=args.path_prefix,
             action=args.action,
-            write_demo=args.write_demo,
+            write_demo=write_demo,
             save_raw_data_dir=args.save_raw_data_dir,
             save_metadata_dir=args.save_metadata_dir,
         )
@@ -92,9 +92,10 @@ def _parse_gather_stats_args(parser, default_args):
     logger.debug("added base args to parser.")
 
     args = parser.parse_args()
+    write_demo = args.write_demo
     args = _process_gather_stats_args(args)
     logger.debug("processing args finished.")
-    return args
+    return args, write_demo
 
 
 def _parse_general_args(parser, default_args):

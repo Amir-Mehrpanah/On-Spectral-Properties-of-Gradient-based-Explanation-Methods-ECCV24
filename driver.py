@@ -13,16 +13,16 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logger.getEffectiveLevel())
 
 parser = argparse.ArgumentParser()
-driver_args, method_args = driver_helpers.base_parser(parser, configs.DefaultArgs)
+driver_args, action_args = driver_helpers.base_parser(parser, configs.DefaultArgs)
 
 
 if driver_args.action == Action.gather_stats:
-    num_samplers = len(method_args.samplers)
+    num_samplers = len(action_args.samplers)
     iterator = zip(
-        method_args.samplers,
-        method_args.static_kwargs,
-        method_args.dynamic_kwargs,
-        method_args.meta_kwargs,
+        action_args.samplers,
+        action_args.static_kwargs,
+        action_args.dynamic_kwargs,
+        action_args.meta_kwargs,
     )
     for sindex, (sampler, static_kwargs, dynamic_kwargs, meta_kwargs) in enumerate(
         iterator
