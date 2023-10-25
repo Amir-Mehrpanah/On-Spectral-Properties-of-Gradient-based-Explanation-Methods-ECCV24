@@ -23,7 +23,6 @@ from source.utils import (
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logger.getEffectiveLevel())
 
 
 def json_semicolon_loads(string):
@@ -147,14 +146,11 @@ def _parse_general_args(parser, default_args):
         jax.config.update("jax_log_compiles", True)
         # jax.config.update('jax_platform_name', 'cpu')
 
-    logging.getLogger("source").setLevel(args.logging_level)
-    logging.getLogger("commands").setLevel(args.logging_level)
-    # logging.getLogger("source.utils").setLevel(args.logging_level)
-    # logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
-    # logging.getLogger("commands.experiment_base").setLevel(args.logging_level)
-    # logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
-    #     args.logging_level
-    # )
+    logging.getLogger("source.utils").setLevel(args.logging_level)
+    logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
+    logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
+        args.logging_level
+    )
     logging.getLogger("__main__").setLevel(args.logging_level)
 
     return args

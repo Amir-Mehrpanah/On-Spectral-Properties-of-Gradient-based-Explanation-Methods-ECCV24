@@ -17,15 +17,15 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-experiment_name = __file__.split(".")[0]
-job_array_image_index = "3,5"  # ,9,11
+job_array_image_index = "3,5"  # ,9,11 # comma separated string
 constraint = "gondor"
+experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
 logging_level = logging.DEBUG
-set_logging_level(logging.DEBUG)
+set_logging_level(logging_level)
 number_of_gpus = 4
-alpha_mask_value = "0.3 0.5"  # 4
+alpha_mask_value = "0.3 0.5"  # 4 # space separated string
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
@@ -51,7 +51,8 @@ _args_pattern_state = {
     "demo": ["i", "static,meta"],
 }
 args_state = json.dumps(
-    {k: v[1] for k, v in _args_pattern_state.items()}, separators=(";", ":")
+    {k: v[1] for k, v in _args_pattern_state.items()},
+    separators=(";", ":"),  # semi-colon is used to separate args
 )
 args_pattern = json.dumps(
     {k: v[0] for k, v in _args_pattern_state.items()}, separators=(";", ":")
