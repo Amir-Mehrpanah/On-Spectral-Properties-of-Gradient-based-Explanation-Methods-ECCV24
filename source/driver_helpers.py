@@ -428,14 +428,14 @@ def _make_loader(
     # pivot table to get a dataframe with alpha_mask_value as columns
     merged_metadata = merged_metadata.pivot(
         index=pivot_indices, columns=pivot_column, values="data_path"
-    )
+    ).sort_index()
     index_shape = (len(pivot_indices),)
 
     def _generator():
         for index, paths in merged_metadata.iterrows():
-            batch = np.stack(paths.apply(np.load))
+            sample = np.stack(paths.apply(np.load))
             yield {
-                "data": jnp.stack(batch.values),
+                "data": sample,
                 "indices": index,
             }
 

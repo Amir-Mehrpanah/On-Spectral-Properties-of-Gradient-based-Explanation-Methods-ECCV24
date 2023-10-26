@@ -15,32 +15,50 @@ def _measure_consistency(
     downsampling_factor=10,
     downsampling_method=jax.image.ResizeMethod.LINEAR,
 ):
-    assert image_batch.ndim == 4, (
+    assert image_batch.ndim == 5, (
         "image batched group should be 5D (B,A,H,W,C) "
-        "where B is the batch size and A is the number of alphas"
+        "where B is the batch size and A is the number of columns in pivot table."
     )
-    batch_size = image_batch.shape[0]
-    alpha = image_batch.shape[0]
-    new_size = image_batch.shape[1] // downsampling_factor
-    downsampled = jax.image.resize(
+    B, T, H, W, _ = image_batch.shape
+    new_H = H // downsampling_factor
+    new_W = W // downsampling_factor
+    downsampled: jax.Array = jax.image.resize(
         image_batch,
         shape=(
-            batch_size,
-            alpha,
-            new_size,
-            new_size,
-            1,
+            B,
+            T,
+            new_H,
+            new_W,
+            1,  # collapse the color channels
         ),
         method=downsampling_method,
     )
-    return downsampled.prod(axis=1).mean(axis=(2, 3, 4))
+
+    downsampled = jnp.squeeze(downsampled, axis=-1)
+    downsampled_0 = downsampled[:, [0], ...].reshape((B, 1, -1))
+    downsampled_gt0 = downsampled[:, 1:, ...].reshape((B, T - 1, -1))
+
+    norm_0 = jnp.linalg.norm(downsampled_0, axis=-1, keepdims=True)
+    norm_gt0 = jnp.linalg.norm(downsampled_gt0, axis=-1, keepdims=True)
+    inner_product = jnp.einsum(
+        "bti,btj->bt",
+        downsampled_0,
+        downsampled_gt0,
+    )
+
+    average_cosine_similarity = jnp.mean(
+        inner_product / (norm_0 * norm_gt0),
+        axis=1,
+    )
+    
+    return average_cosine_similarity
 
 
 def measure_consistency(numpy_iterator):
     results = []
-    for image_batch in numpy_iterator:
-        temp = {"consistency": _measure_consistency(image_batch["data"])}
-        temp.update(image_batch["indices"])
+    for batch in numpy_iterator:
+        temp = {"consistency": _measure_consistency(batch["data"])}
+        temp.update(batch["indices"])
         results.append(temp)
     return results
 
