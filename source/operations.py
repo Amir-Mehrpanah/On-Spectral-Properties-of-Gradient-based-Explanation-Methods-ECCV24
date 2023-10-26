@@ -40,26 +40,28 @@ def _measure_consistency(
 
     norm_0 = jnp.linalg.norm(downsampled_0, axis=-1, keepdims=True)
     norm_gt0 = jnp.linalg.norm(downsampled_gt0, axis=-1, keepdims=True)
-    inner_product = jnp.einsum(
-        "bti,btj->bt",
-        downsampled_0,
-        downsampled_gt0,
-    )
 
-    average_cosine_similarity = jnp.mean(
-        inner_product / (norm_0 * norm_gt0),
-        axis=1,
-    )
-    
+    average_cosine_similarity = jnp.einsum(
+        "bti,btj->b",
+        downsampled_0 / norm_0,
+        downsampled_gt0 / norm_gt0,
+    ) / (new_H * new_W * (T - 1))
+
     return average_cosine_similarity
 
 
 def measure_consistency(numpy_iterator):
-    results = []
+    results = {"consistency": []}
     for batch in numpy_iterator:
-        temp = {"consistency": _measure_consistency(batch["data"])}
-        temp.update(batch["indices"])
-        results.append(temp)
+        data = batch.pop("data")
+        consistency = _measure_consistency(data)
+        results["consistency"].append(consistency)
+        results.update(batch)  # other keys are indices
+    for k in results:
+        if k != "consistency":
+            results[k] = np.stack(results[k])
+        else:
+            results[k] = np.concatenate(results[k])
     return results
 
 

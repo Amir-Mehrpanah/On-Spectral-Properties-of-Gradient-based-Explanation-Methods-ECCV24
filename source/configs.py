@@ -23,7 +23,9 @@ class DefaultArgs:
     output_layers = ["logits", "log_softmax", "softmax"]
     actions = [v for v in dir(Action) if "__" not in v]
 
+    prefetch_factor = 4
     pivot_index = ["image_index", "projection_index"]
+    pivot_column = "alpha_mask_value"
     seed = 42
     write_demo = True
     input_shape = (1, 224, 224, 3)

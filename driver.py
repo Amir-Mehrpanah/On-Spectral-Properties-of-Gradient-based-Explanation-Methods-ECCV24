@@ -43,11 +43,11 @@ if driver_args.action == Action.gather_stats:
                 meta_kwargs,
                 stats,
             )
-        saving_metadata = driver_helpers.save_stats(
+        saving_metadata = driver_helpers.save_gather_stats_data(
             driver_args.save_raw_data_dir,
             stats,
         )
-        driver_helpers.save_metadata(
+        driver_helpers.save_gather_stats_metadata(
             driver_args.save_metadata_dir,
             {
                 **stats_metadata,  # stats dependent metadata
@@ -61,9 +61,10 @@ elif driver_args.action == Action.merge_stats:
     )
 elif driver_args.action == Action.compute_consistency:
     stats = measure_consistency(action_args.data_loader)
-    driver_helpers.save_metadata(
+    driver_helpers.save_consistency(
         driver_args.save_metadata_dir,
         stats,  # raw data dependent metadata
+        action_args.pivot_column,
     )
 else:
     raise NotImplementedError

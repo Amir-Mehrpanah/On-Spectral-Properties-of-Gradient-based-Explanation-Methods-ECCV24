@@ -91,14 +91,27 @@ def _parse_measure_consistency_args(parser, default_args):
         type=str,
         default=default_args.pivot_index,
     )
+    parser.add_argument(
+        "--pivot_column",
+        type=str,
+        default=default_args.pivot_column,
+    )
+    parser.add_argument(
+        "--prefetch_factor",
+        type=int,
+        default=default_args.prefetch_factor,
+    )
     args, _ = parser.parse_known_args()
     data_loader = _make_loader(
         args.save_metadata_dir,
         args.pivot_index,
         args.batch_size,
+        args.pivot_column,
+        prefetch_factor=args.prefetch_factor,
     )
     return argparse.Namespace(
         data_loader=data_loader,
+        pivot_column=args.pivot_column,
     )
 
 
@@ -425,25 +438,29 @@ def _make_loader(
     ]
     merged_metadata = merged_metadata.drop(columns=["stream_name", "stream_statistic"])
 
-    # pivot table to get a dataframe with alpha_mask_value as columns
+    # pivot table to get a dataframe with pivot_column as columns
     merged_metadata = merged_metadata.pivot(
         index=pivot_indices, columns=pivot_column, values="data_path"
-    ).sort_index()
+    )
+    # sort based on pivot_column
+    merged_metadata = merged_metadata.sort_index(axis=1)
+
     index_shape = (len(pivot_indices),)
 
     def _generator():
         for index, paths in merged_metadata.iterrows():
             sample = np.stack(paths.apply(np.load))
-            yield {
-                "data": sample,
-                "indices": index,
-            }
+            indices = {k: index[i] for i, k in enumerate(merged_metadata.index.names)}
+            yield {"data": sample, **indices}
 
+    indices_signature = {
+        k: tf.TensorSpec(shape=(), dtype=tf.int32) for k in merged_metadata.index.names
+    }
     dataset = tf.data.Dataset.from_generator(
         _generator,
         output_signature={
             "data": tf.TensorSpec(shape=input_shape, dtype=tf.float32),
-            "indices": tf.TensorSpec(shape=index_shape, dtype=tf.int32),
+            **indices_signature,
         },
     )
     iterator = dataset.batch(batch_size).prefetch(prefetch_factor).as_numpy_iterator()
@@ -457,7 +474,7 @@ def _process_method_kwargs(args):
     return args
 
 
-def save_stats(save_raw_data_dir, stats):
+def save_gather_stats_data(save_raw_data_dir, stats):
     path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
     get_npy_file_path = lambda key: os.path.join(
         save_raw_data_dir, f"{path_prefix}.{key}.npy"
@@ -491,7 +508,7 @@ def save_stats(save_raw_data_dir, stats):
     return metadata
 
 
-def save_metadata(save_metadata_dir, metadata):
+def save_gather_stats_metadata(save_metadata_dir, metadata):
     csv_file_name = f"{metadata['path_prefix']}.csv"
     metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
     metadata["metadata_file_path"] = metadata_file_path
@@ -505,6 +522,16 @@ def save_metadata(save_metadata_dir, metadata):
 
     metadata["projection_index"] = int(metadata["projection_index"])
     metadata["input_shape"] = str(metadata["input_shape"])
+
+    # convert metadata from dict to dataframe and save
+    dataframe = pd.DataFrame(metadata)
+    dataframe.to_csv(metadata_file_path, index=False)
+    logger.info(f"saved the correspoding meta data to {metadata_file_path}")
+
+
+def save_consistency(save_metadata_dir, metadata, pivot_column):
+    csv_file_name = f"consistency_{pivot_column}.csv"
+    metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
 
     # convert metadata from dict to dataframe and save
     dataframe = pd.DataFrame(metadata)
