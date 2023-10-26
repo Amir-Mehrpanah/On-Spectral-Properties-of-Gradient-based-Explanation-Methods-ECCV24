@@ -61,7 +61,7 @@ def _sweeper_cmd(
 def run_experiment(**args):
     logger.debug("sumbitting a job")
     cmd = _sweeper_cmd(**args)
-    # os.system(cmd)
+    os.system(cmd)
     wait_in_queue()
 
 

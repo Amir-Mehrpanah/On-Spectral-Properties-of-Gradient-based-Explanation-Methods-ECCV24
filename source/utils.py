@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 class Action:
     gather_stats = "gather_stats"
     compute_consistency = "compute_consistency"
+    merge_stats = "merge_stats"
 
 
 class AbstractFunction:

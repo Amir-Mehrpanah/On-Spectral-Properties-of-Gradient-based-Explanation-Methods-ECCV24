@@ -55,7 +55,7 @@ if driver_args.action == Action.gather_stats:
                 **meta_kwargs,  # stats independent metadata
             },
         )
-elif driver_args.action == Action.merge_experiment_metadata:
+elif driver_args.action == Action.merge_stats:
     project_manager.merge_experiment_metadata(
         driver_args.save_metadata_dir,
     )

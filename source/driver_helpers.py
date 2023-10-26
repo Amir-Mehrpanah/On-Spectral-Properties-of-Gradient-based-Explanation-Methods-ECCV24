@@ -59,13 +59,22 @@ def base_parser(parser, default_args: DefaultArgs):
             save_raw_data_dir=args.save_raw_data_dir,
             save_metadata_dir=args.save_metadata_dir,
         )
-    elif args.action == Action.measure_consistency:
+    elif args.action == Action.compute_consistency:
         # args = _parse_measure_consistency_args(parser, default_args)
         action_args = argparse.Namespace()
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
         )
+    elif args.action == Action.merge_stats:
+        action_args = argparse.Namespace()
+        driver_args = argparse.Namespace(
+            action=args.action,
+            save_metadata_dir=args.save_metadata_dir,
+        )
+    else:
+        raise NotImplementedError("other actions are not implemented")
+
     return driver_args, action_args
 
 
