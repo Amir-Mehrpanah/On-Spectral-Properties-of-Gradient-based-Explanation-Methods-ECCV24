@@ -37,7 +37,7 @@ def load_experiment_metadata(glob_path: str):
     return pd.read_csv(metadata_path, index_col=False)
 
 
-def merge_experiment_metadata(save_metadata_dir: str, path_prefix: str):
+def merge_experiment_metadata(save_metadata_dir: str):
     glob_path: str = "*.csv"
     metadata_glob_path = os.path.join(save_metadata_dir, glob_path)
     metadata_paths = glob(metadata_glob_path)
@@ -52,63 +52,5 @@ def merge_experiment_metadata(save_metadata_dir: str, path_prefix: str):
         )
 
     project_data = pd.concat(dataframes)
-    save_metadata_path = os.path.join(save_metadata_dir, f"{path_prefix}_merged.csv")
+    save_metadata_path = os.path.join(save_metadata_dir, f"merged_metadata.csv")
     project_data.to_csv(save_metadata_path, index=False)
-
-
-def alpha_group_loader(
-    save_metadata_dir: str,
-    batch_size: int,
-    path_prefix: str,
-    input_shape: tuple = None,
-    prefetch_factor=4,
-):
-    glob_path = os.path.join(save_metadata_dir, f"*_merged.csv")
-    merged_metadata_path = glob(glob_path)
-    assert (
-        len(merged_metadata_path) == 1
-    ), f"Could not determine merged metadata files in {glob_path} found {merged_metadata_path}"
-    merged_metadata_path = merged_metadata_path[0]
-    merged_metadata = pd.read_csv(merged_metadata_path)
-    assert "data_path" in merged_metadata.columns, (
-        f"Could not find data_path column in {merged_metadata_path}. "
-        f"Make sure the metadata file contains a column named data_path"
-    )
-    if input_shape is None:
-        assert "input_shape" in merged_metadata.columns, (
-            f"Could not find input_shape column in {merged_metadata_path}. "
-            f"Make sure the metadata file contains a column named input_shape"
-            f"or pass input_shape as an argument to loader_from_metadata"
-        )
-        input_shape = merged_metadata["input_shape"].iloc[0]
-        input_shape = tuple(input_shape)
-    assert isinstance(
-        input_shape, tuple
-    ), f"input_shape must be a tuple, got {type(input_shape)}"
-    assert (
-        len(input_shape) == 3
-    ), f"input_shape must have 3 dimensions (H, W, C), got {len(input_shape)}"
-
-    assert "alpha_mask_value" in merged_metadata.columns, (
-        f"Could not find alpha_mask_value column in {merged_metadata_path}. "
-        f"Make sure the metadata file contains a column named alpha_mask_value"
-    )
-
-    num_alphas = merged_metadata["alpha_mask_value"].unique()
-    input_shape = (num_alphas, *input_shape)
-
-    def _generator():
-        groupped = merged_metadata.groupby("alpha_mask_value")
-        for i, paths in groupped:
-            batch = paths["data_path"].apply(np.load)
-            yield {
-                "data": np.stack(batch.values),
-                "indices": i,
-            }
-
-    dataset = tf.data.Dataset.from_generator(
-        _generator,
-        output_signature={"data": tf.TensorSpec(shape=input_shape, dtype=tf.float32)},
-    )
-    iterator = dataset.batch(batch_size).prefetch(prefetch_factor).as_numpy_iterator()
-    return iterator

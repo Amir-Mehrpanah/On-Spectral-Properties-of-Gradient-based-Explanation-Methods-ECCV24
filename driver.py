@@ -60,11 +60,7 @@ elif driver_args.action == Action.merge_stats:
         driver_args.save_metadata_dir,
     )
 elif driver_args.action == Action.compute_consistency:
-    data_loader = project_manager.alpha_group_loader(  # todo move this to driver_helpers._parse_measure_consistency_args
-        driver_args.save_metadata_dir,
-        driver_args.batch_size,
-    )
-    stats = measure_consistency(data_loader)
+    stats = measure_consistency(action_args.data_loader)
     driver_helpers.save_metadata(
         driver_args.save_metadata_dir,
         stats,  # raw data dependent metadata

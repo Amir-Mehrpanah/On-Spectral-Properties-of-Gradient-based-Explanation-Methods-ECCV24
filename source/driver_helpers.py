@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import jax
 import jax.numpy as jnp
+import tensorflow as tf
 
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
@@ -60,8 +61,7 @@ def base_parser(parser, default_args: DefaultArgs):
             save_metadata_dir=args.save_metadata_dir,
         )
     elif args.action == Action.compute_consistency:
-        # args = _parse_measure_consistency_args(parser, default_args)
-        action_args = argparse.Namespace()
+        action_args = _parse_measure_consistency_args(parser, default_args)
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
@@ -79,7 +79,19 @@ def base_parser(parser, default_args: DefaultArgs):
 
 
 def _parse_measure_consistency_args(parser, default_args):
-    raise NotImplementedError("parser for measure consistency is not implemented")
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=default_args.batch_size,
+    )
+    args, _ = parser.parse_known_args()
+    data_loader = _alpha_group_loader(  # todo alpha is a hyperparameter
+        args.save_metadata_dir,
+        args.batch_size,
+    )
+    return argparse.Namespace(
+        data_loader=data_loader,
+    )
 
 
 def _parse_gather_stats_args(parser, default_args):
@@ -139,7 +151,7 @@ def _parse_general_args(parser, default_args):
     parser.add_argument(
         "--logging_level",
         type=int,
-        default=default_args.stats_log_level,
+        default=default_args.logging_level,
     )
 
     args, _ = parser.parse_known_args()
@@ -339,6 +351,61 @@ def sample_demo(static_kwargs, dynamic_kwargs, meta_kwargs, stats):
         static_kwargs, dynamic_kwargs, meta_kwargs
     )
     stats.update(demo_stats)
+
+
+def _alpha_group_loader(
+    save_metadata_dir: str,
+    batch_size: int,
+    input_shape: tuple = None,
+    prefetch_factor=4,
+):
+    merged_metadata_path = os.path.join(save_metadata_dir, f"merged_metadata.csv")
+    assert os.path.exists(
+        merged_metadata_path
+    ), f"Could not find the merged metadata file in {save_metadata_dir}."
+    merged_metadata = pd.read_csv(merged_metadata_path)
+    assert "data_path" in merged_metadata.columns, (
+        f"Could not find data_path column in {merged_metadata_path}. "
+        f"Make sure the metadata file contains a column named data_path"
+    )
+    if input_shape is None:
+        assert "input_shape" in merged_metadata.columns, (
+            f"Could not find input_shape column in {merged_metadata_path}. "
+            f"Make sure the metadata file contains a column named input_shape"
+            f"or pass input_shape as an argument to loader_from_metadata"
+        )
+        input_shape = merged_metadata["input_shape"].iloc[0]
+        input_shape = tuple(input_shape)
+    assert isinstance(
+        input_shape, tuple
+    ), f"input_shape must be a tuple, got {type(input_shape)}"
+    assert (
+        len(input_shape) == 3
+    ), f"input_shape must have 3 dimensions (H, W, C), got {len(input_shape)}"
+
+    assert "alpha_mask_value" in merged_metadata.columns, (
+        f"Could not find alpha_mask_value column in {merged_metadata_path}. "
+        f"Make sure the metadata file contains a column named alpha_mask_value"
+    )
+
+    num_alphas = merged_metadata["alpha_mask_value"].unique()
+    input_shape = (num_alphas, *input_shape)
+
+    def _generator():
+        groupped = merged_metadata.groupby("alpha_mask_value")
+        for i, paths in groupped:
+            batch = paths["data_path"].apply(np.load)
+            yield {
+                "data": np.stack(batch.values),
+                "indices": i,
+            }
+
+    dataset = tf.data.Dataset.from_generator(
+        _generator,
+        output_signature={"data": tf.TensorSpec(shape=input_shape, dtype=tf.float32)},
+    )
+    iterator = dataset.batch(batch_size).prefetch(prefetch_factor).as_numpy_iterator()
+    return iterator
 
 
 def _process_method_kwargs(args):
