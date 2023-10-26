@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import logging
+from typing import List
 import numpy as np
 import pandas as pd
 import jax
@@ -84,9 +85,16 @@ def _parse_measure_consistency_args(parser, default_args):
         type=int,
         default=default_args.batch_size,
     )
+    parser.add_argument(
+        "--pivot_index",
+        nargs="+",
+        type=str,
+        default=default_args.pivot_index,
+    )
     args, _ = parser.parse_known_args()
-    data_loader = _alpha_group_loader(  # todo alpha is a hyperparameter
+    data_loader = _make_loader(
         args.save_metadata_dir,
+        args.pivot_index,
         args.batch_size,
     )
     return argparse.Namespace(
@@ -353,9 +361,11 @@ def sample_demo(static_kwargs, dynamic_kwargs, meta_kwargs, stats):
     stats.update(demo_stats)
 
 
-def _alpha_group_loader(
+def _make_loader(
     save_metadata_dir: str,
+    pivot_indices: List[str],
     batch_size: int,
+    pivot_column: str = "alpha_mask_value",
     input_shape: tuple = None,
     prefetch_factor=4,
 ):
@@ -375,34 +385,66 @@ def _alpha_group_loader(
             f"or pass input_shape as an argument to loader_from_metadata"
         )
         input_shape = merged_metadata["input_shape"].iloc[0]
-        input_shape = tuple(input_shape)
+        input_shape = input_shape.replace("(", "").replace(")", "").split(",")
+        input_shape = tuple(map(int, input_shape))
+        logger.debug(f"found input_shape {input_shape} in the metadata file.")
     assert isinstance(
         input_shape, tuple
     ), f"input_shape must be a tuple, got {type(input_shape)}"
-    assert (
-        len(input_shape) == 3
-    ), f"input_shape must have 3 dimensions (H, W, C), got {len(input_shape)}"
+    if len(input_shape) == 4:
+        assert (
+            input_shape[0] == 1
+        ), f"input_shape must have 4 dimensions (1, H, W, C), got {input_shape}"
+        input_shape = input_shape[1:]
+    else:
+        assert (
+            len(input_shape) == 3
+        ), f"input_shape must have 3 dimensions (H, W, C), got {len(input_shape)}"
 
-    assert "alpha_mask_value" in merged_metadata.columns, (
+    assert pivot_column in merged_metadata.columns, (
         f"Could not find alpha_mask_value column in {merged_metadata_path}. "
         f"Make sure the metadata file contains a column named alpha_mask_value"
     )
+    assert all(
+        (pivot_index in merged_metadata.columns) for pivot_index in pivot_indices
+    ), f"Could not find pivot_index columns {pivot_indices} in {merged_metadata.columns}. "
 
-    num_alphas = merged_metadata["alpha_mask_value"].unique()
-    input_shape = (num_alphas, *input_shape)
+    num_distinct_values = len(merged_metadata[pivot_column].unique())
+    assert num_distinct_values > 1, (
+        f"Could not find more than 1 {pivot_column} in {merged_metadata_path}. "
+        f"Make sure the metadata file contains more than 1 {pivot_column} to compute consistency."
+    )
+    logger.debug(f"found {num_distinct_values} alphas in the metadata file.")
+    input_shape = (num_distinct_values, *input_shape)
+
+    # todo clean up this part as we may need to summarize other statistics
+    # filter data whose stream_name is vanilla_grad_mask and stream_statistic is meanx2
+    merged_metadata = merged_metadata[
+        (merged_metadata["stream_name"] == "vanilla_grad_mask")
+        & (merged_metadata["stream_statistic"] == "meanx2")
+    ]
+    merged_metadata = merged_metadata.drop(columns=["stream_name", "stream_statistic"])
+
+    # pivot table to get a dataframe with alpha_mask_value as columns
+    merged_metadata = merged_metadata.pivot(
+        index=pivot_indices, columns=pivot_column, values="data_path"
+    )
+    index_shape = (len(pivot_indices),)
 
     def _generator():
-        groupped = merged_metadata.groupby("alpha_mask_value")
-        for i, paths in groupped:
-            batch = paths["data_path"].apply(np.load)
+        for index, paths in merged_metadata.iterrows():
+            batch = np.stack(paths.apply(np.load))
             yield {
-                "data": np.stack(batch.values),
-                "indices": i,
+                "data": jnp.stack(batch.values),
+                "indices": index,
             }
 
     dataset = tf.data.Dataset.from_generator(
         _generator,
-        output_signature={"data": tf.TensorSpec(shape=input_shape, dtype=tf.float32)},
+        output_signature={
+            "data": tf.TensorSpec(shape=input_shape, dtype=tf.float32),
+            "indices": tf.TensorSpec(shape=index_shape, dtype=tf.int32),
+        },
     )
     iterator = dataset.batch(batch_size).prefetch(prefetch_factor).as_numpy_iterator()
     return iterator

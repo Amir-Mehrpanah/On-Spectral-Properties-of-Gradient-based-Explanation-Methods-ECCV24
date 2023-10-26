@@ -23,6 +23,7 @@ class DefaultArgs:
     output_layers = ["logits", "log_softmax", "softmax"]
     actions = [v for v in dir(Action) if "__" not in v]
 
+    pivot_index = ["image_index", "projection_index"]
     seed = 42
     write_demo = True
     input_shape = (1, 224, 224, 3)
@@ -44,7 +45,6 @@ class DefaultArgs:
         {k: v[0] for k, v in _args_pattern_state.items()}, separators=(";", ":")
     )
     num_classes = 1000
-    path_prefix = "__debug__"
     dataset_dir = "/local_storage/datasets/imagenet"
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
     save_metadata_dir = "/local_storage/users/amirme/metadata"
