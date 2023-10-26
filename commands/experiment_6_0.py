@@ -17,15 +17,15 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "3,5"  # ,9,11 # comma separated string
+job_array_image_index = "3,5,9,11"  # comma separated string
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
+number_of_gpus = 4
 
 # Method args
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-number_of_gpus = 4
-alpha_mask_value = "0.3 0.5"  # 4 # space separated string
+alpha_mask_value = "0.1 0.3 0.5 0.7"  # 4 # space separated string
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
@@ -59,29 +59,29 @@ args_pattern = json.dumps(
 )
 
 if __name__ == "__main__":
-    # run_experiment(
-    #     experiment_name=experiment_name,
-    #     job_array_image_index=job_array_image_index,
-    #     constraint=constraint,
-    #     action=Action.gather_stats,
-    #     logging_level=logging_level,
-    #     method=method,
-    #     architecture=architecture,
-    #     dataset=dataset,
-    #     min_change=min_change,
-    #     alpha_mask_type=alpha_mask_type,
-    #     alpha_mask_value=alpha_mask_value,
-    #     projection_type=projection_type,
-    #     projection_top_k=projection_top_k,
-    #     baseline_mask_type=baseline_mask_type,
-    #     demo=demo,
-    #     batch_size=batch_size,
-    #     args_state=args_state,
-    #     args_pattern=args_pattern,
-    #     normalize_sample=normalize_sample,
-    #     save_raw_data_dir=save_raw_data_dir,
-    #     save_metadata_dir=save_metadata_dir,
-    # )
+    run_experiment(
+        experiment_name=experiment_name,
+        job_array_image_index=job_array_image_index,
+        constraint=constraint,
+        action=Action.gather_stats,
+        logging_level=logging_level,
+        method=method,
+        architecture=architecture,
+        dataset=dataset,
+        min_change=min_change,
+        alpha_mask_type=alpha_mask_type,
+        alpha_mask_value=alpha_mask_value,
+        projection_type=projection_type,
+        projection_top_k=projection_top_k,
+        baseline_mask_type=baseline_mask_type,
+        demo=demo,
+        batch_size=batch_size,
+        args_state=args_state,
+        args_pattern=args_pattern,
+        normalize_sample=normalize_sample,
+        save_raw_data_dir=save_raw_data_dir,
+        save_metadata_dir=save_metadata_dir,
+    )
 
     wait_in_queue(0)  # wait for all jobs to finish
 
@@ -95,12 +95,12 @@ if __name__ == "__main__":
 
     wait_in_queue(0)  # wait for all jobs to finish
 
-    # run_experiment(
-    #     constraint=constraint,
-    #     logging_level=logging_level,
-    #     action=Action.compute_consistency,
-    #     path_prefix=path_prefix,
-    #     number_of_gpus=number_of_gpus,
-    #     save_raw_data_dir=save_raw_data_dir,
-    #     save_metadata_dir=save_metadata_dir,
-    # )
+    run_experiment(
+        experiment_name=f"consistency_{experiment_name}",
+        constraint=constraint,
+        logging_level=logging_level,
+        number_of_gpus=number_of_gpus,
+        action=Action.compute_consistency,
+        save_metadata_dir=save_metadata_dir,
+        batch_size=batch_size,
+    )
