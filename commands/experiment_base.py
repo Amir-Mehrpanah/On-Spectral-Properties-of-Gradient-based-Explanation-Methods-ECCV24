@@ -85,7 +85,7 @@ def run_experiment(**args):
     wait_in_queue()
 
 
-def wait_in_queue(thresh=12):
+def wait_in_queue(thresh=10):
     while True:
         result = subprocess.run(["squeue", "-u", "amirme"], stdout=subprocess.PIPE)
         result = result.stdout.decode()
@@ -94,5 +94,5 @@ def wait_in_queue(thresh=12):
             f"there are {result} number of jobs in the queue, waiting for finishing the jobs",
         )
         if result <= thresh:
-            break
+            return
         time.sleep(5)

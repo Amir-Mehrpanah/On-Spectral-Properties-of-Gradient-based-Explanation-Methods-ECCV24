@@ -48,7 +48,6 @@ _args_pattern_state = {
     "image": ["i", "static"],
     "baseline_mask": ["i", "static"],
     "normalize_sample": ["i", "static"],
-    "demo": ["i", "static,meta"],
 }
 args_state = json.dumps(
     {k: v[1] for k, v in _args_pattern_state.items()},
@@ -63,6 +62,7 @@ if __name__ == "__main__":
         experiment_name=experiment_name,
         job_array_image_index=job_array_image_index,
         constraint=constraint,
+        number_of_gpus=1,
         action=Action.gather_stats,
         logging_level=logging_level,
         method=method,
@@ -88,6 +88,7 @@ if __name__ == "__main__":
     run_experiment(
         experiment_name=f"merge_{experiment_name}",
         constraint=constraint,
+        number_of_gpus=1,
         action=Action.merge_stats,
         logging_level=logging_level,
         save_metadata_dir=save_metadata_dir,
@@ -99,7 +100,7 @@ if __name__ == "__main__":
         experiment_name=f"consistency_{experiment_name}",
         constraint=constraint,
         logging_level=logging_level,
-        number_of_gpus=number_of_gpus,
+        number_of_gpus=4,
         action=Action.compute_consistency,
         save_metadata_dir=save_metadata_dir,
         batch_size=batch_size,
