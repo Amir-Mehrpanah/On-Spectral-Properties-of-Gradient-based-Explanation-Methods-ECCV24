@@ -5,8 +5,10 @@ import jax.numpy as jnp
 import jax
 import numpy as np
 import pandas as pd
-
+import logging
 from source.utils import Stream, StreamNames, Statistics, AbstractFunction
+
+logger = logging.getLogger(__name__)
 
 
 @functools.partial(jax.jit)
@@ -56,12 +58,13 @@ def measure_consistency(numpy_iterator):
         data = batch.pop("data")
         consistency = _measure_consistency(data)
         results["consistency"].append(consistency)
-        results.update(batch)  # other keys are indices
+        for k, v in batch.items():
+            if k not in results:
+                results[k] = []
+            results[k].append(v)  # other keys are indices
     for k in results:
-        if k != "consistency":
-            results[k] = np.stack(results[k])
-        else:
-            results[k] = np.concatenate(results[k])
+        logger.debug(f"concatenating {k}, {results[k]}")
+        results[k] = np.concatenate(results[k])
     return results
 
 

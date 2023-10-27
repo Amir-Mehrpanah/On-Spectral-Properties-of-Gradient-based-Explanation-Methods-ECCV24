@@ -188,12 +188,18 @@ def _parse_general_args(parser, default_args):
         jax.config.update("jax_log_compiles", True)
         # jax.config.update('jax_platform_name', 'cpu')
 
+    logging.basicConfig(handlers=[logging.StreamHandler(sys.stdout)])
+
     logging.getLogger("source.utils").setLevel(args.logging_level)
     logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
     logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
         args.logging_level
     )
+    logging.getLogger("source.operations").setLevel(args.logging_level)
     logging.getLogger("__main__").setLevel(args.logging_level)
+
+    logger.debug("added general args to parser.")
+    logger.debug(f"args: {args}")
 
     return args
 
@@ -534,6 +540,7 @@ def save_consistency(save_metadata_dir, metadata, pivot_column):
     metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
 
     # convert metadata from dict to dataframe and save
+    logger.debug(str({k: v.shape for k, v in metadata.items()}))
     dataframe = pd.DataFrame(metadata)
     dataframe.to_csv(metadata_file_path, index=False)
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")
