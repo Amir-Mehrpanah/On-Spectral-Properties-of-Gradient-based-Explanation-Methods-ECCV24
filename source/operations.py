@@ -52,11 +52,11 @@ def _measure_consistency(
     return average_cosine_similarity
 
 
-def measure_consistency(numpy_iterator):
+def measure_consistency(numpy_iterator, downsampling_factor):
     results = {"consistency": []}
     for batch in numpy_iterator:
         data = batch.pop("data")
-        consistency = _measure_consistency(data)
+        consistency = _measure_consistency(data, downsampling_factor)
         results["consistency"].append(consistency)
         for k, v in batch.items():
             if k not in results:

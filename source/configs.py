@@ -23,6 +23,7 @@ class DefaultArgs:
     output_layers = ["logits", "log_softmax", "softmax"]
     actions = [v for v in dir(Action) if "__" not in v]
 
+    downsampling_factor = 5
     prefetch_factor = 4
     pivot_index = ["image_index", "projection_index"]
     pivot_column = "alpha_mask_value"

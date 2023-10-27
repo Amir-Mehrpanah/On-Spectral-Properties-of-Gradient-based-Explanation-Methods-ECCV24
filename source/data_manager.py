@@ -21,6 +21,7 @@ def preprocess(x, img_size):
 
 
 def save_axis(names, fig, axes, save_output_dir):
+    plt.draw()
     for ax, name in zip(axes.flatten(), names):
         extent = ax.get_tightbbox(fig.canvas.renderer).transformed(
             fig.dpi_scale_trans.inverted()

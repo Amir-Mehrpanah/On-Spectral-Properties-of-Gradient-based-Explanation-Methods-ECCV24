@@ -101,6 +101,11 @@ def _parse_measure_consistency_args(parser, default_args):
         type=int,
         default=default_args.prefetch_factor,
     )
+    parser.add_argument(
+        "--downsampling_factor",
+        type=int,
+        default=default_args.downsampling_factor,
+    )
     args, _ = parser.parse_known_args()
     data_loader = _make_loader(
         args.save_metadata_dir,
@@ -112,6 +117,7 @@ def _parse_measure_consistency_args(parser, default_args):
     return argparse.Namespace(
         data_loader=data_loader,
         pivot_column=args.pivot_column,
+        downsampling_factor=args.downsampling_factor,
     )
 
 

@@ -60,7 +60,10 @@ elif driver_args.action == Action.merge_stats:
         driver_args.save_metadata_dir,
     )
 elif driver_args.action == Action.compute_consistency:
-    stats = measure_consistency(action_args.data_loader)
+    stats = measure_consistency(
+        action_args.data_loader,
+        action_args.downsampling_factor,
+    )
     driver_helpers.save_consistency(
         driver_args.save_metadata_dir,
         stats,  # raw data dependent metadata
