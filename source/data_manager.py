@@ -1,3 +1,4 @@
+import os
 import PIL
 from matplotlib import pyplot as plt
 import numpy as np
@@ -6,6 +7,7 @@ from pandas import Series
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import jax.numpy as jnp
+from matplotlib.transforms import Bbox
 
 
 def preprocess(x, img_size):
@@ -16,6 +18,16 @@ def preprocess(x, img_size):
     x = jnp.array(x)
     x = jnp.expand_dims(x, axis=0) / 255.0
     return x
+
+
+def save_axis(names, fig, axes, save_output_dir):
+    for ax, name in zip(axes.flatten(), names):
+        extent = ax.get_tightbbox(fig.canvas.renderer).transformed(
+            fig.dpi_scale_trans.inverted()
+        ).padded(0.05)
+        
+        path = os.path.join(save_output_dir, f"{name}.pdf")
+        fig.savefig(path, bbox_inches=extent, transparent=True)
 
 
 # move to visualization.py

@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
 save_raw_data_base_dir = "/local_storage/users/amirme/raw_data/"
+save_output_base_dir = "/local_storage/users/amirme/output/"
 save_metadata_base_dir = "/local_storage/users/amirme/metadata/"
 
 def set_logging_level(logging_level):

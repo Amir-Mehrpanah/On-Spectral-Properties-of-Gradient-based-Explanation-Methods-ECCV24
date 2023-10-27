@@ -14,6 +14,7 @@ from commands.experiment_base import (
     set_logging_level,
     save_raw_data_base_dir,
     save_metadata_base_dir,
+    save_output_base_dir,
 )
 
 # Slurm args
@@ -41,6 +42,7 @@ alpha_mask_type = "static"
 demo = False
 save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
 save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
+save_output_dir = os.path.join(save_output_base_dir, experiment_name)
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
