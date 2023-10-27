@@ -25,15 +25,27 @@ def check_file_exists(metadata: pd.Series, selected_rows: pd.Series = None):
     return metadata[selected_rows].apply(os.path.exists)
 
 
-def load_experiment_metadata(glob_path: str):
+def load_experiment_metadata(save_metadata_dir, glob_path: str = "*.csv"):
+    glob_path = os.path.join(save_metadata_dir, glob_path)
     metadata_paths = glob(glob_path)
-    print(metadata_paths)
     metadata_paths_merged = [path for path in metadata_paths if "merged" in path]
     assert (
         len(metadata_paths_merged) == 1
     ), f"Could not find any metadata files in {glob_path}"
 
     metadata_path = metadata_paths_merged[0]
+    return pd.read_csv(metadata_path, index_col=False)
+
+
+def load_experiment_consistency(save_metadata_dir, glob_path: str = "*.csv"):
+    glob_path = os.path.join(save_metadata_dir, glob_path)
+    metadata_paths = glob(glob_path)
+    metadata_paths_consistency = [path for path in metadata_paths if "consistency" in path]
+    assert (
+        len(metadata_paths_consistency) == 1
+    ), f"Could not find any metadata files in {glob_path}"
+
+    metadata_path = metadata_paths_consistency[0]
     return pd.read_csv(metadata_path, index_col=False)
 
 

@@ -10,7 +10,6 @@ logger.addHandler(logging.StreamHandler())
 save_raw_data_base_dir = "/local_storage/users/amirme/raw_data/"
 save_metadata_base_dir = "/local_storage/users/amirme/metadata/"
 
-
 def set_logging_level(logging_level):
     logging.basicConfig(
         format="%(asctime)s,%(msecs)03d %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s",

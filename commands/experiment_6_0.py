@@ -17,7 +17,7 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "3,5,9,11"  # comma separated string
+job_array_image_index = "1-99:2"  # comma separated string
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
@@ -25,13 +25,15 @@ number_of_gpus = 4
 # Method args
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-alpha_mask_value = "0.1 0.3 0.5 0.7"  # 4 # space separated string
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6"  # space separated string
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
+dataset_dir = "/local_storage/datasets/imagenet"
+input_shape = (1, 224, 224, 3)
 baseline_mask_type = "gaussian"
 projection_type = "prediction"
 projection_top_k = 1
@@ -58,43 +60,43 @@ args_pattern = json.dumps(
 )
 
 if __name__ == "__main__":
-    run_experiment(
-        experiment_name=experiment_name,
-        job_array_image_index=job_array_image_index,
-        constraint=constraint,
-        number_of_gpus=1,
-        action=Action.gather_stats,
-        logging_level=logging_level,
-        method=method,
-        architecture=architecture,
-        dataset=dataset,
-        min_change=min_change,
-        alpha_mask_type=alpha_mask_type,
-        alpha_mask_value=alpha_mask_value,
-        projection_type=projection_type,
-        projection_top_k=projection_top_k,
-        baseline_mask_type=baseline_mask_type,
-        demo=demo,
-        batch_size=batch_size,
-        args_state=args_state,
-        args_pattern=args_pattern,
-        normalize_sample=normalize_sample,
-        save_raw_data_dir=save_raw_data_dir,
-        save_metadata_dir=save_metadata_dir,
-    )
+    # run_experiment(
+    #     experiment_name=experiment_name,
+    #     job_array_image_index=job_array_image_index,
+    #     constraint=constraint,
+    #     number_of_gpus=1,
+    #     action=Action.gather_stats,
+    #     logging_level=logging_level,
+    #     method=method,
+    #     architecture=architecture,
+    #     dataset=dataset,
+    #     min_change=min_change,
+    #     alpha_mask_type=alpha_mask_type,
+    #     alpha_mask_value=alpha_mask_value,
+    #     projection_type=projection_type,
+    #     projection_top_k=projection_top_k,
+    #     baseline_mask_type=baseline_mask_type,
+    #     demo=demo,
+    #     batch_size=batch_size,
+    #     args_state=args_state,
+    #     args_pattern=args_pattern,
+    #     normalize_sample=normalize_sample,
+    #     save_raw_data_dir=save_raw_data_dir,
+    #     save_metadata_dir=save_metadata_dir,
+    # )
 
-    wait_in_queue(0)  # wait for all jobs to finish
+    # wait_in_queue(0)  # wait for all jobs to finish
 
-    run_experiment(
-        experiment_name=f"merge_{experiment_name}",
-        constraint=constraint,
-        number_of_gpus=1,
-        action=Action.merge_stats,
-        logging_level=logging_level,
-        save_metadata_dir=save_metadata_dir,
-    )
+    # run_experiment(
+    #     experiment_name=f"merge_{experiment_name}",
+    #     constraint=constraint,
+    #     number_of_gpus=1,
+    #     action=Action.merge_stats,
+    #     logging_level=logging_level,
+    #     save_metadata_dir=save_metadata_dir,
+    # )
 
-    wait_in_queue(0)  # wait for all jobs to finish
+    # wait_in_queue(0)  # wait for all jobs to finish
 
     run_experiment(
         experiment_name=f"consistency_{experiment_name}",
@@ -103,5 +105,5 @@ if __name__ == "__main__":
         number_of_gpus=4,
         action=Action.compute_consistency,
         save_metadata_dir=save_metadata_dir,
-        batch_size=batch_size,
+        batch_size=4,
     )

@@ -1,6 +1,7 @@
 import PIL
 from matplotlib import pyplot as plt
 import numpy as np
+import argparse
 from pandas import Series
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -31,6 +32,8 @@ def plot_masks(masks, titles, imshow_args={}, ncols=5):
         mask = masks.iloc[i]
         ax.imshow(mask, **imshow_args)
         ax.set_title(titles.iloc[i])
+
+    return fig, axes
 
 
 def preprocess_masks(masks, preprocesses=[]):
@@ -88,6 +91,14 @@ def symmetric_minmax_normalize(x):
 def sum_channels(x):
     x = jnp.sum(x, axis=-1, keepdims=True)  # (H, W, C) -> (N, H, 1)
     return x
+
+
+def single_query_imagenet(dataset_dir, image_index, input_shape):
+    args = argparse.Namespace(
+        dataset_dir=dataset_dir, input_shape=input_shape, image_index=[image_index]
+    )
+    query_imagenet(args)
+    return args.image[0], args.label[0], args.image_path[0]
 
 
 def query_imagenet(args):
