@@ -37,15 +37,15 @@ def load_experiment_metadata(save_metadata_dir, glob_path: str = "*.csv"):
     return pd.read_csv(metadata_path, index_col=False)
 
 
-def load_experiment_consistency(save_metadata_dir, glob_path: str = "*.csv"):
+def load_experiment_inconsistency(save_metadata_dir, glob_path: str = "*.csv"):
     glob_path = os.path.join(save_metadata_dir, glob_path)
     metadata_paths = glob(glob_path)
-    metadata_paths_consistency = [path for path in metadata_paths if "consistency" in path]
+    metadata_paths_inconsistency = [path for path in metadata_paths if "inconsistency" in path]
     assert (
-        len(metadata_paths_consistency) == 1
+        len(metadata_paths_inconsistency) == 1
     ), f"Could not find any metadata files in {glob_path}"
 
-    metadata_path = metadata_paths_consistency[0]
+    metadata_path = metadata_paths_inconsistency[0]
     return pd.read_csv(metadata_path, index_col=False)
 
 

@@ -6,7 +6,7 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
-from source.utils import Action, ConsistencyMeasures
+from source.utils import Action, InconsistencyMeasures
 
 from commands.experiment_base import (
     wait_in_queue,
@@ -40,7 +40,7 @@ projection_type = "prediction"
 projection_top_k = 1
 alpha_mask_type = "static"
 demo = False
-consistenct_measure = ConsistencyMeasures.cosine_distance
+inconsistency_measure = InconsistencyMeasures.cosine_distance
 save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
 save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 save_output_dir = os.path.join(save_output_base_dir, experiment_name)
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
     parser.add_argument("--merge_stats", "-m", action="store_true")
-    parser.add_argument("--compute_consistency", "-c", action="store_true")
+    parser.add_argument("--compute_inconsistency", "-i", action="store_true")
 
     args = parser.parse_args()
     if not any(vars(args).values()):
@@ -113,14 +113,14 @@ if __name__ == "__main__":
 
         wait_in_queue(0)  # wait for all jobs to finish
 
-    if args.compute_consistency:
+    if args.compute_inconsistency:
         run_experiment(
-            experiment_name=f"consistency_{experiment_name}",
+            experiment_name=f"inconsistency_{experiment_name}",
             constraint=constraint,
             logging_level=logging_level,
             number_of_gpus=1,
-            action=Action.compute_consistency,
-            consistency_measure=consistenct_measure,
+            action=Action.compute_inconsistency,
+            inconsistency_measure=inconsistency_measure,
             save_metadata_dir=save_metadata_dir,
             batch_size=4,
         )

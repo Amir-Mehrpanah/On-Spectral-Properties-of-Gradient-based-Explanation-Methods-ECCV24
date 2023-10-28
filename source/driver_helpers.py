@@ -16,13 +16,13 @@ from source.configs import DefaultArgs
 from source.data_manager import query_imagenet
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
 from source.model_manager import init_resnet50_forward
-from source.consistency_measures import (
-    _measure_consistency_cosine_distance,
-    _measure_consistency_DSSIM,
+from source.inconsistency_measures import (
+    _measure_inconsistency_cosine_distance,
+    _measure_inconsistency_DSSIM,
 )
 from source.utils import (
     Action,
-    ConsistencyMeasures,
+    InconsistencyMeasures,
     Switch,
     Stream,
     StreamNames,
@@ -66,8 +66,8 @@ def base_parser(parser, default_args: DefaultArgs):
             save_raw_data_dir=args.save_raw_data_dir,
             save_metadata_dir=args.save_metadata_dir,
         )
-    elif args.action == Action.compute_consistency:
-        action_args = _parse_measure_consistency_args(parser, default_args)
+    elif args.action == Action.compute_inconsistency:
+        action_args = _parse_measure_inconsistency_args(parser, default_args)
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
@@ -84,7 +84,7 @@ def base_parser(parser, default_args: DefaultArgs):
     return driver_args, action_args
 
 
-def _parse_measure_consistency_args(parser, default_args):
+def _parse_measure_inconsistency_args(parser, default_args):
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -112,46 +112,46 @@ def _parse_measure_consistency_args(parser, default_args):
         default=default_args.downsampling_factor,
     )
     parser.add_argument(
-        "--consistency_measure",
+        "--inconsistency_measure",
         type=str,
         required=True,
-        choices=default_args.consistency_measures,
+        choices=default_args.inconsistency_measures,
     )
     args, _ = parser.parse_known_args()
     data_loader = _make_loader(
         args.save_metadata_dir,
         args.pivot_index,
         args.batch_size,
-        args.consistency_measure,
+        args.inconsistency_measure,
         args.pivot_column,
         prefetch_factor=args.prefetch_factor,
     )
-    consistency_measure_func = get_consistency_measure(args)
+    inconsistency_measure_func = get_inconsistency_measure(args)
 
     return argparse.Namespace(
         data_loader=data_loader,
         pivot_column=args.pivot_column,
-        consistency_measure=consistency_measure_func,
-        consistency_measure_name=args.consistency_measure,
+        inconsistency_measure=inconsistency_measure_func,
+        inconsistency_measure_name=args.inconsistency_measure,
     )
 
 
-def get_consistency_measure(args):
-    if args.consistency_measure == ConsistencyMeasures.cosine_distance:
-        consistency_measure_func = _measure_consistency_cosine_distance(
+def get_inconsistency_measure(args):
+    if args.inconsistency_measure == InconsistencyMeasures.cosine_distance:
+        inconsistency_measure_func = _measure_inconsistency_cosine_distance(
             downsampling_factor=args.downsampling_factor,
             downsampling_method=jax.image.ResizeMethod.LINEAR,
         )
-    elif args.consistency_measure == ConsistencyMeasures.dssim:
-        consistency_measure_func = _measure_consistency_DSSIM(
+    elif args.inconsistency_measure == InconsistencyMeasures.dssim:
+        inconsistency_measure_func = _measure_inconsistency_DSSIM(
             downsampling_factor=args.downsampling_factor
         )
     else:
-        raise NotImplementedError("other consistency measures are not implemented")
-    logger.debug(f"consistency_measure_func set to {consistency_measure_func}")
-    consistency_measure_func = consistency_measure_func.concretize()
-    consistency_measure_func = jax.jit(consistency_measure_func)
-    return consistency_measure_func
+        raise NotImplementedError("other inconsistency measures are not implemented")
+    logger.debug(f"inconsistency_measure_func set to {inconsistency_measure_func}")
+    inconsistency_measure_func = inconsistency_measure_func.concretize()
+    inconsistency_measure_func = jax.jit(inconsistency_measure_func)
+    return inconsistency_measure_func
 
 
 def _parse_gather_stats_args(parser, default_args):
@@ -234,7 +234,7 @@ def _parse_general_args(parser, default_args):
     logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
         args.logging_level
     )
-    logging.getLogger("source.consistency_measures").setLevel(args.logging_level)
+    logging.getLogger("source.inconsistency_measures").setLevel(args.logging_level)
     logging.getLogger("source.operations").setLevel(args.logging_level)
     logging.getLogger("__main__").setLevel(args.logging_level)
 
@@ -424,7 +424,7 @@ def _make_loader(
     save_metadata_dir: str,
     pivot_indices: List[str],
     batch_size: int,
-    measure_consistency_name: str,
+    measure_inconsistency_name: str,
     pivot_column: str = "alpha_mask_value",
     prefetch_factor=4,
 ):
@@ -436,7 +436,7 @@ def _make_loader(
 
     sample_keys, merged_metadata = prepare_metadata(
         pivot_indices,
-        measure_consistency_name,
+        measure_inconsistency_name,
         pivot_column,
         merged_metadata,
     )
@@ -493,12 +493,12 @@ def get_index_keys(merged_metadata):
 
 def prepare_metadata(
     pivot_indices,
-    measure_consistency_name,
+    measure_inconsistency_name,
     pivot_column,
     merged_metadata,
 ):
     sample_keys, merged_metadata_tuple = filter_relevant_parts(
-        measure_consistency_name,
+        measure_inconsistency_name,
         merged_metadata,
     )
 
@@ -543,8 +543,8 @@ def pivot_metadata(pivot_indices, pivot_column, merged_metadata_tuple):
     return merged_metadata_tuple
 
 
-def filter_relevant_parts(measure_consistency_name, merged_metadata):
-    if measure_consistency_name == ConsistencyMeasures.cosine_distance:
+def filter_relevant_parts(measure_inconsistency_name, merged_metadata):
+    if measure_inconsistency_name == InconsistencyMeasures.cosine_distance:
         meanx2_metadata = merged_metadata[
             (merged_metadata["stream_name"] == "vanilla_grad_mask")
             & (merged_metadata["stream_statistic"] == "meanx2")
@@ -552,7 +552,7 @@ def filter_relevant_parts(measure_consistency_name, merged_metadata):
         keys = ("meanx2",)
         return keys, (meanx2_metadata,)
 
-    elif measure_consistency_name == ConsistencyMeasures.dssim:
+    elif measure_inconsistency_name == InconsistencyMeasures.dssim:
         meanx2_metadata = merged_metadata[
             (merged_metadata["stream_name"] == "vanilla_grad_mask")
             & (merged_metadata["stream_statistic"] == "meanx2")
@@ -612,7 +612,7 @@ def safely_load_metadata(save_metadata_dir, pivot_indices, pivot_column):
     num_distinct_values = len(merged_metadata[pivot_column].unique())
     assert num_distinct_values > 1, (
         f"Could not find more than 1 {pivot_column} in {merged_metadata_path}. "
-        f"Make sure the metadata file contains more than 1 {pivot_column} to compute consistency."
+        f"Make sure the metadata file contains more than 1 {pivot_column} to compute inconsistency."
     )
     logger.debug(f"found {num_distinct_values} alphas in the metadata file.")
     input_shape = (num_distinct_values, *input_shape)
@@ -681,17 +681,17 @@ def save_gather_stats_metadata(save_metadata_dir, metadata):
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")
 
 
-def save_consistency(
+def save_inconsistency(
     save_metadata_dir,
     metadata,
     pivot_column,
-    consistency_measure_name,
+    inconsistency_measure_name,
 ):
-    csv_file_name = f"consistency_{consistency_measure_name}_{pivot_column}.csv"
+    csv_file_name = f"inconsistency_{inconsistency_measure_name}_{pivot_column}.csv"
     metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
 
     # convert metadata from dict to dataframe and save
-    logger.debug(f"saving the consistency metadata {debug_nice(metadata)}")
+    logger.debug(f"saving the inconsistency metadata {debug_nice(metadata)}")
     dataframe = pd.DataFrame(metadata)
     dataframe.to_csv(metadata_file_path, index=False)
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")

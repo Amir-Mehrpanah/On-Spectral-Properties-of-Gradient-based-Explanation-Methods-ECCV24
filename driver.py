@@ -6,7 +6,7 @@ import sys
 sys.path.append(os.getcwd())
 from source import driver_helpers, configs
 from source.operations import gather_stats
-from source.consistency_measures import measure_consistency
+from source.inconsistency_measures import measure_inconsistency
 from source import project_manager
 from source.utils import Action
 
@@ -60,16 +60,16 @@ elif driver_args.action == Action.merge_stats:
     project_manager.merge_experiment_metadata(
         driver_args.save_metadata_dir,
     )
-elif driver_args.action == Action.compute_consistency:
-    stats = measure_consistency(
+elif driver_args.action == Action.compute_inconsistency:
+    stats = measure_inconsistency(
         action_args.data_loader,
-        action_args.consistency_measure,
+        action_args.inconsistency_measure,
     )
-    driver_helpers.save_consistency(
+    driver_helpers.save_inconsistency(
         driver_args.save_metadata_dir,
         stats,  # raw data dependent metadata
         action_args.pivot_column,
-        action_args.consistency_measure_name,
+        action_args.inconsistency_measure_name,
     )
 else:
     raise NotImplementedError

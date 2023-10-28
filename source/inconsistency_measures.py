@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 @AbstractFunction
-def _measure_consistency_cosine_distance(
+def _measure_inconsistency_cosine_distance(
     batch_mean: jnp.ndarray,
     downsampling_factor,
     downsampling_method,
@@ -53,7 +53,7 @@ def _measure_consistency_cosine_distance(
 
 
 @AbstractFunction
-def _measure_consistency_DSSIM(batch_mean, batch_variance, l, s, v):
+def _measure_inconsistency_DSSIM(batch_mean, batch_variance, l, s, v):
     """
     computes the DSSIM between two images
     DSSIM = (1-SSIM)/2
@@ -62,15 +62,15 @@ def _measure_consistency_DSSIM(batch_mean, batch_variance, l, s, v):
     raise NotImplementedError("DSSIM is not implemented yet")
 
 
-def measure_consistency(numpy_iterator, concrete_consistency_measure):
-    results = {"consistency": []}
+def measure_inconsistency(numpy_iterator, concrete_inconsistency_measure):
+    results = {"inconsistency": []}
     for batch in numpy_iterator:
         data = batch.pop("data")
         logger.debug(
-            f"computing consistency for {debug_nice(data)} with {debug_nice(concrete_consistency_measure)}"
+            f"computing inconsistency for {debug_nice(data)} with {debug_nice(concrete_inconsistency_measure)}"
         )
-        consistency = concrete_consistency_measure(*data)
-        results["consistency"].append(consistency)
+        inconsistency = concrete_inconsistency_measure(*data)
+        results["inconsistency"].append(inconsistency)
         for k, v in batch.items():
             if k not in results:
                 results[k] = []
