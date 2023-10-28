@@ -434,6 +434,7 @@ def _make_loader(
         pivot_indices,
         measure_consistency_name,
         pivot_column,
+        merged_metadata,
     )
 
     index_iterator = get_index_iterator(merged_metadata)
@@ -474,36 +475,51 @@ def get_index_iterator(merged_metadata):
     return index_iterator
 
 
-def get_metadata_iterator(pivot_indices, measure_consistency_name, pivot_column):
+def get_metadata_iterator(
+    pivot_indices,
+    measure_consistency_name,
+    pivot_column,
+    merged_metadata,
+):
     keys, merged_metadata_tuple = filter_relevant_parts(
         measure_consistency_name,
-        merged_metadata_tuple,
+        merged_metadata,
     )
 
-    pivot(
+    merged_metadata_tuple = pivot_metadata(
         pivot_indices,
         pivot_column,
         merged_metadata_tuple,
     )
 
-    make_iterator(merged_metadata_tuple)
+    merged_metadata_tuple = make_iterator(merged_metadata_tuple)
 
     return keys, merged_metadata_tuple
 
 
 def make_iterator(merged_metadata_tuple):
-    for i, _ in enumerate(merged_metadata_tuple):
-        merged_metadata_tuple[i] = merged_metadata_tuple[i].iterrows()
+    output = []
+    for metadata in merged_metadata_tuple:
+        output.append(metadata.iterrows())
+    merged_metadata_tuple = tuple(output)
+    return merged_metadata_tuple
 
 
-def pivot(pivot_indices, pivot_column, merged_metadata_tuple):
-    for i, metadata in enumerate(merged_metadata_tuple):
+def pivot_metadata(pivot_indices, pivot_column, merged_metadata_tuple):
+    output = []
+    for metadata in merged_metadata_tuple:
         # pivot table to get a dataframe with pivot_column as columns
-        merged_metadata_tuple[i] = metadata.pivot(
-            index=pivot_indices, columns=pivot_column, values="data_path"
+        output.append(
+            metadata.pivot(
+                index=pivot_indices, columns=pivot_column, values="data_path"
+            )
         )
         # sort based on pivot_column
-        merged_metadata_tuple[i] = merged_metadata_tuple[i].sort_index(axis=1)
+        output[-1] = output[-1].sort_index(axis=1)
+
+    # convert to a list of tuples
+    merged_metadata_tuple = tuple(output)
+    return merged_metadata_tuple
 
 
 def filter_relevant_parts(measure_consistency_name, merged_metadata):
