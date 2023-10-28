@@ -13,19 +13,19 @@ logger = logging.getLogger(__name__)
 
 @AbstractFunction
 def _measure_consistency_cosine_distance(
-    image_batch: jnp.ndarray,
-    downsampling_factor=10,
-    downsampling_method=jax.image.ResizeMethod.LINEAR,
+    batch_mean: jnp.ndarray,
+    downsampling_factor,
+    downsampling_method,
 ):
-    assert image_batch.ndim == 5, (
+    assert batch_mean.ndim == 5, (
         "image batched group should be 5D (B,A,H,W,C) "
         "where B is the batch size and A is the number of columns in pivot table."
     )
-    B, T, H, W, _ = image_batch.shape
+    B, T, H, W, _ = batch_mean.shape
     new_H = H // downsampling_factor
     new_W = W // downsampling_factor
     downsampled: jax.Array = jax.image.resize(
-        image_batch,
+        batch_mean,
         shape=(
             B,
             T,
@@ -53,7 +53,7 @@ def _measure_consistency_cosine_distance(
 
 
 @AbstractFunction
-def _measure_consistency_DSSIM(image_batch, l, s, v):
+def _measure_consistency_DSSIM(batch_mean, batch_variance, l, s, v):
     """
     computes the DSSIM between two images
     DSSIM = (1-SSIM)/2
@@ -66,7 +66,11 @@ def measure_consistency(numpy_iterator, concrete_consistency_measure):
     results = {"consistency": []}
     for batch in numpy_iterator:
         data = batch.pop("data")
-        consistency = concrete_consistency_measure(data)
+        logger.debug(
+            f"computing consistency for tuple of len {len(data)}"
+            f"with shapes {[d.shape for d in data]}"
+        )
+        consistency = concrete_consistency_measure(*data)
         results["consistency"].append(consistency)
         for k, v in batch.items():
             if k not in results:

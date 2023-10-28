@@ -138,7 +138,8 @@ def _parse_measure_consistency_args(parser, default_args):
 def get_consistency_measure(args):
     if args.consistency_measure == ConsistencyMeasures.cosine_distance:
         consistency_measure_func = _measure_consistency_cosine_distance(
-            downsampling_factor=args.downsampling_factor
+            downsampling_factor=args.downsampling_factor,
+            downsampling_method=jax.image.ResizeMethod.LINEAR,
         )
     elif args.consistency_measure == ConsistencyMeasures.dssim:
         consistency_measure_func = _measure_consistency_DSSIM(
@@ -430,31 +431,31 @@ def _make_loader(
         pivot_column,
     )
 
-    keys, merged_metadata = get_metadata_iterator(
+    sample_keys, merged_metadata = prepare_metadata(
         pivot_indices,
         measure_consistency_name,
         pivot_column,
         merged_metadata,
     )
 
-    index_iterator = get_index_iterator(merged_metadata)
+    index_keys = get_index_keys(merged_metadata)
+    merged_metadata = make_iterator(merged_metadata)
 
     def _generator():
-        for indices, paths in zip(*merged_metadata):
-            sample = {}
-            for key, path_batch in zip(keys, paths):
-                sample[key] = np.stack(path_batch.apply(np.load))
+        for items in zip(*merged_metadata):
+            sample = []
+            for indices, paths in items:
+                sample.append(np.stack(paths.apply(np.load)))
+            sample = tuple(sample)
+            index = {k: v for k, v in zip(index_keys, indices)}
+            yield {"data": sample, **index}
 
-            index = indices[0]  # the rest are the same
-            index = {k: index[i] for i, k in index_iterator}
-            yield {**sample, **index}
+    indices_signature, samples_signature = get_output_signatures(
+        input_shape,
+        sample_keys,
+        index_keys,
+    )
 
-    indices_signature = {
-        k: tf.TensorSpec(shape=(), dtype=tf.int32) for k in merged_metadata.index.names
-    }
-    samples_signature = {
-        k: tf.TensorSpec(shape=input_shape, dtype=tf.float32) for k in keys
-    }
     dataset = tf.data.Dataset.from_generator(
         _generator,
         output_signature={
@@ -466,22 +467,34 @@ def _make_loader(
     return iterator
 
 
-def get_index_iterator(merged_metadata):
+def get_output_signatures(input_shape, sample_keys, index_keys):
+    indices_signature = {k: tf.TensorSpec(shape=(), dtype=tf.int32) for k in index_keys}
+    samples_signature = {
+        "data": (tf.TensorSpec(shape=input_shape, dtype=tf.float32),) * len(sample_keys)
+    }
+
+    logger.debug(
+        f"samples_signature: {samples_signature} \n"
+        f"indices_signature: {indices_signature}"
+    )
+    return indices_signature, samples_signature
+
+
+def get_index_keys(merged_metadata):
     assert isinstance(
         merged_metadata, tuple
     ), f"merged_metadata must be a tuple, got {type(merged_metadata)}"
-    temp_metadata = merged_metadata[0]
-    index_iterator = enumerate(temp_metadata.index.names)
-    return index_iterator
+
+    return merged_metadata[0].index.names
 
 
-def get_metadata_iterator(
+def prepare_metadata(
     pivot_indices,
     measure_consistency_name,
     pivot_column,
     merged_metadata,
 ):
-    keys, merged_metadata_tuple = filter_relevant_parts(
+    sample_keys, merged_metadata_tuple = filter_relevant_parts(
         measure_consistency_name,
         merged_metadata,
     )
@@ -492,9 +505,14 @@ def get_metadata_iterator(
         merged_metadata_tuple,
     )
 
-    merged_metadata_tuple = make_iterator(merged_metadata_tuple)
+    assert isinstance(
+        merged_metadata_tuple, tuple
+    ), f"merged_metadata_tuple must be a tuple, got {type(merged_metadata_tuple)}"
+    assert isinstance(
+        sample_keys, tuple
+    ), f"sample_keys must be a tuple, got {type(sample_keys)}"
 
-    return keys, merged_metadata_tuple
+    return sample_keys, merged_metadata_tuple
 
 
 def make_iterator(merged_metadata_tuple):
@@ -528,7 +546,7 @@ def filter_relevant_parts(measure_consistency_name, merged_metadata):
             (merged_metadata["stream_name"] == "vanilla_grad_mask")
             & (merged_metadata["stream_statistic"] == "meanx2")
         ]
-        keys = "meanx2"
+        keys = ("meanx2",)
         return keys, (meanx2_metadata,)
 
     elif measure_consistency_name == ConsistencyMeasures.dssim:

@@ -6,10 +6,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Action:
     gather_stats = "gather_stats"
     compute_consistency = "compute_consistency"
     merge_stats = "merge_stats"
+
 
 class ConsistencyMeasures:
     cosine_distance = "cosine_distance"
@@ -48,6 +50,9 @@ class AbstractFunction:
         def concrete_func(*args):
             i = 0
             temp_params = self.params.copy()
+            logger.debug(
+                f"concretizing {self.func} with {self.params} and positional arguments {args}"
+            )
             for key, param in temp_params.items():
                 if param is self.NoArg:
                     temp_params[key] = args[i]
