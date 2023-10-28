@@ -415,29 +415,123 @@ def _make_loader(
     save_metadata_dir: str,
     pivot_indices: List[str],
     batch_size: int,
+    measure_consistency_name: str,
     pivot_column: str = "alpha_mask_value",
-    input_shape: tuple = None,
     prefetch_factor=4,
 ):
+    input_shape, merged_metadata = safely_load_metadata(
+        save_metadata_dir,
+        pivot_indices,
+        pivot_column,
+    )
+
+    keys, merged_metadata = get_metadata_iterator(
+        pivot_indices,
+        measure_consistency_name,
+        pivot_column,
+    )
+
+    index_iterator = get_index_iterator(merged_metadata)
+
+    def _generator():
+        for indices, paths in zip(*merged_metadata):
+            sample = {}
+            for key, path_batch in zip(keys, paths):
+                sample[key] = np.stack(path_batch.apply(np.load))
+
+            index = indices[0]  # the rest are the same
+            index = {k: index[i] for i, k in index_iterator}
+            yield {**sample, **index}
+
+    indices_signature = {
+        k: tf.TensorSpec(shape=(), dtype=tf.int32) for k in merged_metadata.index.names
+    }
+    samples_signature = {
+        k: tf.TensorSpec(shape=input_shape, dtype=tf.float32) for k in keys
+    }
+    dataset = tf.data.Dataset.from_generator(
+        _generator,
+        output_signature={
+            **samples_signature,
+            **indices_signature,
+        },
+    )
+    iterator = dataset.batch(batch_size).prefetch(prefetch_factor).as_numpy_iterator()
+    return iterator
+
+
+def get_index_iterator(merged_metadata):
+    assert isinstance(
+        merged_metadata, tuple
+    ), f"merged_metadata must be a tuple, got {type(merged_metadata)}"
+    temp_metadata = merged_metadata[0]
+    index_iterator = enumerate(temp_metadata.index.names)
+    return index_iterator
+
+
+def get_metadata_iterator(pivot_indices, measure_consistency_name, pivot_column):
+    keys, merged_metadata_tuple = filter_relevant_parts(
+        measure_consistency_name,
+        merged_metadata_tuple,
+    )
+
+    for i, metadata in enumerate(merged_metadata_tuple):
+        # pivot table to get a dataframe with pivot_column as columns
+        merged_metadata_tuple[i] = metadata.pivot(
+            index=pivot_indices, columns=pivot_column, values="data_path"
+        )
+        # sort based on pivot_column
+        merged_metadata_tuple[i] = merged_metadata_tuple[i].sort_index(axis=1)
+        merged_metadata_tuple[i] = merged_metadata_tuple[i].iterrows()
+
+    return keys, merged_metadata_tuple
+
+
+def filter_relevant_parts(measure_consistency_name, merged_metadata):
+    if measure_consistency_name == "cosine_distance":
+        meanx2_metadata = merged_metadata[
+            (merged_metadata["stream_name"] == "vanilla_grad_mask")
+            & (merged_metadata["stream_statistic"] == "meanx2")
+        ]
+        keys = "meanx2"
+        return keys, (meanx2_metadata,)
+
+    elif measure_consistency_name == "DSSIM":
+        meanx2_metadata = merged_metadata[
+            (merged_metadata["stream_name"] == "vanilla_grad_mask")
+            & (merged_metadata["stream_statistic"] == "meanx2")
+        ]
+        meanx_metadata = merged_metadata[
+            (merged_metadata["stream_name"] == "vanilla_grad_mask")
+            & (merged_metadata["stream_statistic"] == "meanx")
+        ]
+        keys = ("meanx", "meanx2")
+        return keys, (meanx_metadata, meanx2_metadata)
+
+
+def safely_load_metadata(save_metadata_dir, pivot_indices, pivot_column):
     merged_metadata_path = os.path.join(save_metadata_dir, f"merged_metadata.csv")
     assert os.path.exists(
         merged_metadata_path
     ), f"Could not find the merged metadata file in {save_metadata_dir}."
     merged_metadata = pd.read_csv(merged_metadata_path)
+    logger.debug(f"loaded the merged metadata from {merged_metadata_path}.")
+
     assert "data_path" in merged_metadata.columns, (
         f"Could not find data_path column in {merged_metadata_path}. "
         f"Make sure the metadata file contains a column named data_path"
     )
-    if input_shape is None:
-        assert "input_shape" in merged_metadata.columns, (
-            f"Could not find input_shape column in {merged_metadata_path}. "
-            f"Make sure the metadata file contains a column named input_shape"
-            f"or pass input_shape as an argument to loader_from_metadata"
-        )
-        input_shape = merged_metadata["input_shape"].iloc[0]
-        input_shape = input_shape.replace("(", "").replace(")", "").split(",")
-        input_shape = tuple(map(int, input_shape))
-        logger.debug(f"found input_shape {input_shape} in the metadata file.")
+
+    assert "input_shape" in merged_metadata.columns, (
+        f"Could not find input_shape column in {merged_metadata_path}. "
+        f"Make sure the metadata file contains a column named input_shape"
+        f"or pass input_shape as an argument to loader_from_metadata"
+    )
+    input_shape = merged_metadata["input_shape"].iloc[0]
+    input_shape = input_shape.replace("(", "").replace(")", "").split(",")
+    input_shape = tuple(map(int, input_shape))
+    logger.debug(f"found input_shape {input_shape} in the metadata file.")
+
     assert isinstance(
         input_shape, tuple
     ), f"input_shape must be a tuple, got {type(input_shape)}"
@@ -466,42 +560,7 @@ def _make_loader(
     )
     logger.debug(f"found {num_distinct_values} alphas in the metadata file.")
     input_shape = (num_distinct_values, *input_shape)
-
-    # todo clean up this part as we may need to summarize other statistics
-    # filter data whose stream_name is vanilla_grad_mask and stream_statistic is meanx2
-    merged_metadata = merged_metadata[
-        (merged_metadata["stream_name"] == "vanilla_grad_mask")
-        & (merged_metadata["stream_statistic"] == "meanx2")
-    ]
-    merged_metadata = merged_metadata.drop(columns=["stream_name", "stream_statistic"])
-
-    # pivot table to get a dataframe with pivot_column as columns
-    merged_metadata = merged_metadata.pivot(
-        index=pivot_indices, columns=pivot_column, values="data_path"
-    )
-    # sort based on pivot_column
-    merged_metadata = merged_metadata.sort_index(axis=1)
-
-    index_shape = (len(pivot_indices),)
-
-    def _generator():
-        for index, paths in merged_metadata.iterrows():
-            sample = np.stack(paths.apply(np.load))
-            indices = {k: index[i] for i, k in enumerate(merged_metadata.index.names)}
-            yield {"data": sample, **indices}
-
-    indices_signature = {
-        k: tf.TensorSpec(shape=(), dtype=tf.int32) for k in merged_metadata.index.names
-    }
-    dataset = tf.data.Dataset.from_generator(
-        _generator,
-        output_signature={
-            "data": tf.TensorSpec(shape=input_shape, dtype=tf.float32),
-            **indices_signature,
-        },
-    )
-    iterator = dataset.batch(batch_size).prefetch(prefetch_factor).as_numpy_iterator()
-    return iterator
+    return input_shape, merged_metadata
 
 
 def _process_method_kwargs(args):
