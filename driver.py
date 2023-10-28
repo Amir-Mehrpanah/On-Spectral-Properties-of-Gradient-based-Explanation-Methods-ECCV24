@@ -63,7 +63,6 @@ elif driver_args.action == Action.merge_stats:
 elif driver_args.action == Action.compute_consistency:
     stats = measure_consistency(
         action_args.data_loader,
-        action_args.downsampling_factor,
         action_args.consistency_measure,
     )
     driver_helpers.save_consistency(
