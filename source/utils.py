@@ -20,19 +20,25 @@ class ConsistencyMeasures:
     dssim = "dssim"
 
 
-def debug_nice(x):
+def debug_nice(x, r=0, max_depth=1):
     if inspect.isfunction(x):
         return f"{x.__name__}"
     if isinstance(x, np.ndarray):
         return f"np.ndarray of shape {x.shape}"
     if isinstance(x, list):
-        nice = [debug_nice(v) for v in x]
+        if r > max_depth:
+            return f"list of length {len(x)}"
+        nice = [debug_nice(v, r=r + 1) for v in x]
         return f"list {nice}"
     if isinstance(x, dict):
-        nice = {k: debug_nice(v) for k, v in x.items()}
+        if r > max_depth:
+            return f"dict of length {len(x)}"
+        nice = {k: debug_nice(v, r=r + 1) for k, v in x.items()}
         return f"dict {nice}"
     if isinstance(x, tuple):
-        nice = tuple(debug_nice(v) for v in x)
+        if r > max_depth:
+            return f"tuple of length {len(x)}"
+        nice = tuple(debug_nice(v, r=r + 1) for v in x)
         return f"tuple {nice}"
     return f"{x}"
 
