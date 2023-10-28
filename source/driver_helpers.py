@@ -22,6 +22,7 @@ from source.consistency_measures import (
 )
 from source.utils import (
     Action,
+    ConsistencyMeasures,
     Switch,
     Stream,
     StreamNames,
@@ -38,7 +39,6 @@ def json_semicolon_loads(string):
 methods_switch = Switch()
 dataset_query_func_switch = Switch()
 init_architecture_forward_switch = Switch()
-
 
 methods_switch.register(
     "noise_interpolation",
@@ -121,28 +121,33 @@ def _parse_measure_consistency_args(parser, default_args):
         args.save_metadata_dir,
         args.pivot_index,
         args.batch_size,
+        args.consistency_measure,
         args.pivot_column,
         prefetch_factor=args.prefetch_factor,
     )
-    if args.consistency_measure == "cosine_distance":
-        consistency_measure = _measure_consistency_cosine_distance(
-            downsampling_factor=args.downsampling_factor
-        )
-    elif args.consistency_measure == "DSSIM":
-        consistency_measure = _measure_consistency_DSSIM(
-            downsampling_factor=args.downsampling_factor
-        )
-    else:
-        raise NotImplementedError("other consistency measures are not implemented")
-
-    consistency_measure = consistency_measure.concretize()
+    consistency_measure_func = get_consistency_measure(args)
 
     return argparse.Namespace(
         data_loader=data_loader,
         pivot_column=args.pivot_column,
-        consistency_measure=consistency_measure,
+        consistency_measure=consistency_measure_func,
         consistency_measure_name=args.consistency_measure,
     )
+
+
+def get_consistency_measure(args):
+    if args.consistency_measure == ConsistencyMeasures.cosine_distance:
+        consistency_measure_func = _measure_consistency_cosine_distance(
+            downsampling_factor=args.downsampling_factor
+        )
+    elif args.consistency_measure == ConsistencyMeasures.dssim:
+        consistency_measure_func = _measure_consistency_DSSIM(
+            downsampling_factor=args.downsampling_factor
+        )
+    else:
+        raise NotImplementedError("other consistency measures are not implemented")
+    consistency_measure_func = consistency_measure_func.concretize()
+    return consistency_measure_func
 
 
 def _parse_gather_stats_args(parser, default_args):
@@ -480,7 +485,7 @@ def get_metadata_iterator(pivot_indices, measure_consistency_name, pivot_column)
         pivot_column,
         merged_metadata_tuple,
     )
-    
+
     make_iterator(merged_metadata_tuple)
 
     return keys, merged_metadata_tuple
@@ -502,7 +507,7 @@ def pivot(pivot_indices, pivot_column, merged_metadata_tuple):
 
 
 def filter_relevant_parts(measure_consistency_name, merged_metadata):
-    if measure_consistency_name == "cosine_distance":
+    if measure_consistency_name == ConsistencyMeasures.cosine_distance:
         meanx2_metadata = merged_metadata[
             (merged_metadata["stream_name"] == "vanilla_grad_mask")
             & (merged_metadata["stream_statistic"] == "meanx2")
@@ -510,7 +515,7 @@ def filter_relevant_parts(measure_consistency_name, merged_metadata):
         keys = "meanx2"
         return keys, (meanx2_metadata,)
 
-    elif measure_consistency_name == "DSSIM":
+    elif measure_consistency_name == ConsistencyMeasures.dssim:
         meanx2_metadata = merged_metadata[
             (merged_metadata["stream_name"] == "vanilla_grad_mask")
             & (merged_metadata["stream_statistic"] == "meanx2")

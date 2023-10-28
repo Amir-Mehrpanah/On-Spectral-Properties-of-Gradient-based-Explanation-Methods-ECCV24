@@ -11,6 +11,10 @@ class Action:
     compute_consistency = "compute_consistency"
     merge_stats = "merge_stats"
 
+class ConsistencyMeasures:
+    cosine_distance = "cosine_distance"
+    dssim = "dssim"
+
 
 class AbstractFunction:
     __cache = {}

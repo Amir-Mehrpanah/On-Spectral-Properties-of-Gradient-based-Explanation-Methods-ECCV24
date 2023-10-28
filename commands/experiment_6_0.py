@@ -6,7 +6,7 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
-from source.utils import Action
+from source.utils import Action, ConsistencyMeasures
 
 from commands.experiment_base import (
     wait_in_queue,
@@ -40,6 +40,7 @@ projection_type = "prediction"
 projection_top_k = 1
 alpha_mask_type = "static"
 demo = False
+consistenct_measure = ConsistencyMeasures.cosine_distance
 save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
 save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 save_output_dir = os.path.join(save_output_base_dir, experiment_name)
@@ -68,6 +69,9 @@ if __name__ == "__main__":
     parser.add_argument("--compute_consistency", "-c", action="store_true")
 
     args = parser.parse_args()
+    if not any(vars(args).values()):
+        parser.print_help()
+        sys.exit(1)
 
     if args.gather_stats:
         run_experiment(
@@ -116,6 +120,7 @@ if __name__ == "__main__":
             logging_level=logging_level,
             number_of_gpus=1,
             action=Action.compute_consistency,
+            consistency_measure=consistenct_measure,
             save_metadata_dir=save_metadata_dir,
             batch_size=4,
         )

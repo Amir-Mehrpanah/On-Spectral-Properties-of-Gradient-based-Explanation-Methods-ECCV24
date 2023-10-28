@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from source.utils import Action
+from source.utils import Action, ConsistencyMeasures
 
 
 class DefaultArgs:
@@ -17,7 +17,7 @@ class DefaultArgs:
         "alpha_mask": ["j", "dynamic"],
         "projection": ["i", "static"],
     }
-    consistency_measures = ["cosine_distance", "DSSIM"]
+    consistency_measures = [v for v in dir(ConsistencyMeasures) if "__" not in v]
     methods = ["noise_interpolation", "fisher_information"]
     logging_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]
     architectures = ["resnet50"]

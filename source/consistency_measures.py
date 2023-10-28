@@ -49,7 +49,7 @@ def _measure_consistency_cosine_distance(
         downsampled_gt0 / norm_gt0,
     ) / (new_H * new_W * (T - 1))
 
-    return average_cosine_similarity
+    return 1 - average_cosine_similarity
 
 
 @AbstractFunction
