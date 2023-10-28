@@ -1,7 +1,7 @@
 import json
 
 import logging
-
+import argparse
 import sys
 import os
 
@@ -18,7 +18,7 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "1-200"
+job_array_image_index = "1-100"
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
@@ -62,50 +62,61 @@ args_pattern = json.dumps(
 )
 
 if __name__ == "__main__":
-    run_experiment(
-        experiment_name=experiment_name,
-        job_array_image_index=job_array_image_index,
-        constraint=constraint,
-        number_of_gpus=1,
-        action=Action.gather_stats,
-        logging_level=logging_level,
-        method=method,
-        architecture=architecture,
-        dataset=dataset,
-        min_change=min_change,
-        alpha_mask_type=alpha_mask_type,
-        alpha_mask_value=alpha_mask_value,
-        projection_type=projection_type,
-        projection_top_k=projection_top_k,
-        baseline_mask_type=baseline_mask_type,
-        demo=demo,
-        batch_size=batch_size,
-        args_state=args_state,
-        args_pattern=args_pattern,
-        normalize_sample=normalize_sample,
-        save_raw_data_dir=save_raw_data_dir,
-        save_metadata_dir=save_metadata_dir,
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gather_stats", "-g", action="store_true")
+    parser.add_argument("--merge_stats", "-m", action="store_true")
+    parser.add_argument("--compute_consistency", "-c", action="store_true")
 
-    wait_in_queue(0)  # wait for all jobs to finish
+    args = parser.parse_args()
 
-    run_experiment(
-        experiment_name=f"merge_{experiment_name}",
-        constraint=constraint,
-        number_of_gpus=1,
-        action=Action.merge_stats,
-        logging_level=logging_level,
-        save_metadata_dir=save_metadata_dir,
-    )
+    if args.gather_stats:
+        run_experiment(
+            experiment_name=experiment_name,
+            job_array_image_index=job_array_image_index,
+            constraint=constraint,
+            number_of_gpus=1,
+            action=Action.gather_stats,
+            logging_level=logging_level,
+            method=method,
+            architecture=architecture,
+            dataset=dataset,
+            min_change=min_change,
+            alpha_mask_type=alpha_mask_type,
+            alpha_mask_value=alpha_mask_value,
+            projection_type=projection_type,
+            projection_top_k=projection_top_k,
+            baseline_mask_type=baseline_mask_type,
+            demo=demo,
+            batch_size=batch_size,
+            args_state=args_state,
+            args_pattern=args_pattern,
+            normalize_sample=normalize_sample,
+            save_raw_data_dir=save_raw_data_dir,
+            save_metadata_dir=save_metadata_dir,
+        )
 
-    wait_in_queue(0)  # wait for all jobs to finish
+        wait_in_queue(0)  # wait for all jobs to finish
 
-    run_experiment(
-        experiment_name=f"consistency_{experiment_name}",
-        constraint=constraint,
-        logging_level=logging_level,
-        number_of_gpus=1,
-        action=Action.compute_consistency,
-        save_metadata_dir=save_metadata_dir,
-        batch_size=4,
-    )
+    if args.merge_stats:
+        run_experiment(
+            experiment_name=f"merge_{experiment_name}",
+            constraint=constraint,
+            number_of_gpus=1,
+            action=Action.merge_stats,
+            logging_level=logging_level,
+            save_metadata_dir=save_metadata_dir,
+        )
+
+        wait_in_queue(0)  # wait for all jobs to finish
+
+    if args.compute_consistency:
+        run_experiment(
+            experiment_name=f"consistency_{experiment_name}",
+            constraint=constraint,
+            logging_level=logging_level,
+            number_of_gpus=1,
+            action=Action.compute_consistency,
+            save_metadata_dir=save_metadata_dir,
+            batch_size=4,
+        )
+        wait_in_queue(0)  # wait for all jobs to finish

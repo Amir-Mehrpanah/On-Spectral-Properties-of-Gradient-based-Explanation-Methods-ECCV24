@@ -11,7 +11,7 @@ from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 logger = logging.getLogger(__name__)
 
 
-@functools.partial(jax.jit)
+@functools.partial(jax.jit, static_argnums=(1, 2))
 def _measure_consistency(
     image_batch: jnp.ndarray,
     downsampling_factor=10,
