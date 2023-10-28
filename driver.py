@@ -5,7 +5,8 @@ import sys
 
 sys.path.append(os.getcwd())
 from source import driver_helpers, configs
-from source.operations import gather_stats, measure_consistency
+from source.operations import gather_stats
+from source.consistency_measures import measure_consistency
 from source import project_manager
 from source.utils import Action
 

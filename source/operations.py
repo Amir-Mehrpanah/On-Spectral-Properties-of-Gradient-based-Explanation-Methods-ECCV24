@@ -10,22 +10,6 @@ from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 logger = logging.getLogger(__name__)
 
 
-def measure_consistency(numpy_iterator, concrete_consistency_measure):
-    results = {"consistency": []}
-    for batch in numpy_iterator:
-        data = batch.pop("data")
-        consistency = concrete_consistency_measure(data)
-        results["consistency"].append(consistency)
-        for k, v in batch.items():
-            if k not in results:
-                results[k] = []
-            results[k].append(v)  # other keys are indices
-    for k in results:
-        logger.debug(f"concatenating {k}, {results[k]}")
-        results[k] = np.concatenate(results[k])
-    return results
-
-
 def static_projection(*, num_classes, index):
     projection = jnp.zeros(
         shape=(num_classes, 1),

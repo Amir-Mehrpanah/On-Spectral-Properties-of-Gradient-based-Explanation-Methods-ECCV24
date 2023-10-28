@@ -1,6 +1,14 @@
 import jax.numpy as jnp
 import jax
+import numpy as np
+import logging
+import sys
+import os
+
+sys.path.append(os.getcwd())
 from source.utils import AbstractFunction
+
+logger = logging.getLogger(__name__)
 
 
 @AbstractFunction
@@ -43,6 +51,7 @@ def _measure_consistency_cosine_distance(
 
     return average_cosine_similarity
 
+
 @AbstractFunction
 def _measure_consistency_DSSIM(image_batch, l, s, v):
     """
@@ -51,3 +60,19 @@ def _measure_consistency_DSSIM(image_batch, l, s, v):
     SSIM stands for structural similarity index measure
     """
     raise NotImplementedError("DSSIM is not implemented yet")
+
+
+def measure_consistency(numpy_iterator, concrete_consistency_measure):
+    results = {"consistency": []}
+    for batch in numpy_iterator:
+        data = batch.pop("data")
+        consistency = concrete_consistency_measure(data)
+        results["consistency"].append(consistency)
+        for k, v in batch.items():
+            if k not in results:
+                results[k] = []
+            results[k].append(v)  # other keys are indices
+    for k in results:
+        logger.debug(f"concatenating {k}, {results[k]}")
+        results[k] = np.concatenate(results[k])
+    return results

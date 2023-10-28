@@ -225,6 +225,7 @@ def _parse_general_args(parser, default_args):
     logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
         args.logging_level
     )
+    logging.getLogger("source.consistency_measures").setLevel(args.logging_level)
     logging.getLogger("source.operations").setLevel(args.logging_level)
     logging.getLogger("__main__").setLevel(args.logging_level)
 
