@@ -565,8 +565,13 @@ def save_gather_stats_metadata(save_metadata_dir, metadata):
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")
 
 
-def save_consistency(save_metadata_dir, metadata, pivot_column):
-    csv_file_name = f"consistency_{pivot_column}.csv"
+def save_consistency(
+    save_metadata_dir,
+    metadata,
+    pivot_column,
+    consistency_measure_name,
+):
+    csv_file_name = f"consistency_{consistency_measure_name}_{pivot_column}.csv"
     metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
 
     # convert metadata from dict to dataframe and save

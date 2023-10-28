@@ -10,11 +10,11 @@ from source.utils import Stream, StreamNames, Statistics, AbstractFunction
 logger = logging.getLogger(__name__)
 
 
-def measure_consistency(numpy_iterator, consistency_measure):
+def measure_consistency(numpy_iterator, concrete_consistency_measure):
     results = {"consistency": []}
     for batch in numpy_iterator:
         data = batch.pop("data")
-        consistency = consistency_measure(data)
+        consistency = concrete_consistency_measure(data)
         results["consistency"].append(consistency)
         for k, v in batch.items():
             if k not in results:
