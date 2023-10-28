@@ -25,6 +25,7 @@ from source.utils import (
 
 logger = logging.getLogger(__name__)
 
+
 class TypeOrNone:
     def __init__(self, type) -> None:
         self.type = type
@@ -314,7 +315,7 @@ class NoiseInterpolation:
         sampler = AbstractFunction(cls.sampler)(**static_kwargs).concretize()
         if vamp_axis is not None:
             sampler = jax.vmap(sampler, in_axes=vamp_axis)
-        return sampler
+        return jax.jit(sampler)
 
     @classmethod
     def _sort_dynamic_kwargs(cls, dynamic_kwargs_dict):

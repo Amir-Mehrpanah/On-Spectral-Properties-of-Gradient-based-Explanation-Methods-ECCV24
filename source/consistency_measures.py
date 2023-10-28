@@ -6,7 +6,7 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
-from source.utils import AbstractFunction
+from source.utils import AbstractFunction, debug_nice
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +67,7 @@ def measure_consistency(numpy_iterator, concrete_consistency_measure):
     for batch in numpy_iterator:
         data = batch.pop("data")
         logger.debug(
-            f"computing consistency for tuple of len {len(data)}"
-            f"with shapes {[d.shape for d in data]}"
+            f"computing consistency for {debug_nice(data)} with {debug_nice(concrete_consistency_measure)}"
         )
         consistency = concrete_consistency_measure(*data)
         results["consistency"].append(consistency)
@@ -77,6 +76,6 @@ def measure_consistency(numpy_iterator, concrete_consistency_measure):
                 results[k] = []
             results[k].append(v)  # other keys are indices
     for k in results:
-        logger.debug(f"concatenating {k}, {results[k]}")
+        logger.debug(f"concatenating {k}, {debug_nice(results[k])}")
         results[k] = np.concatenate(results[k])
     return results

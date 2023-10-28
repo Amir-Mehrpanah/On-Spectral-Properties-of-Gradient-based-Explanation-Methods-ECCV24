@@ -27,6 +27,7 @@ from source.utils import (
     Stream,
     StreamNames,
     Statistics,
+    debug_nice,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,7 +148,9 @@ def get_consistency_measure(args):
         )
     else:
         raise NotImplementedError("other consistency measures are not implemented")
+    logger.debug(f"consistency_measure_func set to {consistency_measure_func}")
     consistency_measure_func = consistency_measure_func.concretize()
+    consistency_measure_func = jax.jit(consistency_measure_func)
     return consistency_measure_func
 
 
@@ -688,7 +691,7 @@ def save_consistency(
     metadata_file_path = os.path.join(save_metadata_dir, csv_file_name)
 
     # convert metadata from dict to dataframe and save
-    logger.debug(str({k: v.shape for k, v in metadata.items()}))
+    logger.debug(f"saving the consistency metadata {debug_nice(metadata)}")
     dataframe = pd.DataFrame(metadata)
     dataframe.to_csv(metadata_file_path, index=False)
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")

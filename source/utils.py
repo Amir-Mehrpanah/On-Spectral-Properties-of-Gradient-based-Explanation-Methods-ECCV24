@@ -4,6 +4,8 @@ from collections import OrderedDict
 import itertools
 import logging
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,6 +18,23 @@ class Action:
 class ConsistencyMeasures:
     cosine_distance = "cosine_distance"
     dssim = "dssim"
+
+
+def debug_nice(x):
+    if inspect.isfunction(x):
+        return f"{x.__name__}"
+    if isinstance(x, np.ndarray):
+        return f"np.ndarray of shape {x.shape}"
+    if isinstance(x, list):
+        nice = [debug_nice(v) for v in x]
+        return f"list {nice}"
+    if isinstance(x, dict):
+        nice = {k: debug_nice(v) for k, v in x.items()}
+        return f"dict {nice}"
+    if isinstance(x, tuple):
+        nice = tuple(debug_nice(v) for v in x)
+        return f"tuple {nice}"
+    return f"{x}"
 
 
 class AbstractFunction:
@@ -40,9 +59,13 @@ class AbstractFunction:
 
     def concretize(self):
         hash_args = tuple(id(arg) for arg in self.params.values())
+        if logger.isEnabledFor(logging.DEBUG):
+            nice_params = debug_nice(self.params)
+            logger.debug(
+                f"concretizing {self.func} with static arguments {nice_params}"
+            )
         if hash_args in self.__cache:
-            logging.log(
-                logging.WARNING,
+            logger.warning(
                 "concretization returned a cached abstact function for identical signature in partial calls",
             )
             return self.__cache[hash_args]
@@ -50,9 +73,12 @@ class AbstractFunction:
         def concrete_func(*args):
             i = 0
             temp_params = self.params.copy()
-            logger.debug(
-                f"concretizing {self.func} with {self.params} and positional arguments {args}"
-            )
+            if logger.isEnabledFor(logging.DEBUG):
+                nice_params = debug_nice(temp_params)
+                nice_pos_args = debug_nice(args)
+                logger.debug(
+                    f"concrete function {self.func} called with static arguments {nice_params} and dynamic arguments {nice_pos_args}"
+                )
             for key, param in temp_params.items():
                 if param is self.NoArg:
                     temp_params[key] = args[i]
