@@ -16,6 +16,10 @@ from source.configs import DefaultArgs
 from source.data_manager import query_imagenet
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
 from source.model_manager import init_resnet50_forward
+from source.consistency_measures import (
+    _measure_consistency_cosine_distance,
+    _measure_consistency_DSSIM,
+)
 from source.utils import (
     Action,
     Switch,
@@ -106,6 +110,12 @@ def _parse_measure_consistency_args(parser, default_args):
         type=int,
         default=default_args.downsampling_factor,
     )
+    parser.add_argument(
+        "--consistency_measure",
+        type=str,
+        required=True,
+        choices=default_args.consistency_measures,
+    )
     args, _ = parser.parse_known_args()
     data_loader = _make_loader(
         args.save_metadata_dir,
@@ -114,10 +124,24 @@ def _parse_measure_consistency_args(parser, default_args):
         args.pivot_column,
         prefetch_factor=args.prefetch_factor,
     )
+    if args.consistency_measure == "cosine_distance":
+        consistency_measure = _measure_consistency_cosine_distance(
+            downsampling_factor=args.downsampling_factor
+        )
+    elif args.consistency_measure == "DSSIM":
+        consistency_measure = _measure_consistency_DSSIM(
+            downsampling_factor=args.downsampling_factor
+        )
+    else:
+        raise NotImplementedError("other consistency measures are not implemented")
+
+    consistency_measure = consistency_measure.concretize()
+
     return argparse.Namespace(
         data_loader=data_loader,
         pivot_column=args.pivot_column,
-        downsampling_factor=args.downsampling_factor,
+        consistency_measure=consistency_measure,
+        consistency_measure_name=args.consistency_measure,
     )
 
 

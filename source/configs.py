@@ -17,6 +17,7 @@ class DefaultArgs:
         "alpha_mask": ["j", "dynamic"],
         "projection": ["i", "static"],
     }
+    consistency_measures = ["cosine_distance", "DSSIM"]
     methods = ["noise_interpolation", "fisher_information"]
     logging_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]
     architectures = ["resnet50"]
