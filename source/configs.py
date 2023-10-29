@@ -28,7 +28,7 @@ class DefaultArgs:
     c2 = 0.03**2  # SSIM constant
     downsampling_factor = 5
     prefetch_factor = 4
-    pivot_index = ["image_index", "projection_index"]
+    pivot_indices = ["image_index", "projection_index"]
     pivot_column = "alpha_mask_value"
     seed = 42
     write_demo = True

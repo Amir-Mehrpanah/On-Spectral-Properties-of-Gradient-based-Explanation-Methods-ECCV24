@@ -91,10 +91,10 @@ def _parse_measure_inconsistency_args(parser, default_args):
         default=default_args.batch_size,
     )
     parser.add_argument(
-        "--pivot_index",
+        "--pivot_indices",
         nargs="+",
         type=str,
-        default=default_args.pivot_index,
+        default=default_args.pivot_indices,
     )
     parser.add_argument(
         "--pivot_column",
@@ -127,11 +127,11 @@ def _parse_measure_inconsistency_args(parser, default_args):
         type=float,
         default=default_args.c2,
     )
-    
+
     args, _ = parser.parse_known_args()
     data_loader = _make_loader(
         args.save_metadata_dir,
-        args.pivot_index,
+        args.pivot_indices,
         args.batch_size,
         args.inconsistency_measure,
         args.pivot_column,
@@ -439,8 +439,8 @@ def _make_loader(
     pivot_indices: List[str],
     batch_size: int,
     measure_inconsistency_name: str,
-    pivot_column: str = "alpha_mask_value",
-    prefetch_factor=4,
+    pivot_column: str,
+    prefetch_factor: int,
 ):
     input_shape, merged_metadata = safely_load_metadata(
         save_metadata_dir,

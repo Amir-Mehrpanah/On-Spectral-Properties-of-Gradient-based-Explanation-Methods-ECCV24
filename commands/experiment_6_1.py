@@ -1,5 +1,5 @@
 import json
-
+import numpy as np
 import logging
 import argparse
 import sys
@@ -18,7 +18,7 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "1-100"
+job_array_image_index = "16,17,20,43,70"
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
@@ -26,14 +26,19 @@ number_of_gpus = 4
 # Method args
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6"  # space separated string
+alpha_mask_value = " ".join(
+    np.linspace(
+        0,
+        0.6,
+        50,
+    )
+)  # space separated string
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
-pivot_indices = ["image_index"]
 dataset_dir = "/local_storage/datasets/imagenet"
 input_shape = (1, 224, 224, 3)
 baseline_mask_type = "gaussian"
@@ -120,7 +125,6 @@ if __name__ == "__main__":
             constraint=constraint,
             logging_level=logging_level,
             number_of_gpus=1,
-            pivot_indices=pivot_indices,
             action=Action.compute_inconsistency,
             inconsistency_measure=inconsistency_measure,
             save_metadata_dir=save_metadata_dir,
