@@ -53,13 +53,52 @@ def _measure_inconsistency_cosine_distance(
 
 
 @AbstractFunction
-def _measure_inconsistency_DSSIM(batch_mean, batch_variance, l, s, v):
+def _measure_inconsistency_DSSIM(
+    batch_mean, batch_meanx2, c1, c2, downsampling_factor, downsampling_method
+):
     """
     computes the DSSIM between two images
     DSSIM = (1-SSIM)/2
     SSIM stands for structural similarity index measure
     """
-    raise NotImplementedError("DSSIM is not implemented yet")
+    B, T, H, W, _ = batch_mean.shape
+    new_H = H // downsampling_factor
+    new_W = W // downsampling_factor
+    batch_mean: jax.Array = jax.image.resize(
+        batch_mean,
+        shape=(
+            B,
+            T,
+            new_H,
+            new_W,
+            1,  # collapse the color channels
+        ),
+        method=downsampling_method,
+    )
+    batch_meanx2: jax.Array = jax.image.resize(
+        batch_meanx2,
+        shape=(
+            B,
+            T,
+            new_H,
+            new_W,
+            1,  # collapse the color channels
+        ),
+        method=downsampling_method,
+    )
+    batch_mean = np.squeeze(batch_mean, axis=-1)
+    batch_meanx2 = np.squeeze(batch_meanx2, axis=-1)
+    sigma2 = batch_meanx2 - batch_mean * 2
+    sigma = np.sqrt(sigma2)
+
+    l = (2 * batch_mean.prod(axis=1) + c1) / ((batch_mean**2).sum(axis=1) + c1)
+    c = (2 * sigma.prod(axis=1) + c2) / (sigma2.sum(axis=1) + c2)
+    # s = 0 we assume that sigmaxy is zero for all pairs of images
+    ssim = l * c
+    dssim = (1 - ssim) / 2
+    dssim = dssim.mean(axis=(2, 3))
+    assert dssim.shape == (B,)
+    return dssim
 
 
 def measure_inconsistency(numpy_iterator, concrete_inconsistency_measure):

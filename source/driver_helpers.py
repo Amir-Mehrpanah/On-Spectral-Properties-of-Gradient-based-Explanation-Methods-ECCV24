@@ -117,6 +117,17 @@ def _parse_measure_inconsistency_args(parser, default_args):
         required=True,
         choices=default_args.inconsistency_measures,
     )
+    parser.add_argument(
+        "--c1",
+        type=float,
+        default=default_args.c1,
+    )
+    parser.add_argument(
+        "--c2",
+        type=float,
+        default=default_args.c2,
+    )
+    
     args, _ = parser.parse_known_args()
     data_loader = _make_loader(
         args.save_metadata_dir,
@@ -144,7 +155,10 @@ def get_inconsistency_measure(args):
         )
     elif args.inconsistency_measure == InconsistencyMeasures.dssim:
         inconsistency_measure_func = _measure_inconsistency_DSSIM(
-            downsampling_factor=args.downsampling_factor
+            downsampling_factor=args.downsampling_factor,
+            downsampling_method=jax.image.ResizeMethod.LINEAR,
+            c1=args.c1,
+            c2=args.c2,
         )
     else:
         raise NotImplementedError("other inconsistency measures are not implemented")
