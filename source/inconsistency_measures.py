@@ -103,6 +103,7 @@ def _measure_inconsistency_DSSIM(
 
 def measure_inconsistency(numpy_iterator, concrete_inconsistency_measure):
     results = {"inconsistency": []}
+    logger.debug(f"iterating over {debug_nice(numpy_iterator)}")
     for batch in numpy_iterator:
         data = batch.pop("data")
         logger.debug(

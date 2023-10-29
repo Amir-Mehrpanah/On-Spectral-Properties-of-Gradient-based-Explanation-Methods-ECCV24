@@ -411,6 +411,7 @@ def _process_gather_stats_args(args):
                     Statistics.meanx2,
                 )
             ] = jnp.zeros(shape=())
+        
         args.stats[
             Stream(
                 StreamNames.vanilla_grad_mask,
@@ -442,24 +443,24 @@ def _make_loader(
     pivot_column: str,
     prefetch_factor: int,
 ):
-    input_shape, merged_metadata = safely_load_metadata(
+    input_shape, merged_metadata_tuple = safely_load_metadata(
         save_metadata_dir,
         pivot_indices,
         pivot_column,
     )
 
-    sample_keys, merged_metadata = prepare_metadata(
+    sample_keys, merged_metadata_tuple = prepare_metadata(
         pivot_indices,
         measure_inconsistency_name,
         pivot_column,
-        merged_metadata,
+        merged_metadata_tuple,
     )
 
-    index_keys = get_index_keys(merged_metadata)
-    merged_metadata = make_iterator(merged_metadata)
+    index_keys = get_index_keys(merged_metadata_tuple)
+    merged_metadata_tuple = make_iterator(merged_metadata_tuple)
 
     def _generator():
-        for items in zip(*merged_metadata):
+        for items in zip(*merged_metadata_tuple):
             sample = []
             for indices, paths in items:
                 sample.append(np.stack(paths.apply(np.load)))
@@ -534,6 +535,7 @@ def prepare_metadata(
 
 def make_iterator(merged_metadata_tuple):
     output = []
+    logger.debug(f"making iterator for {debug_nice(merged_metadata_tuple)}")
     for metadata in merged_metadata_tuple:
         output.append(metadata.iterrows())
     merged_metadata_tuple = tuple(output)
@@ -575,6 +577,11 @@ def filter_relevant_parts(measure_inconsistency_name, merged_metadata):
             (merged_metadata["stream_name"] == "vanilla_grad_mask")
             & (merged_metadata["stream_statistic"] == "meanx")
         ]
+        assert len(meanx2_metadata) == len(meanx_metadata), (
+            f"meanx2_metadata and meanx_metadata must have"
+            f" the same length, got {len(meanx2_metadata)}"
+            f" and {len(meanx_metadata)}"
+        )
         keys = ("meanx", "meanx2")
         return keys, (meanx_metadata, meanx2_metadata)
 

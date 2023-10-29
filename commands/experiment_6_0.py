@@ -18,7 +18,7 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "1-100"
+job_array_image_index = "1-200"
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
@@ -33,7 +33,7 @@ normalize_sample = True
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
-pivot_indices = ["image_index"]
+pivot_indices = "image_index"
 dataset_dir = "/local_storage/datasets/imagenet"
 input_shape = (1, 224, 224, 3)
 baseline_mask_type = "gaussian"
@@ -42,6 +42,7 @@ projection_top_k = 1
 alpha_mask_type = "static"
 demo = False
 inconsistency_measure = InconsistencyMeasures.dssim
+stats_log_level = 1 # necessary for dssim
 save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
 save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 save_output_dir = os.path.join(save_output_base_dir, experiment_name)

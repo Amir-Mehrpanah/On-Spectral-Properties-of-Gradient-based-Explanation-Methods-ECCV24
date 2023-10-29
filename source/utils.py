@@ -1,10 +1,12 @@
 from collections import namedtuple
+from collections.abc import Iterable
 import inspect
 from collections import OrderedDict
 import itertools
 import logging
 
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +25,20 @@ class InconsistencyMeasures:
 def debug_nice(x, r=0, max_depth=1):
     if inspect.isfunction(x):
         return f"{x.__name__}"
+    if isinstance(x, pd.DataFrame):
+        return f"pd.DataFrame of shape {x.shape}"
+    if isinstance(x, pd.Series):
+        return f"pd.Series of shape {x.shape}"
     if isinstance(x, np.ndarray):
         return f"np.ndarray of shape {x.shape}"
     if isinstance(x, list):
-        if r > max_depth:
+        if r >= max_depth:
             return f"list of length {len(x)}"
         nice = [debug_nice(v, r=r + 1) for v in x]
         return f"list {nice}"
     if isinstance(x, dict):
-        if r > max_depth:
-            return f"dict of length {len(x)}"
+        if r >= max_depth:
+            return f"dict of length {len(x)} with keys {list(x.keys())}"
         nice = {k: debug_nice(v, r=r + 1) for k, v in x.items()}
         return f"dict {nice}"
     if isinstance(x, tuple):
@@ -66,7 +72,7 @@ class AbstractFunction:
     def concretize(self):
         hash_args = tuple(id(arg) for arg in self.params.values())
         if logger.isEnabledFor(logging.DEBUG):
-            nice_params = debug_nice(self.params)
+            nice_params = debug_nice(self.params, max_depth=0)
             logger.debug(
                 f"concretizing {self.func} with static arguments {nice_params}"
             )
@@ -80,8 +86,8 @@ class AbstractFunction:
             i = 0
             temp_params = self.params.copy()
             if logger.isEnabledFor(logging.DEBUG):
-                nice_params = debug_nice(temp_params)
-                nice_pos_args = debug_nice(args)
+                nice_params = debug_nice(temp_params, max_depth=0)
+                nice_pos_args = debug_nice(args, max_depth=0)
                 logger.debug(
                     f"concrete function {self.func} called with static arguments {nice_params} and dynamic arguments {nice_pos_args}"
                 )
