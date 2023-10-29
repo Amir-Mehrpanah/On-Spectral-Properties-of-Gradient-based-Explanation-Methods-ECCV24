@@ -21,6 +21,7 @@ from source.utils import (
     StreamNames,
     AbstractFunction,
     combine_patterns,
+    debug_nice,
 )
 
 logger = logging.getLogger(__name__)
@@ -222,7 +223,7 @@ class NoiseInterpolation:
             int(v) if v else v for v in pretty_kwargs["projection_index"]
         ]
         logger.info(
-            f"experiment args:\n{json.dumps(pretty_kwargs, indent=4, sort_keys=True)}",
+            f"experiment args:\n{debug_nice(pretty_kwargs)}",
         )
 
     @classmethod
@@ -315,7 +316,8 @@ class NoiseInterpolation:
         sampler = AbstractFunction(cls.sampler)(**static_kwargs).concretize()
         if vamp_axis is not None:
             sampler = jax.vmap(sampler, in_axes=vamp_axis)
-        return jax.jit(sampler)
+        jax.jit(sampler)
+        return sampler
 
     @classmethod
     def _sort_dynamic_kwargs(cls, dynamic_kwargs_dict):

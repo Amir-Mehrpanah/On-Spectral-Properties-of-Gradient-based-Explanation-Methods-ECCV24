@@ -18,7 +18,7 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "1-200"
+job_array_image_index = "1-2"
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
@@ -42,7 +42,7 @@ projection_top_k = 1
 alpha_mask_type = "static"
 demo = False
 inconsistency_measure = InconsistencyMeasures.dssim
-stats_log_level = 1 # necessary for dssim
+stats_log_level = 0 # necessary for dssim
 save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
 save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 save_output_dir = os.path.join(save_output_base_dir, experiment_name)
@@ -52,7 +52,7 @@ _args_pattern_state = {
     "forward": ["i", "static"],
     "alpha_mask": ["i", "dynamic"],
     "projection": ["i", "static"],
-    "image": ["i", "static"],
+    "image": ["i", "dynamic"],
     "baseline_mask": ["i", "static"],
     "normalize_sample": ["i", "static"],
 }
