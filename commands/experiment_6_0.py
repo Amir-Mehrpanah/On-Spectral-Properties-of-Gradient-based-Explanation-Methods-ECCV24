@@ -81,6 +81,7 @@ if __name__ == "__main__":
             job_array_image_index=job_array_image_index,
             constraint=constraint,
             number_of_gpus=1,
+            stats_log_level=stats_log_level,
             action=Action.gather_stats,
             logging_level=logging_level,
             method=method,
