@@ -18,7 +18,7 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "16,17,20,43,70"
+job_array_image_index = "16,17,20,43"
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
@@ -27,11 +27,14 @@ number_of_gpus = 4
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 alpha_mask_value = " ".join(
-    np.linspace(
-        0,
-        0.6,
-        50,
-    )
+    [
+        str(x)
+        for x in np.linspace(
+            0,
+            0.8,
+            100,
+        )
+    ]
 )  # space separated string
 min_change = 5e-4
 batch_size = 16
@@ -72,7 +75,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
     parser.add_argument("--merge_stats", "-m", action="store_true")
-    parser.add_argument("--compute_inconsistency", "-i", action="store_true")
 
     args = parser.parse_args()
     if not any(vars(args).values()):
@@ -117,17 +119,4 @@ if __name__ == "__main__":
             save_metadata_dir=save_metadata_dir,
         )
 
-        wait_in_queue(0)  # wait for all jobs to finish
-
-    if args.compute_inconsistency:
-        run_experiment(
-            experiment_name=f"inconsistency_{experiment_name}",
-            constraint=constraint,
-            logging_level=logging_level,
-            number_of_gpus=1,
-            action=Action.compute_inconsistency,
-            inconsistency_measure=inconsistency_measure,
-            save_metadata_dir=save_metadata_dir,
-            batch_size=4,
-        )
         wait_in_queue(0)  # wait for all jobs to finish
