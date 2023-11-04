@@ -364,6 +364,7 @@ class NoiseInterpolation:
             "output_layer",
             "dataset",
             "image_index",
+            "image_path",
             "input_shape",
             "num_classes",
             "monitored_statistic_key",

@@ -7,7 +7,6 @@ from pandas import Series
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import jax.numpy as jnp
-from matplotlib.transforms import Bbox
 
 
 def preprocess(x, img_size):
