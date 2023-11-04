@@ -104,7 +104,7 @@ class AbstractFunction:
         return concrete_func
 
 
-def combine_patterns(pattern, values):
+def pattern_generator(pattern, values):
     """
     a pattern is not sensitive to actual values, but to the unique keys e.g.
     {"a": "b", "c": "d"} == {"a": "e", "c": "f"}
@@ -131,12 +131,10 @@ def combine_patterns(pattern, values):
     range_values = [range(l) for l in len_values]
     combinations = list(itertools.product(*range_values))
     pattern_index = [unique_pattern_values.index(v) for v in pattern_values]
-    results = []
     for combination in combinations:
         value_indices = [combination[index] for index in pattern_index]
         temp_values = {k: values[k][i] for i, k in zip(value_indices, pattern_keys)}
-        results.append(temp_values)
-    return results
+        yield temp_values
 
 
 class StreamNames:

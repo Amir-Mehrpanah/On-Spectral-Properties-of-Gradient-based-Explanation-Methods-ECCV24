@@ -20,7 +20,7 @@ from source.utils import (
     Stream,
     StreamNames,
     AbstractFunction,
-    combine_patterns,
+    pattern_generator,
     debug_nice,
 )
 
@@ -169,49 +169,61 @@ class NoiseInterpolation:
         mixed_args = cls.extract_mixed_args(args)
         mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
-        combined_mixed_args = combine_patterns(mixed_pattern, mixed_args)
-        list(map(cls._process_logics, combined_mixed_args))
-        combined_mixed_args = list(map(cls._process_args, combined_mixed_args))
-        (
-            combined_dynamic_kwargs,
-            combined_static_kwargs,
-            meta_kwargs,
-        ) = cls._split_args_dicts(
+        num_samplers = cls.compute_num_samplers(mixed_args, mixed_pattern)
+
+        if logger.isEnabledFor(logging.INFO):
+            cls.pretty_print_args(mixed_args)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            nice_mixed_args = debug_nice(mixed_args, max_depth=1)
+            logger.debug(
+                f"mixed_pattern: {mixed_pattern}\nmixed_args: {nice_mixed_args}"
+            )
+
+        combined_mixed_args = pattern_generator(mixed_pattern, mixed_args)
+        combined_mixed_args = map(cls._process_logics, combined_mixed_args)
+        combined_mixed_args = map(cls._process_args, combined_mixed_args)
+        splitted_args = cls._split_args_dicts(
             combined_mixed_args,
             args_state=args.args_state,
         )
-        combined_dynamic_kwargs = list(
-            map(
-                cls._sort_dynamic_kwargs,
-                combined_dynamic_kwargs,
-            )
+        samplers_and_kwargs = cls.sampler_generator(splitted_args)
+
+        return argparse.Namespace(
+            samplers_and_kwargs=samplers_and_kwargs,
+            num_samplers=num_samplers,
         )
-        vmap_axis_for_one = (0,) + tuple(
-            None for _ in combined_dynamic_kwargs[0]
-        )  # 0 for key, None for dynamic args
-        vmap_axis_for_all = [vmap_axis_for_one] * len(combined_dynamic_kwargs)
-        samplers = list(
-            map(
-                cls._create_sampler,
+
+    @staticmethod
+    def compute_num_samplers(mixed_args, mixed_pattern):
+        num_samplers = 1
+        inverted_mixed_pattern = {v: k for k, v in mixed_pattern.items()}
+        unique_pattern_values = list(set(inverted_mixed_pattern.values()))
+        for unique_pattern_value in unique_pattern_values:
+            num_samplers *= len(mixed_args[unique_pattern_value])
+        return num_samplers
+
+    @classmethod
+    def sampler_generator(cls, splitted_args):
+        for (
+            combined_dynamic_kwargs,
+            combined_static_kwargs,
+            combined_meta_kwargs,
+        ) in splitted_args:
+            combined_dynamic_kwargs = cls._sort_dynamic_kwargs(combined_dynamic_kwargs)
+            vmap_axis_for_one = (0,) + tuple(
+                None for _ in combined_dynamic_kwargs
+            )  # 0 for key, None for dynamic args
+            vmap_axis_for_all = [vmap_axis_for_one] * len(combined_dynamic_kwargs)
+            sampler = cls._create_sampler(
                 combined_static_kwargs,
                 vmap_axis_for_all,
             )
-        )
 
-        cls.pretty_print_args(mixed_args)
-
-        return argparse.Namespace(
-            samplers=samplers,
-            static_kwargs=combined_static_kwargs,
-            dynamic_kwargs=combined_dynamic_kwargs,
-            meta_kwargs=meta_kwargs,
-        )
+            yield sampler, combined_static_kwargs, combined_dynamic_kwargs, combined_meta_kwargs
 
     @classmethod
     def pretty_print_args(cls, mixed_args: argparse.Namespace):
-        if not logger.isEnabledFor(logging.INFO):
-            return
-
         pretty_kwargs = copy.deepcopy(mixed_args)
         pretty_kwargs["image"] = f"{len(pretty_kwargs['image'])} number of images"
         pretty_kwargs["forward"] = f"forward of len {len(pretty_kwargs['forward'])}"
@@ -268,6 +280,9 @@ class NoiseInterpolation:
                     values[pattern_key] = [
                         values[pattern_key][0] for j in range(len_factor)
                     ]
+                    logger.debug(
+                        f"broadcasting {pattern_key} from {len_values[i]} to {max_value} according to {pattern[pattern_key]}",
+                    )
 
         return values
 
@@ -379,9 +394,7 @@ class NoiseInterpolation:
         assert len(static_keys) + len(dynamic_keys) == len(
             cls.sampler_args
         ), f"static and dynamic keys must be equal to sampler args {cls.sampler_args}"
-        dynamic_kwargs = []
-        static_kwargs = []
-        meta_kwargs = []
+
         for args_dict in combined_mixed_args:
             (
                 temp_dynamic_kwargs,
@@ -393,11 +406,7 @@ class NoiseInterpolation:
                 dynamic_keys,
                 meta_keys,
             )
-            dynamic_kwargs.append(temp_dynamic_kwargs)
-            static_kwargs.append(temp_static_kwargs)
-            meta_kwargs.append(temp_meta_args)
-
-        return dynamic_kwargs, static_kwargs, meta_kwargs
+            yield temp_dynamic_kwargs, temp_static_kwargs, temp_meta_args
 
     @staticmethod
     def _split_args_dict(args_dict, static_keys, dynamic_keys, meta_keys):
@@ -422,6 +431,8 @@ class NoiseInterpolation:
         cls._process_logics_alpha_mask(args_dict)
         cls._process_logics_baseline_mask(args_dict)
         cls._process_logics_projection(args_dict)
+
+        return args_dict
 
     @staticmethod
     def _process_logics_projection(args_dict):

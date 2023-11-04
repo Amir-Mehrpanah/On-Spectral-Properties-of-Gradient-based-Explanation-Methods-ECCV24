@@ -19,20 +19,12 @@ logger.setLevel(logger.getEffectiveLevel())
 
 
 if driver_args.action == Action.gather_stats:
-    num_samplers = len(action_args.samplers)
-    iterator = zip(
-        action_args.samplers,
-        action_args.static_kwargs,
-        action_args.dynamic_kwargs,
-        action_args.meta_kwargs,
-    )
-    for sindex, (sampler, static_kwargs, dynamic_kwargs, meta_kwargs) in enumerate(
-        iterator
-    ):
-        logger.info(f"task {sindex}/{num_samplers} started.")
+    iterator = enumerate(action_args.samplers_and_kwargs)
+    for sindex, (sampler, static_kwargs, dynamic_kwargs, meta_kwargs) in iterator:
+        logger.info(f"task {sindex}/{action_args.num_samplers} started.")
         stats, stats_metadata = gather_stats(sampler, dynamic_kwargs, meta_kwargs)
         logger.info(
-            f"task {sindex}/{num_samplers} "
+            f"task {sindex}/{action_args.num_samplers} "
             f"finsied in {stats_metadata['time_to_compute']:.3f}s "
             "\nnumber of samples "
             f"{stats_metadata['batch_index'] * meta_kwargs['batch_size']}",
