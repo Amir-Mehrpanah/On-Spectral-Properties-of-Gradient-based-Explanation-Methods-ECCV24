@@ -18,12 +18,11 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = "0-8"
-array_process=("array_process=$(seq  $(( SLURM_ARRAY_TASK_ID*10 )) $(( SLURM_ARRAY_TASK_ID*10+9 )) | awk '{printf \"0.%02d \", $0}' | xargs  echo)\n"
+job_array = "0-80"
+array_process=("array_process=$(printf \"0.%02d \" $SLURM_ARRAY_TASK_ID | xargs  echo)\n"
                "array_process=\"--alpha_mask_value $array_process\"")
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
-number_of_gpus = 4
 
 # Method args
 image_index = "17 43 60 70"
