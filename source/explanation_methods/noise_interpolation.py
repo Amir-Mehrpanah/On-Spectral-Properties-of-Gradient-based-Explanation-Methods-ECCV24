@@ -321,7 +321,7 @@ class NoiseInterpolation:
             pattern_proposal = [v for k, v in args_pattern.items() if k in arg_name]
             assert (
                 len(pattern_proposal) == 1
-            ), f"{arg_name} cannot be uniquely identified according to the provided {args_pattern}"
+            ), f"{arg_name} has the following proposals {pattern_proposal} according to the provided pattern {args_pattern} and cannot be uniquely identified"
             mixed_pattern[arg_name] = pattern_proposal[0]
         return mixed_pattern
 
