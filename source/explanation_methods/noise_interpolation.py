@@ -211,13 +211,12 @@ class NoiseInterpolation:
             combined_meta_kwargs,
         ) in splitted_args:
             combined_dynamic_kwargs = cls._sort_dynamic_kwargs(combined_dynamic_kwargs)
-            vmap_axis_for_one = (0,) + tuple(
+            vmap_axis = (0,) + tuple(
                 None for _ in combined_dynamic_kwargs
             )  # 0 for key, None for dynamic args
-            vmap_axis_for_all = [vmap_axis_for_one] * len(combined_dynamic_kwargs)
             sampler = cls._create_sampler(
                 combined_static_kwargs,
-                vmap_axis_for_all,
+                vmap_axis,
             )
 
             yield sampler, combined_static_kwargs, combined_dynamic_kwargs, combined_meta_kwargs

@@ -18,24 +18,17 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array_image_index = "16,17,20,43"
+job_array = "0-8"
+array_process=("array_process=$(seq  $(( SLURM_ARRAY_TASK_ID*10 )) $(( SLURM_ARRAY_TASK_ID*10+9 )) | awk '{printf \"0.%02d \", $0}' | xargs  echo)\n"
+               "array_process=\"--alpha_mask_value $array_process\"")
 constraint = "gondor"
 experiment_name = os.path.basename(__file__).split(".")[0]
 number_of_gpus = 4
 
 # Method args
+image_index = "17 43 60 70"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-alpha_mask_value = " ".join(
-    [
-        str(x)
-        for x in np.linspace(
-            0,
-            0.8,
-            100,
-        )
-    ]
-)  # space separated string
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
@@ -79,7 +72,9 @@ if __name__ == "__main__":
     if args.gather_stats:
         run_experiment(
             experiment_name=experiment_name,
-            job_array_image_index=job_array_image_index,
+            image_index=image_index,
+            job_array=job_array,
+            array_process=array_process,
             constraint=constraint,
             number_of_gpus=1,
             action=Action.gather_stats,
@@ -89,7 +84,6 @@ if __name__ == "__main__":
             dataset=dataset,
             min_change=min_change,
             alpha_mask_type=alpha_mask_type,
-            alpha_mask_value=alpha_mask_value,
             projection_type=projection_type,
             projection_top_k=projection_top_k,
             baseline_mask_type=baseline_mask_type,
