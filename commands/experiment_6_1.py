@@ -50,6 +50,7 @@ save_output_dir = os.path.join(save_output_base_dir, experiment_name)
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
     "alpha_mask": ["j", "dynamic"],
+    "image_index": ["i", "dynamic"],
 }
 args_state = json.dumps(
     {k: v[1] for k, v in _args_pattern_state.items()},
