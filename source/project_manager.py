@@ -4,7 +4,9 @@ from glob import glob
 import os
 
 import tensorflow as tf
+import logging
 
+logger = logging.getLogger(__name__)
 
 def delete_experiment_data(metadata: pd.Series, selected_rows: pd.Series = None):
     assert isinstance(metadata, pd.Series)
@@ -65,4 +67,5 @@ def merge_experiment_metadata(save_metadata_dir: str):
 
     project_data = pd.concat(dataframes)
     save_metadata_path = os.path.join(save_metadata_dir, f"merged_metadata.csv")
+    logger.info(f"Saving merged metadata to {save_metadata_path}")
     project_data.to_csv(save_metadata_path, index=False)

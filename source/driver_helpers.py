@@ -244,6 +244,7 @@ def _parse_general_args(parser, default_args):
     logging.basicConfig(handlers=[logging.StreamHandler(sys.stdout)])
 
     logging.getLogger("source.utils").setLevel(args.logging_level)
+    logging.getLogger("source.project_manager").setLevel(args.logging_level)
     logging.getLogger("source.driver_helpers").setLevel(args.logging_level)
     logging.getLogger("source.explanation_methods.noise_interpolation").setLevel(
         args.logging_level
