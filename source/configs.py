@@ -35,6 +35,7 @@ class DefaultArgs:
     input_shape = (1, 224, 224, 3)
     logging_level = logging.INFO
     stats_log_level = 0
+    skip_data = None
     monitored_statistic = "meanx2"
     output_layer = output_layers[1]  # see paper for why
     monitored_stream = "vanilla_grad_mask"
