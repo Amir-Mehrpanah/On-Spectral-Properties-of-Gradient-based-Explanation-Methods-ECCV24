@@ -65,6 +65,7 @@ def base_parser(parser, default_args: DefaultArgs):
             write_demo=write_demo,
             save_raw_data_dir=args.save_raw_data_dir,
             save_metadata_dir=args.save_metadata_dir,
+            skip_data=args.skip_data,
         )
     elif args.action == Action.compute_inconsistency:
         action_args = _parse_measure_inconsistency_args(parser, default_args)
@@ -196,6 +197,11 @@ def _parse_general_args(parser, default_args):
         type=str,
         default=default_args.action,
         choices=default_args.actions,
+    )
+    parser.add_argument(
+        "--skip_data",
+        type=str,
+        default=None,
     )
     parser.add_argument(
         "--save_raw_data_dir",
@@ -412,7 +418,7 @@ def _process_gather_stats_args(args):
                     Statistics.meanx2,
                 )
             ] = jnp.zeros(shape=())
-        
+
         args.stats[
             Stream(
                 StreamNames.vanilla_grad_mask,
@@ -648,7 +654,7 @@ def _process_method_kwargs(args):
     return args
 
 
-def save_gather_stats_data(save_raw_data_dir, stats):
+def save_gather_stats_data(save_raw_data_dir, skip_data, stats):
     path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
     get_npy_file_path = lambda key: os.path.join(
         save_raw_data_dir, f"{path_prefix}.{key}.npy"
@@ -665,7 +671,12 @@ def save_gather_stats_data(save_raw_data_dir, stats):
 
     logger.debug("saving the raw data and updating metadata sample keys.")
     for key, value in stats.items():
-        npy_file_path = get_npy_file_path(f"{key.name}.{key.statistic}")
+        file_path = f"{key.name}.{key.statistic}"
+        npy_file_path = get_npy_file_path(file_path)
+        if skip_data and skip_data in npy_file_path:
+            logger.info(f"skipped writing {npy_file_path}")
+            continue
+
         np.save(npy_file_path, value.squeeze())
 
         # update metadata

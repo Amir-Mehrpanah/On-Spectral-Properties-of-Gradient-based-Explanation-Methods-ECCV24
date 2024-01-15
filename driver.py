@@ -38,10 +38,12 @@ if driver_args.action == Action.gather_stats:
             )
         saving_metadata = driver_helpers.save_gather_stats_data(
             driver_args.save_raw_data_dir,
+            driver_args.skip_data,
             stats,
         )
         driver_helpers.save_gather_stats_metadata(
             driver_args.save_metadata_dir,
+            # driver_args.skip_data,
             {
                 **stats_metadata,  # stats dependent metadata
                 **saving_metadata,  # raw data dependent metadata
