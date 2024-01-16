@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def delete_experiment_data(metadata: pd.Series, selected_rows: pd.Series = None):
     assert isinstance(metadata, pd.Series)
     path = metadata.iloc[0]
-    assert "amirme" in path, f"Path {path} does not contain amirme"
+    assert "x_amime" in path, f"Path {path} does not contain a username"
     assert path.endswith(".npy") or path.endswith(
         ".csv"
     ), f"Path {path} does not end with .npy or .csv"
