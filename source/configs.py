@@ -52,7 +52,7 @@ class DefaultArgs:
         {k: v[0] for k, v in _args_pattern_state.items()}, separators=(";", ":")
     )
     num_classes = 1000
-    dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
+    dataset_dir = "no_default_path"
     save_raw_data_dir = "no_default_path"
     save_metadata_dir = "no_default_path"
     jupyter_data_dir = "no_default_path"
