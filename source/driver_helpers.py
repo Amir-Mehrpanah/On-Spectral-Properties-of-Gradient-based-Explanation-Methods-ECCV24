@@ -256,6 +256,7 @@ def _parse_general_args(parser, default_args):
         args.logging_level
     )
     logging.getLogger("source.inconsistency_measures").setLevel(args.logging_level)
+    logging.getLogger("source.data_manager").setLevel(args.logging_level)
     logging.getLogger("source.operations").setLevel(args.logging_level)
     logging.getLogger("__main__").setLevel(args.logging_level)
 
