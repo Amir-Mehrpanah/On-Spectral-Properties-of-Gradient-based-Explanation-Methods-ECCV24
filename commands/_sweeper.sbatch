@@ -3,9 +3,9 @@
 #SBATCH --mem-per-cpu 4G
 #SBATCH --time 12:00:00
 #SBATCH --mail-type BEGIN,END,FAIL
-#SBATCH --mail-user amirme@kth.se
-#SBATCH --output /Midgard/home/amirme/an_explanation_model/outputs/slurm_logs/%J_slurm.out
-#SBATCH --error  /Midgard/home/amirme/an_explanation_model/outputs/slurm_logs/%J_slurm.err
+#SBATCH --mail-user %u@kth.se
+#SBATCH --output /Midgard/home/%u/an_explanation_model/outputs/slurm_logs/%J_slurm.out
+#SBATCH --error  /Midgard/home/%u/an_explanation_model/outputs/slurm_logs/%J_slurm.err
 
 #<array_process>
 #MOD_PLACEHOLDER 
