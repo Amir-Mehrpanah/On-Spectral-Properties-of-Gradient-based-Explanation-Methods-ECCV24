@@ -8,9 +8,9 @@ import os
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
-save_raw_data_base_dir = "/local_storage/users/amirme/raw_data/"
-save_output_base_dir = "/local_storage/users/amirme/output/"
-save_metadata_base_dir = "/local_storage/users/amirme/metadata/"
+save_raw_data_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/raw_data/"
+save_output_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/"
+save_metadata_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/metadata/"
 
 
 def set_logging_level(logging_level):
@@ -110,7 +110,7 @@ def run_experiment(**args):
 
 def wait_in_queue(thresh=10):
     while True:
-        result = subprocess.run(["squeue", "-u", "amirme"], stdout=subprocess.PIPE)
+        result = subprocess.run(["squeue", "-u", "x_amime"], stdout=subprocess.PIPE)
         result = result.stdout.decode()
         result = len(result.split("\n")) - 2
         logger.debug(
