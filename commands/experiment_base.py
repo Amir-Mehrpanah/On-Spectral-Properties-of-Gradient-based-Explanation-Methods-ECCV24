@@ -78,7 +78,7 @@ def handle_sbatch_args(kwargs):
         del kwargs["experiment_name"]
 
     if "number_of_gpus" in kwargs:
-        number_of_gpus = f"--gres=gpu:{kwargs['number_of_gpus']} "
+        number_of_gpus = f"--gpus={kwargs['number_of_gpus']} "
         logger.debug(f"number of gpus in handling slurm args {number_of_gpus}")
         del kwargs["number_of_gpus"]
 
