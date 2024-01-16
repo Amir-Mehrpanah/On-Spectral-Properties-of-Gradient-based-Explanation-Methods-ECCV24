@@ -17,6 +17,7 @@ nvidia-smi
 
 module load Anaconda/2021.05-nsc1
 conda activate xlab
+which python
 
 echo SLURM_ARRAY_JOB_ID $SLURM_ARRAY_TASK_ID
 echo sbatch script: method args $method_args
