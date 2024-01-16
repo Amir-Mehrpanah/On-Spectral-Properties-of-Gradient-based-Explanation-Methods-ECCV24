@@ -18,14 +18,14 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = "5,10" #"5-95:5"
+job_array = "5" #"5-95:5"
 array_process=("array_process=$(printf \"0.%02d \" $SLURM_ARRAY_TASK_ID | xargs  echo)\n"
                "array_process=\"--alpha_mask_value $array_process\"")
 constraint = "thin"
 experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
-image_index = "all"
+image_index = "-1"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-4
