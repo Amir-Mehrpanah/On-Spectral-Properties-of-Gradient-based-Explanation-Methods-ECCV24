@@ -55,7 +55,7 @@ class DefaultArgs:
     dataset_dir = "/local_storage/datasets/imagenet"
     save_raw_data_dir = "/local_storage/users/amirme/raw_data"
     save_metadata_dir = "/local_storage/users/amirme/metadata"
-    jupyter_data_dir = "/local_storage/users/amirme/jupyter_data"
+    jupyter_data_dir = "no_default_path"
     visualizations_dir = os.path.join(jupyter_data_dir, "visualizations")
     profiler_dir = os.path.join(jupyter_data_dir, "profiler")
 
