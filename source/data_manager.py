@@ -11,6 +11,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def preprocess(x, img_size):
     x = tf.keras.layers.experimental.preprocessing.CenterCrop(
         height=img_size,
@@ -24,10 +25,12 @@ def preprocess(x, img_size):
 def save_axis(names, fig, axes, save_output_dir):
     plt.draw()
     for ax, name in zip(axes.flatten(), names):
-        extent = ax.get_tightbbox(fig.canvas.renderer).transformed(
-            fig.dpi_scale_trans.inverted()
-        ).padded(0.05)
-        
+        extent = (
+            ax.get_tightbbox(fig.canvas.renderer)
+            .transformed(fig.dpi_scale_trans.inverted())
+            .padded(0.05)
+        )
+
         path = os.path.join(save_output_dir, f"{name}.pdf")
         fig.savefig(path, bbox_inches=extent, transparent=True)
 
@@ -119,29 +122,20 @@ def query_imagenet(args):
     args.image = []
     args.label = []
     args.image_path = []
-    if args.image_index == -1:
-        dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
-        dataset = dataset.as_dataset(split="val", shuffle_files=False)
-        dataset = dataset.take(1)
-        logger.info(f"the dataset size is {dataset.cardinality().numpy()}")
-
-        dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
-        dataset = dataset.as_dataset(split="val", shuffle_files=False)
-        dataset = dataset.take(10000)
-        logger.info(f"the dataset size is {dataset.cardinality().numpy()}")
-        exit()
-
-    for image_index in args.image_index:
-        dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
-        dataset = dataset.as_dataset(split="val", shuffle_files=False)
-        dataset = dataset.skip(image_index)
-        logger.info(f"the dataset size is {dataset.cardinality().numpy()}")
-        exit()
-        base_stream = dataset.take(1).as_numpy_iterator().next()
-
-        image_height = args.input_shape[1]  # (N, H, W, C)
+    image_height = args.input_shape[1]  # (N, H, W, C)
+    dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
+    dataset = dataset.as_dataset(split="val", shuffle_files=False)
+    skip = args.image_index[0]
+    take = args.image_index[1]
+    args.image_index = []
+    dataset = dataset.skip(skip)
+    dataset = dataset.take(take)
+    iterator = dataset.as_numpy_iterator()
+    logger.info(f"dataset size is {dataset.cardinality()}")
+    for i, base_stream in enumerate(iterator, skip):
         base_stream["image"] = preprocess(base_stream["image"], image_height)
         base_stream["label"] = int(base_stream["label"])
+        args.image_index.append(i)
         args.image.append(base_stream["image"])
         args.label.append(base_stream["label"])
         args.image_path.append(base_stream["image/filename"].decode())

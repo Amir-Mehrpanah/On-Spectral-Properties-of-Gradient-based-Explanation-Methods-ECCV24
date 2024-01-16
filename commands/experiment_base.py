@@ -108,7 +108,7 @@ def run_experiment(**args):
     wait_in_queue()
 
 
-def wait_in_queue(thresh=10):
+def wait_in_queue(thresh=50):
     while True:
         result = subprocess.run(["squeue", "-u", "x_amime"], stdout=subprocess.PIPE)
         result = result.stdout.decode()

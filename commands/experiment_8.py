@@ -18,23 +18,23 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = "5" #"5-95:5"
-array_process=("array_process=$(printf \"0.%02d \" $SLURM_ARRAY_TASK_ID | xargs  echo)\n"
-               "array_process=\"--alpha_mask_value $array_process\"")
+job_array = f"0-500"  # "5-95:5"
+# image_index = "0 100" # skip num_elements (a very bad hack) todo clean up
+array_process = f'array_process="--image_index $((100*$SLURM_ARRAY_TASK_ID)) 100"'
 constraint = "thin"
 experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
-image_index = "-1"
+alpha_mask_value = " ".join([str(i) for i in np.linspace(0, 1, 10)])
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-min_change = 5e-4
-batch_size = 16
+min_change = 5e-2
+batch_size = 32
 normalize_sample = True
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
-dataset_dir = "/local_storage/datasets/imagenet"
+dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
 input_shape = (1, 224, 224, 3)
 baseline_mask_type = "gaussian"
 projection_type = "prediction"
@@ -72,7 +72,6 @@ if __name__ == "__main__":
     if args.gather_stats:
         run_experiment(
             experiment_name=experiment_name,
-            image_index=image_index,
             job_array=job_array,
             array_process=array_process,
             constraint=constraint,
@@ -83,11 +82,13 @@ if __name__ == "__main__":
             architecture=architecture,
             dataset=dataset,
             min_change=min_change,
+            alpha_mask_value=alpha_mask_value,
             alpha_mask_type=alpha_mask_type,
             projection_type=projection_type,
             projection_top_k=projection_top_k,
             baseline_mask_type=baseline_mask_type,
             demo=demo,
+            dataset_dir=dataset_dir,
             batch_size=batch_size,
             args_state=args_state,
             args_pattern=args_pattern,
@@ -103,7 +104,6 @@ if __name__ == "__main__":
         run_experiment(
             experiment_name=f"merge_{experiment_name}",
             constraint=constraint,
-            number_of_gpus=1,
             action=Action.merge_stats,
             logging_level=logging_level,
             save_metadata_dir=save_metadata_dir,
