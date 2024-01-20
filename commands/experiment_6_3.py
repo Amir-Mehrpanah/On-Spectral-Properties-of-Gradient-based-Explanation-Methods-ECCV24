@@ -18,20 +18,21 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = "0-1000:100"
-array_process = 'array_process="--image_index $SLURM_ARRAY_TASK_ID 1"'
+job_array = "0-16"
+array_process = 'array_process="--layer_randomization Bottleneck_$SLURM_ARRAY_TASK_ID"'
 constraint = "thin"
 experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
-alpha_mask_value = " ".join([str(x) for x in np.linspace(0, 0.6, 61)])
+image_index = "0 1" 
+alpha_mask_value = " ".join([str(x) for x in [0.0]]) # np.linspace(0, 0.6, 61)
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-4
 batch_size = 16
 normalize_sample = True
 method = "noise_interpolation"
-architecture = "resnet50"
+architecture = "resnet50-randomized"
 dataset = "imagenet"
 dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
 input_shape = (1, 224, 224, 3)
@@ -80,6 +81,7 @@ if __name__ == "__main__":
             architecture=architecture,
             dataset_dir=dataset_dir,
             dataset=dataset,
+            image_index=image_index,
             min_change=min_change,
             alpha_mask_value=alpha_mask_value,
             alpha_mask_type=alpha_mask_type,

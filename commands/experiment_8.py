@@ -18,14 +18,11 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = f"0-500"  # "5-95:5"
-# image_index = "0 100" # skip num_elements (a very bad hack) todo clean up
-array_process = f'array_process="--image_index $((100*$SLURM_ARRAY_TASK_ID)) 100"'
+job_array = "0-990:10"  # 990
 constraint = "thin"
-experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
-alpha_mask_value = " ".join([str(i) for i in np.linspace(0, 1, 10)])
+alpha_mask_value = " ".join([str(i) for i in np.linspace(0, 1, 11)])  # 11
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-2
@@ -41,10 +38,7 @@ projection_type = "prediction"
 projection_top_k = 1
 alpha_mask_type = "static"
 demo = False
-skip_data = StreamNames.vanilla_grad_mask
-save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
-save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
-save_output_dir = os.path.join(save_output_base_dir, experiment_name)
+skip_data = " ".join([StreamNames.vanilla_grad_mask, StreamNames.results_at_projection])
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
@@ -68,45 +62,53 @@ if __name__ == "__main__":
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
+        
+    for i in range(50):
+        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(i)
+        save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
+        save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
+        save_output_dir = os.path.join(save_output_base_dir, experiment_name)
+        # image_index = "0 100" # skip num_elements (a very bad hack) todo clean up
+        array_process = f'array_process="--image_index $((1000*{i} + $SLURM_ARRAY_TASK_ID)) 10"'
 
-    if args.gather_stats:
-        run_experiment(
-            experiment_name=experiment_name,
-            job_array=job_array,
-            array_process=array_process,
-            constraint=constraint,
-            number_of_gpus=1,
-            action=Action.gather_stats,
-            logging_level=logging_level,
-            method=method,
-            architecture=architecture,
-            dataset=dataset,
-            min_change=min_change,
-            alpha_mask_value=alpha_mask_value,
-            alpha_mask_type=alpha_mask_type,
-            projection_type=projection_type,
-            projection_top_k=projection_top_k,
-            baseline_mask_type=baseline_mask_type,
-            demo=demo,
-            dataset_dir=dataset_dir,
-            batch_size=batch_size,
-            args_state=args_state,
-            args_pattern=args_pattern,
-            normalize_sample=normalize_sample,
-            skip_data=skip_data,
-            save_raw_data_dir=save_raw_data_dir,
-            save_metadata_dir=save_metadata_dir,
-        )
+        if args.gather_stats:
+            run_experiment(
+                experiment_name=experiment_name,
+                job_array=job_array,
+                array_process=array_process,
+                constraint=constraint,
+                number_of_gpus=1,
+                action=Action.gather_stats,
+                logging_level=logging_level,
+                method=method,
+                architecture=architecture,
+                dataset=dataset,
+                min_change=min_change,
+                alpha_mask_value=alpha_mask_value,
+                alpha_mask_type=alpha_mask_type,
+                projection_type=projection_type,
+                projection_top_k=projection_top_k,
+                baseline_mask_type=baseline_mask_type,
+                demo=demo,
+                dataset_dir=dataset_dir,
+                batch_size=batch_size,
+                args_state=args_state,
+                args_pattern=args_pattern,
+                normalize_sample=normalize_sample,
+                skip_data=skip_data,
+                save_raw_data_dir=save_raw_data_dir,
+                save_metadata_dir=save_metadata_dir,
+            )
 
-        wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0)  # wait for all jobs to finish
 
-    if args.merge_stats:
-        run_experiment(
-            experiment_name=f"merge_{experiment_name}",
-            constraint=constraint,
-            action=Action.merge_stats,
-            logging_level=logging_level,
-            save_metadata_dir=save_metadata_dir,
-        )
+        if args.merge_stats:
+            run_experiment(
+                experiment_name=f"merge_{experiment_name}",
+                constraint=constraint,
+                action=Action.merge_stats,
+                logging_level=logging_level,
+                save_metadata_dir=save_metadata_dir,
+            )
 
-        wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0)  # wait for all jobs to finish
