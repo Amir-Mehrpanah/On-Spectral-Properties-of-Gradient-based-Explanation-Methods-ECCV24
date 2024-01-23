@@ -10,6 +10,7 @@ from source.inconsistency_measures import measure_inconsistency
 from source import project_manager
 from source.utils import Action
 
+driver_helpers.gpu_preallocation()
 
 parser = argparse.ArgumentParser()
 driver_args, action_args = driver_helpers.base_parser(parser, configs.DefaultArgs)

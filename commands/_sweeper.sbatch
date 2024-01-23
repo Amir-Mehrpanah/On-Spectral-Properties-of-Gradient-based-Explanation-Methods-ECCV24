@@ -16,7 +16,7 @@ echo "Starting job ${SLURM_JOB_ID} on ${SLURMD_NODENAME}"
 nvidia-smi
 
 module load Anaconda/2021.05-nsc1
-conda activate xlab
+conda activate xlab10
 which python
 
 echo SLURM_ARRAY_JOB_ID $SLURM_ARRAY_TASK_ID

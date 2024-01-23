@@ -305,6 +305,7 @@ class NoiseInterpolation:
         inplace_infer(args_pattern, "num_classes", "forward")
         inplace_infer(args_pattern, "architecture", "forward")
         inplace_infer(args_pattern, "output_layer", "forward")
+        inplace_infer(args_pattern, "layer_randomization", "forward")
         inplace_infer(args_pattern, "seed", "method")
         inplace_infer(args_pattern, "stats", "method")
         inplace_infer(args_pattern, "demo", "method")
@@ -361,6 +362,7 @@ class NoiseInterpolation:
             "architecture",
             "method",
             "output_layer",
+            "layer_randomization",
             "dataset",
             "image_index",
             "image_path",

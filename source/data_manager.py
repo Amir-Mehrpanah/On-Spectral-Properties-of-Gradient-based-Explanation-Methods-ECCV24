@@ -36,7 +36,7 @@ def save_axis(names, fig, axes, save_output_dir):
 
 
 # move to visualization.py
-def plot_masks(masks, titles, imshow_args={}, ncols=5):
+def plot_masks(masks, titles=None, imshow_args={}, ncols=5):
     ncols = ncols
     nrows = np.ceil(len(masks) / ncols).astype(int)
     scale_factor = 4
@@ -48,7 +48,9 @@ def plot_masks(masks, titles, imshow_args={}, ncols=5):
             break
         mask = masks.iloc[i]
         ax.imshow(mask, **imshow_args)
-        ax.set_title(titles.iloc[i])
+        ax.axis("off")
+        if titles is not None:
+            ax.set_title(titles.iloc[i])
 
     return fig, axes
 
@@ -94,10 +96,17 @@ def fisher_information(dynamic_meanx2, static_meanx2, prior):
     return e2q - eq2
 
 
-def minmax_normalize(x):
-    x = x - jnp.min(x)
-    x = x / jnp.max(x)
-    return x
+def minmax_normalize(x, min_=None, max_=None, return_minmax=False):
+    if min_ is None:
+        min_ = jnp.min(x)
+    if max_ is None:
+        max_ = jnp.max(x)
+    x = x - min_
+    x = x / max_
+    if return_minmax:
+        return x, min_, max_
+    else:
+        return x
 
 
 def symmetric_minmax_normalize(x):
@@ -112,7 +121,7 @@ def sum_channels(x):
 
 def single_query_imagenet(dataset_dir, image_index, input_shape):
     args = argparse.Namespace(
-        dataset_dir=dataset_dir, input_shape=input_shape, image_index=[image_index]
+        dataset_dir=dataset_dir, input_shape=input_shape, image_index=[image_index, 1]
     )
     query_imagenet(args)
     return args.image[0], args.label[0], args.image_path[0]
@@ -149,3 +158,35 @@ def load_images(image_paths: Series, img_size):
         lambda x: preprocess(x, img_size=img_size).squeeze()
     )
     return image_paths
+
+
+def query_cifar10(args):
+    args.image = []
+    args.label = []
+    args.image_path = []
+    image_height = args.input_shape[1]  # (N, H, W, C)
+    dataset = tfds.load(
+        "cifar10",
+        split="test",
+        shuffle_files=False,
+        data_dir=args.dataset_dir,
+        download=False,
+    )
+    skip = args.image_index[0]
+    take = args.image_index[1]
+    args.image_index = []
+    dataset = dataset.skip(skip)
+    dataset = dataset.take(take)
+    iterator = dataset.as_numpy_iterator()
+    logger.info(f"dataset size is {dataset.cardinality()}")
+    for i, base_stream in enumerate(iterator):
+        base_stream["image"] = preprocess(base_stream["image"], image_height)
+        args.image.append(base_stream["image"])
+        args.label.append(base_stream["label"])
+        args.image_path.append(base_stream["id"].decode())
+        args.image_index.append(i)
+        logger.info(f"image path is {args.image_path[-1]}")
+        assert args.image[-1].shape == args.input_shape, (
+            f"image shape is {args.image[-1].shape}, "
+            f"expected input shape is {args.input_shape}"
+        )

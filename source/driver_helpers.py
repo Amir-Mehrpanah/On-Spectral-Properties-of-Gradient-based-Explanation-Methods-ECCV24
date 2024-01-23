@@ -13,9 +13,13 @@ import tensorflow as tf
 
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
-from source.data_manager import query_imagenet
+from source.data_manager import query_imagenet, query_cifar10
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
-from source.model_manager import init_resnet50_forward
+from source.model_manager import (
+    init_resnet50_forward,
+    init_resnet50_randomized_forward,
+    init_resnet18_forward,
+)
 from source.inconsistency_measures import (
     _measure_inconsistency_cosine_distance,
     _measure_inconsistency_DSSIM,
@@ -31,6 +35,19 @@ from source.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def gpu_preallocation():
+    # Needed for TensorFlow and JAX to coexist in GPU memory.
+    os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+    gpus = tf.config.list_physical_devices("GPU")
+    if gpus:
+        try:
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized.
+            print(e)
 
 
 def json_semicolon_loads(string):
@@ -49,9 +66,21 @@ dataset_query_func_switch.register(
     "imagenet",
     query_imagenet,
 )
+dataset_query_func_switch.register(
+    "cifar10",
+    query_cifar10,
+)
 init_architecture_forward_switch.register(
     "resnet50",
     init_resnet50_forward,
+)
+init_architecture_forward_switch.register(
+    "resnet50-randomized",
+    init_resnet50_randomized_forward,
+)
+init_architecture_forward_switch.register(
+    "resnet18",
+    init_resnet18_forward,
 )
 
 
@@ -201,6 +230,7 @@ def _parse_general_args(parser, default_args):
     parser.add_argument(
         "--skip_data",
         type=str,
+        nargs="+",
         default=None,
     )
     parser.add_argument(
@@ -257,6 +287,7 @@ def _parse_general_args(parser, default_args):
     )
     logging.getLogger("source.inconsistency_measures").setLevel(args.logging_level)
     logging.getLogger("source.data_manager").setLevel(args.logging_level)
+    logging.getLogger("source.model_manager").setLevel(args.logging_level)
     logging.getLogger("source.operations").setLevel(args.logging_level)
     logging.getLogger("__main__").setLevel(args.logging_level)
 
@@ -343,6 +374,11 @@ def _add_base_args(parser, default_args):
         choices=default_args.output_layers,
     )
     parser.add_argument(
+        "--layer_randomization",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
         "--stats_log_level",
         type=int,
         default=default_args.stats_log_level,
@@ -364,8 +400,10 @@ def _process_gather_stats_args(args):
     os.makedirs(args.save_metadata_dir, exist_ok=True)
     logger.debug("created the save directories.")
 
+    args.input_shape = tuple(args.input_shape)
     dataset_query_func_switch[args.dataset](args)
     logger.debug("queried the dataset.")
+
     init_architecture_forward_switch[args.architecture](args)
     logger.debug("initialized the architecture.")
 
@@ -656,7 +694,13 @@ def _process_method_kwargs(args):
 
 
 def save_gather_stats_data(save_raw_data_dir, skip_data, stats):
-    path_prefix = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
+    # with large number of synchronized parallel jobs,
+    # the same path_prefix might be generated.
+    # To avoid this, we add a random number
+    # to the path_prefix to reduce the chance of collision.
+    rnd = np.random.randint(0, 10000)
+    path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
+
     get_npy_file_path = lambda key: os.path.join(
         save_raw_data_dir, f"{path_prefix}.{key}.npy"
     )
@@ -674,7 +718,7 @@ def save_gather_stats_data(save_raw_data_dir, skip_data, stats):
     for key, value in stats.items():
         file_path = f"{key.name}.{key.statistic}"
         npy_file_path = get_npy_file_path(file_path)
-        if skip_data and skip_data in npy_file_path:
+        if skip_data and key.name in skip_data:
             logger.info(f"skipped writing {npy_file_path}")
             continue
 

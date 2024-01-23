@@ -20,7 +20,7 @@ class DefaultArgs:
     inconsistency_measures = [v for v in dir(InconsistencyMeasures) if "__" not in v]
     methods = ["noise_interpolation", "fisher_information"]
     logging_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR]
-    architectures = ["resnet50"]
+    architectures = ["resnet50", "resnet50-randomized", "resnet18"]
     output_layers = ["logits", "log_softmax", "softmax"]
     actions = [v for v in dir(Action) if "__" not in v]
 
