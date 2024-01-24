@@ -15,6 +15,7 @@ class Action:
     gather_stats = "gather_stats"
     compute_inconsistency = "compute_inconsistency"
     merge_stats = "merge_stats"
+    compute_spectral_lens = "compute_spectral_lens"
 
 
 class InconsistencyMeasures:

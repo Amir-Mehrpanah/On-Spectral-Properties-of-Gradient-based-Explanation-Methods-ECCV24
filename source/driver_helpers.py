@@ -15,11 +15,7 @@ sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
 from source.data_manager import query_imagenet, query_cifar10
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
-from source.model_manager import (
-    init_resnet50_forward,
-    init_resnet50_randomized_forward,
-    init_resnet18_forward,
-)
+from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward
 from source.inconsistency_measures import (
     _measure_inconsistency_cosine_distance,
     _measure_inconsistency_DSSIM,
@@ -78,10 +74,6 @@ init_architecture_forward_switch.register(
     "resnet50-randomized",
     init_resnet50_randomized_forward,
 )
-init_architecture_forward_switch.register(
-    "resnet18",
-    init_resnet18_forward,
-)
 
 
 def base_parser(parser, default_args: DefaultArgs):
@@ -107,6 +99,13 @@ def base_parser(parser, default_args: DefaultArgs):
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
+        )
+    elif args.action == Action.compute_spectral_lens:
+        action_args = argparse.Namespace()
+        driver_args = argparse.Namespace(
+            action=args.action,
+            save_metadata_dir=args.save_metadata_dir,
+            save_raw_data_dir=args.save_raw_data_dir,
         )
     else:
         raise NotImplementedError("other actions are not implemented")

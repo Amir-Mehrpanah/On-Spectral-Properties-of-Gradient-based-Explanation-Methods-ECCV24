@@ -1,13 +1,22 @@
+from datetime import datetime
+import functools
 import os
 import PIL
 from matplotlib import pyplot as plt
 import numpy as np
 import argparse
+import pandas as pd
+from skimage import io
 from pandas import Series
 import tensorflow as tf
 import tensorflow_datasets as tfds
+from torch.utils.data import Dataset, DataLoader
 import jax.numpy as jnp
 import logging
+
+from tensorflow_datasets.core.utils import gcs_utils
+
+gcs_utils._is_gcs_disabled = True
 
 logger = logging.getLogger(__name__)
 
@@ -61,21 +70,63 @@ def preprocess_masks(masks, preprocesses=[]):
     return masks
 
 
-# def fisher_information(dataframe, prior):
-#     '''
-#         the wrong way:
-#         $Var_y[E_x[\nabla\log y f(x)]]$ where $yf(x) = p(y|x)$
-#     '''
-#     temp = dataframe.loc[:, "data_path"].apply(np.load)
-#     e = temp.loc["meanx"]
-#     e = np.stack(e, axis=0)
-#     e2 = e**2
+def preprocess_masks_ndarray(masks, preprocesses):
+    for preprocess in preprocesses:
+        masks = preprocess(masks)
+    return masks
 
-#     assert e.shape[0] == prior.shape[0]
-#     e2q = (e2 * prior).sum(axis=0)
-#     eq2 = (e * prior).sum(axis=0) ** 2
-#     fisher = e2q - eq2
-#     return fisher
+
+def spectral_lens_generic(data, func, perprocess):
+    init_val = np.load(data.iloc[0]["grad_mask"])
+    init_val = preprocess_masks_ndarray(init_val, preprocesses=perprocess)
+
+    for id, row in data.iterrows():
+        temp_grad = np.load(row["grad_mask"])
+        temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
+        init_val = func(init_val, temp_grad)
+
+    assert init_val.ndim == 3, f"{init_val.shape} must be 4d (H,W,C)"
+
+    return init_val
+
+
+def running_sum(init_val, temp_grad):
+    return init_val + temp_grad
+
+
+def div_by_sum(grad_mask, grad_sum):
+    return grad_mask / grad_sum
+
+
+def spectral_lens_mean_freq(data):
+    def func(init_val, temp_grad, frequency):
+        return init_val + temp_grad * (frequency ** (3 / 2) / (1 - frequency))
+
+    grad_sum = spectral_lens_generic(data, running_sum, [sum_channels])
+    div_by_sum_internal = functools.partial(div_by_sum, grad_sum=grad_sum)
+    perprocess = [sum_channels, div_by_sum_internal]
+
+    init_val = np.load(data.iloc[0]["grad_mask"])
+    init_val = np.zeros_like(sum_channels(init_val))
+
+    for id, row in data.iterrows():
+        temp_grad = np.load(row["grad_mask"])
+        temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
+        init_val = func(init_val, temp_grad, row["alpha_mask_value"])
+
+    assert init_val.ndim == 3, f"{init_val.shape} must be 4d (H,W,C)"
+    init_val = np.expand_dims(init_val, axis=0)
+    return init_val
+
+
+def save_spectral_lens(data, save_raw_data_dir):
+    image_index = data["image_index"].iloc[0]
+    init_val = spectral_lens_mean_freq(data)
+    rnd = np.random.randint(0, 1000)
+    path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
+    save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
+    np.save(save_path, init_val)
+    return save_path
 
 
 def fisher_information(dynamic_meanx2, static_meanx2, prior):
@@ -102,7 +153,7 @@ def minmax_normalize(x, min_=None, max_=None, return_minmax=False):
     if max_ is None:
         max_ = jnp.max(x)
     x = x - min_
-    x = x / max_
+    x = x / (max_ - min_)
     if return_minmax:
         return x, min_, max_
     else:
@@ -119,9 +170,9 @@ def sum_channels(x):
     return x
 
 
-def single_query_imagenet(dataset_dir, image_index, input_shape):
+def single_query_imagenet(dataset_dir, skip, input_shape, take=1):
     args = argparse.Namespace(
-        dataset_dir=dataset_dir, input_shape=input_shape, image_index=[image_index, 1]
+        dataset_dir=dataset_dir, input_shape=input_shape, image_index=[skip, take]
     )
     query_imagenet(args)
     return args.image[0], args.label[0], args.image_path[0]
@@ -190,3 +241,53 @@ def query_cifar10(args):
             f"image shape is {args.image[-1].shape}, "
             f"expected input shape is {args.input_shape}"
         )
+
+
+class SLQDataset(Dataset):
+    """Face Landmarks dataset."""
+
+    def __init__(self, sl_metadata, remove_q=0, verbose=False):
+        """
+        Arguments:
+            sl_metadata (string): Path to the csv metadata file.
+            q (float): The quantile value for the saliency mask to remove from the image.
+        """
+        self.sl_metadata = sl_metadata
+        self.q = 100 - remove_q
+        self.verbose = verbose
+
+    def __len__(self):
+        return len(self.sl_metadata)
+
+    def __getitem__(self, idx):
+        original_image_path = self.sl_metadata.iloc[idx]["image_path"]
+        image_index = self.sl_metadata.iloc[idx]["image_index"]
+        saliency_image_path = self.sl_metadata.iloc[idx]["data_path"]
+        label = self.sl_metadata.iloc[idx]["label"]
+        alpha_mask_value = self.sl_metadata.iloc[idx]["alpha_mask_value"]
+
+        original_image = io.imread(original_image_path)
+        original_image = preprocess(original_image, img_size=224)
+        saliency_image = np.load(saliency_image_path)
+
+        masked_image = original_image * (
+            saliency_image < np.percentile(saliency_image, self.q)
+        )
+
+        if self.verbose:
+            sample = {
+                "original_image": original_image,
+                "saliency": saliency_image,
+                "label": label,
+                "masked_image": masked_image,
+                "image_index": image_index,
+                "alpha_mask_value": alpha_mask_value,
+
+            }
+        else:
+            sample = {
+                "masked_image": masked_image,
+                "label": label,
+                "image_index": image_index,
+            }
+        return sample

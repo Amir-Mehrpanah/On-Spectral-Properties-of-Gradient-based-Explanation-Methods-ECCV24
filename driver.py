@@ -66,5 +66,10 @@ elif driver_args.action == Action.compute_inconsistency:
         action_args.pivot_column,
         action_args.inconsistency_measure_name,
     )
+elif driver_args.action == Action.compute_spectral_lens:
+    project_manager.compute_spectral_lens(
+        driver_args.save_metadata_dir,
+        driver_args.save_raw_data_dir,
+    )
 else:
     raise NotImplementedError

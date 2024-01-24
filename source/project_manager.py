@@ -1,3 +1,4 @@
+from argparse import Namespace
 import numpy as np
 import pandas as pd
 from glob import glob
@@ -5,6 +6,10 @@ import os
 
 import tensorflow as tf
 import logging
+from torch.utils.data import Dataset, DataLoader
+
+from source.data_manager import SLQDataset, save_spectral_lens
+from source.model_manager import init_resnet50_forward
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +76,91 @@ def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv"):
     save_metadata_path = os.path.join(save_metadata_dir, f"merged_metadata.csv")
     logger.info(f"Saving merged metadata to {save_metadata_path}")
     project_data.to_csv(save_metadata_path, index=False)
+
+
+def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
+    project_metadata = load_experiment_metadata(
+        save_metadata_dir, glob_path="merged_*.csv"
+    )
+    logger.info(f"Loaded metadata from {save_metadata_dir}")
+    project_metadata = (
+        project_metadata.dropna()
+        .set_index(
+            [
+                "stream_name",
+                "stream_statistic",
+                "image_index",
+                "alpha_mask_value",
+            ]
+        )
+        .sort_index()
+    )
+    explanations_temp = project_metadata.loc[
+        ("vanilla_grad_mask", "meanx2", slice(None), slice(None)), "data_path"
+    ]
+    explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
+    explanations_temp.name = "grad_mask"
+    explanations_temp.sort_index(inplace=True)
+    explanations_temp = explanations_temp.reset_index()
+
+    explanations_mean_freq = explanations_temp.groupby(
+        "image_index", as_index=True
+    ).apply(
+        save_spectral_lens,
+        save_raw_data_dir=save_raw_data_dir,
+    )
+    explanations_mean_freq.name = "data_path"
+
+    logger.debug(
+        f"spectral lens shape before concatenating auxilary data {explanations_mean_freq.shape}"
+    )
+    # concat auxilary information
+    f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
+    explanations_temp = project_metadata.loc[
+        ("vanilla_grad_mask", "meanx2", slice(None), f0), ["image_path", "label"]
+    ]
+    explanations_temp = explanations_temp.droplevel(
+        ["stream_name", "stream_statistic", "alpha_mask_value"]
+    )
+    explanations_temp.sort_index(inplace=True)
+    explanations_mean_freq = pd.concat(
+        [explanations_mean_freq, explanations_temp], axis=1
+    )
+    explanations_mean_freq = explanations_mean_freq.reset_index()
+
+    logger.debug(
+        f"spectral lens shape after concatenating auxilary data {explanations_mean_freq.shape}"
+    )
+
+    explanations_temp = project_metadata.loc[
+        ("vanilla_grad_mask", "meanx2", slice(None), slice(None)),
+        ["data_path", "image_path", "label"],
+    ]
+    explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
+    explanations_temp = explanations_temp.reset_index()
+    logger.debug(
+        f"merged_metadata shape before concatenating spectral lens metadata {explanations_temp.shape}"
+    )
+
+    explanations_temp = pd.concat([explanations_mean_freq, explanations_temp], axis=0)
+    logger.debug(
+        f"merged_metadata shape after concatenating spectral lens metadata {explanations_temp.shape}"
+    )
+    save_path = os.path.join(save_metadata_dir, "sl_merged_metadata.csv")
+    explanations_temp.to_csv(save_path, index=False)
+    logger.debug(f"saved sl_merged_metadata in {save_path}")
+
+
+def compute_accuracy_at_q(save_metadata_dir,input_shape, q):
+    sl_metadata = load_experiment_metadata(
+        save_metadata_dir, glob_path="sl_merged_*.csv"
+    )
+    slqds = SLQDataset(sl_metadata, remove_q=q)
+    slqdl = DataLoader(slqds, batch_size=4, shuffle=False, num_workers=4)
+    args = Namespace(input_shape=input_shape, output_layer="log_softmax")
+    init_resnet50_forward(args)
+    forward = args.forward[0]
+    for batch in slqdl:
+        preds = forward(batch["masked_image"])
+        logger.debug("preds.shape",preds.shape)
+        break
