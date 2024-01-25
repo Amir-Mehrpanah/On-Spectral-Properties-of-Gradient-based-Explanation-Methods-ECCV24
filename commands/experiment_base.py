@@ -8,9 +8,13 @@ import os
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
-save_raw_data_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/raw_data/"
+save_raw_data_base_dir = (
+    "/home/x_amime/x_amime/projects/an_explanation_model/outputs/raw_data/"
+)
 save_output_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/"
-save_metadata_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/metadata/"
+save_metadata_base_dir = (
+    "/home/x_amime/x_amime/projects/an_explanation_model/outputs/metadata/"
+)
 
 
 def set_logging_level(logging_level):
@@ -24,10 +28,13 @@ def set_logging_level(logging_level):
 def _sweeper_cmd(
     **kwargs,
 ):
-    experiment_name, slurm_args, array_process = handle_sbatch_args(kwargs)
+    experiment_name, slurm_args, array_process, sweeper_name = handle_sbatch_args(
+        kwargs
+    )
     sweeper_tmp = create_temp_sweeper_file(
         experiment_name=experiment_name,
         array_process=array_process,
+        sweeper_name=sweeper_name,
     )
 
     # handle method args
@@ -49,10 +56,10 @@ def _sweeper_cmd(
     )
 
 
-def create_temp_sweeper_file(experiment_name, array_process):
+def create_temp_sweeper_file(experiment_name, array_process, sweeper_name):
     os.makedirs("commands/temp", exist_ok=True)
     # load _sweeper.sbatch
-    with open("commands/_sweeper.sbatch", "r") as f:
+    with open(f"commands/{sweeper_name}", "r") as f:
         sweeper = f.read()
     # replace #MOD_PLACEHOLDER with array_process
     sweeper = sweeper.replace("#MOD_PLACEHOLDER", array_process)
@@ -66,6 +73,7 @@ def create_temp_sweeper_file(experiment_name, array_process):
 
 
 def handle_sbatch_args(kwargs):
+    sweeper_name = "_sweeper.sbatch"
     array_process = ""
     job_array = ""
     constraint = ""
@@ -97,8 +105,14 @@ def handle_sbatch_args(kwargs):
         logger.debug(f"array_process: {array_process}")
         del kwargs["array_process"]
 
+    if "sweeper_name" in kwargs:
+        sweeper_name = kwargs["sweeper_name"]
+        logger.debug(f"sweeper_name: {sweeper_name}")
+        del kwargs["sweeper_name"]
+
     slurm_args = f"{experiment_name_cmd}{number_of_gpus}{job_array}{constraint}"
-    return experiment_name, slurm_args, array_process
+
+    return experiment_name, slurm_args, array_process, sweeper_name
 
 
 def run_experiment(**args):

@@ -1,15 +1,8 @@
-from argparse import Namespace
-import numpy as np
 import pandas as pd
 from glob import glob
 import os
 
-import tensorflow as tf
 import logging
-from torch.utils.data import Dataset, DataLoader
-
-from source.data_manager import SLQDataset, save_spectral_lens
-from source.model_manager import init_resnet50_forward
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +96,8 @@ def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
     explanations_temp.sort_index(inplace=True)
     explanations_temp = explanations_temp.reset_index()
 
+    from source.data_manager import save_spectral_lens
+
     explanations_mean_freq = explanations_temp.groupby(
         "image_index", as_index=True
     ).apply(
@@ -149,18 +144,3 @@ def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
     save_path = os.path.join(save_metadata_dir, "sl_merged_metadata.csv")
     explanations_temp.to_csv(save_path, index=False)
     logger.debug(f"saved sl_merged_metadata in {save_path}")
-
-
-def compute_accuracy_at_q(save_metadata_dir,input_shape, q):
-    sl_metadata = load_experiment_metadata(
-        save_metadata_dir, glob_path="sl_merged_*.csv"
-    )
-    slqds = SLQDataset(sl_metadata, remove_q=q)
-    slqdl = DataLoader(slqds, batch_size=4, shuffle=False, num_workers=4)
-    args = Namespace(input_shape=input_shape, output_layer="log_softmax")
-    init_resnet50_forward(args)
-    forward = args.forward[0]
-    for batch in slqdl:
-        preds = forward(batch["masked_image"])
-        logger.debug("preds.shape",preds.shape)
-        break

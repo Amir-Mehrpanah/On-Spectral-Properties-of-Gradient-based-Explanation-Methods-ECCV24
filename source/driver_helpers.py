@@ -7,6 +7,7 @@ import logging
 from typing import List
 import numpy as np
 import pandas as pd
+
 import jax
 import jax.numpy as jnp
 import tensorflow as tf
@@ -107,11 +108,16 @@ def base_parser(parser, default_args: DefaultArgs):
             save_metadata_dir=args.save_metadata_dir,
             save_raw_data_dir=args.save_raw_data_dir,
         )
+    elif args.action == Action.compute_accuracy_at_q:
+        action_args = _parse_accuracy_at_q_args(parser, default_args)
+        driver_args = argparse.Namespace(
+            action=args.action,
+            save_metadata_dir=args.save_metadata_dir,
+        )
     else:
         raise NotImplementedError("other actions are not implemented")
 
     return driver_args, action_args
-
 
 def _parse_measure_inconsistency_args(parser, default_args):
     parser.add_argument(
@@ -177,6 +183,8 @@ def _parse_measure_inconsistency_args(parser, default_args):
 
 
 def get_inconsistency_measure(args):
+    import jax
+
     if args.inconsistency_measure == InconsistencyMeasures.cosine_distance:
         inconsistency_measure_func = _measure_inconsistency_cosine_distance(
             downsampling_factor=args.downsampling_factor,
@@ -267,7 +275,7 @@ def _parse_general_args(parser, default_args):
 
     if args.assert_device:
         assert jax.device_count() > 0, "jax devices are not available"
-
+        
     if args.disable_jit:
         logger.info("jit is disabled.")
         jax.config.update("jax_disable_jit", True)

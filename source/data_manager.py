@@ -5,12 +5,9 @@ import PIL
 from matplotlib import pyplot as plt
 import numpy as np
 import argparse
-import pandas as pd
-from skimage import io
 from pandas import Series
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from torch.utils.data import Dataset, DataLoader
 import jax.numpy as jnp
 import logging
 
@@ -241,53 +238,3 @@ def query_cifar10(args):
             f"image shape is {args.image[-1].shape}, "
             f"expected input shape is {args.input_shape}"
         )
-
-
-class SLQDataset(Dataset):
-    """Face Landmarks dataset."""
-
-    def __init__(self, sl_metadata, remove_q=0, verbose=False):
-        """
-        Arguments:
-            sl_metadata (string): Path to the csv metadata file.
-            q (float): The quantile value for the saliency mask to remove from the image.
-        """
-        self.sl_metadata = sl_metadata
-        self.q = 100 - remove_q
-        self.verbose = verbose
-
-    def __len__(self):
-        return len(self.sl_metadata)
-
-    def __getitem__(self, idx):
-        original_image_path = self.sl_metadata.iloc[idx]["image_path"]
-        image_index = self.sl_metadata.iloc[idx]["image_index"]
-        saliency_image_path = self.sl_metadata.iloc[idx]["data_path"]
-        label = self.sl_metadata.iloc[idx]["label"]
-        alpha_mask_value = self.sl_metadata.iloc[idx]["alpha_mask_value"]
-
-        original_image = io.imread(original_image_path)
-        original_image = preprocess(original_image, img_size=224)
-        saliency_image = np.load(saliency_image_path)
-
-        masked_image = original_image * (
-            saliency_image < np.percentile(saliency_image, self.q)
-        )
-
-        if self.verbose:
-            sample = {
-                "original_image": original_image,
-                "saliency": saliency_image,
-                "label": label,
-                "masked_image": masked_image,
-                "image_index": image_index,
-                "alpha_mask_value": alpha_mask_value,
-
-            }
-        else:
-            sample = {
-                "masked_image": masked_image,
-                "label": label,
-                "image_index": image_index,
-            }
-        return sample
