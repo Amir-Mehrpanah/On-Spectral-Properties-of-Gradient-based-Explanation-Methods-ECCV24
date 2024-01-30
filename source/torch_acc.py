@@ -10,7 +10,6 @@ import torch
 import sys
 
 sys.path.append(os.getcwd())
-from source.utils import debug_nice
 from source.project_manager import load_experiment_metadata
 
 logger = logging.getLogger(__name__)
@@ -55,13 +54,11 @@ class SLQDataset(Dataset):
         if self.q < 100 or self.verbose:
             saliency_image = np.load(saliency_image_path)
             saliency_image = torch.tensor(saliency_image)
-            # (H, W, C) -> (N, H)
+            # (1, H, W, C) -> (1, H, W)
             saliency_image = torch.sum(
                 saliency_image,
                 axis=-1,
             )
-            # (N, H) -> (1, N, H)
-            saliency_image = saliency_image.unsqueeze(0)
             mask = saliency_image < np.percentile(saliency_image, self.q)
             masked_image = original_image * mask
         else:
@@ -110,7 +107,7 @@ def compute_accuracy_at_q(
     forward.eval()
     preds = []
     with torch.no_grad():
-        for i, batch in enumerate(slqdl):
+        for batch in slqdl:
             logits = forward(batch["masked_image"])
             logits = logits.argmax(axis=1)
             preds.append(logits == batch["label"])

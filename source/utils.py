@@ -17,6 +17,7 @@ class Action:
     merge_stats = "merge_stats"
     compute_accuracy_at_q = "compute_accuracy_at_q"
     compute_spectral_lens = "compute_spectral_lens"
+    compute_integrated_grad = "compute_integrated_grad"
 
 
 class InconsistencyMeasures:

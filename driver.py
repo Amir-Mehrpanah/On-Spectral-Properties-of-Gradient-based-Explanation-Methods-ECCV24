@@ -71,6 +71,11 @@ elif driver_args.action == Action.compute_spectral_lens:
         driver_args.save_metadata_dir,
         driver_args.save_raw_data_dir,
     )
+elif driver_args.action == Action.compute_integrated_grad:
+    project_manager.compute_integrated_grad(
+        driver_args.save_metadata_dir,
+        driver_args.save_raw_data_dir,
+    )
 elif driver_args.action == Action.compute_accuracy_at_q:
     raise NotImplementedError("Call this from torch_driver.py")
 else:

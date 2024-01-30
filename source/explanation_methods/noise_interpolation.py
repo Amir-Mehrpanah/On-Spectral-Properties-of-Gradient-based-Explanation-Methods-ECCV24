@@ -480,9 +480,9 @@ class NoiseInterpolation:
 
     @staticmethod
     def _process_logics_alpha_mask(args_dict):
-        if args_dict["alpha_mask_type"] == "static":
+        if "static" == args_dict["alpha_mask_type"]:
             assert args_dict["alpha_mask_value"] is not None
-        elif args_dict["alpha_mask_type"] == "uniform":
+        elif "uniform" in args_dict["alpha_mask_type"]:
             assert args_dict["alpha_mask_value"] is None
 
     @staticmethod
