@@ -27,6 +27,15 @@ from source.utils import (
 logger = logging.getLogger(__name__)
 
 
+def _bool(x) -> bool:
+    if x.lower() == "true":
+        return True
+    elif x.lower() == "false":
+        return False
+    else:
+        raise ValueError(f"expected True or False got {x}")
+
+
 class TypeOrNone:
     def __init__(self, type) -> None:
         self.type = type
@@ -159,7 +168,7 @@ class NoiseInterpolation:
         )
         base_parser.add_argument(
             "--normalize_sample",
-            type=bool,
+            type=_bool,
             default=[True],
             nargs="+",
         )
@@ -170,7 +179,6 @@ class NoiseInterpolation:
         mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
         num_samplers = cls.compute_num_samplers(mixed_args, mixed_pattern)
-
         if logger.isEnabledFor(logging.INFO):
             cls.pretty_print_args(mixed_args)
 
@@ -472,9 +480,9 @@ class NoiseInterpolation:
         if args_dict["baseline_mask_type"] == "static":
             assert args_dict["baseline_mask_value"] is not None
             if isinstance(args_dict["baseline_mask_value"], float):
-                assert (
-                    args_dict["normalize_sample"] is False
-                ), "normalization of convex interpolation with static baseline is not expected"
+                assert not args_dict[
+                    "normalize_sample"
+                ], "normalization of convex interpolation with static baseline is not expected"
         elif args_dict["baseline_mask_type"] == "gaussian":
             assert args_dict["baseline_mask_value"] is None
 
