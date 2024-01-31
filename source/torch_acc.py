@@ -87,10 +87,9 @@ def compute_accuracy_at_q(
     prefetch_factor,
     batch_size,
     q,
+    glob_path,
 ):
-    sl_metadata = load_experiment_metadata(
-        save_metadata_dir, glob_path="sl_merged_*.csv"
-    )
+    sl_metadata = load_experiment_metadata(save_metadata_dir, glob_path=glob_path)
     slqds = SLQDataset(sl_metadata, remove_q=q)
     slqdl = DataLoader(
         slqds,

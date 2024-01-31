@@ -76,6 +76,11 @@ def _parse_accuracy_at_q_args(parser, default_args):
         nargs="+",
     )
     parser.add_argument(
+        "--glob_path",
+        type=str,
+        default="sl_merged_*.csv",
+    )
+    parser.add_argument(
         "--batch_size",
         type=int,
         default=default_args.batch_size,
@@ -91,6 +96,7 @@ def _parse_accuracy_at_q_args(parser, default_args):
         q=args.q,
         batch_size=args.batch_size,
         prefetch_factor=args.prefetch_factor,
+        glob_path=args.glob_path,
     )
 
 
@@ -108,6 +114,7 @@ if driver_args.action == Action.compute_accuracy_at_q:
             action_args.prefetch_factor,
             action_args.batch_size,
             q,
+            action_args.glob_path,
         )
 else:
     raise NotImplementedError

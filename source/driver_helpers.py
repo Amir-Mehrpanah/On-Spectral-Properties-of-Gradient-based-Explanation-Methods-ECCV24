@@ -108,12 +108,15 @@ def base_parser(parser, default_args: DefaultArgs):
             save_metadata_dir=args.save_metadata_dir,
             save_raw_data_dir=args.save_raw_data_dir,
         )
-    elif args.action == Action.compute_accuracy_at_q:
-        action_args = _parse_accuracy_at_q_args(parser, default_args)
+    elif args.action == Action.compute_integrated_grad:
+        action_args = argparse.Namespace()
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
+            save_raw_data_dir=args.save_raw_data_dir,
         )
+    elif args.action == Action.compute_accuracy_at_q:
+        raise ValueError("compute_accuracy_at_q must be called from torch driver")
     else:
         raise NotImplementedError("other actions are not implemented")
 
