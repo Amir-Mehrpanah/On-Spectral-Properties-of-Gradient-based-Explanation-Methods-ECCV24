@@ -96,7 +96,7 @@ def base_parser(parser, default_args: DefaultArgs):
             save_metadata_dir=args.save_metadata_dir,
         )
     elif args.action == Action.merge_stats:
-        action_args = argparse.Namespace()
+        action_args = _merge_stats_args(parser)
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
@@ -109,7 +109,7 @@ def base_parser(parser, default_args: DefaultArgs):
             save_raw_data_dir=args.save_raw_data_dir,
         )
     elif args.action == Action.compute_integrated_grad:
-        action_args = argparse.Namespace()
+        action_args = _parse_integrated_grad_args(parser)
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
@@ -121,6 +121,44 @@ def base_parser(parser, default_args: DefaultArgs):
         raise NotImplementedError("other actions are not implemented")
 
     return driver_args, action_args
+
+
+def _merge_stats_args(parser):
+    parser.add_argument(
+        "--glob_path",
+        type=str,
+        default="*.csv",
+    )
+    parser.add_argument(
+        "--file_name",
+        type=str,
+        default="merged_metadata.csv",
+    )
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def _parse_integrated_grad_args(parser):
+    parser.add_argument(
+        "--stream_statistic",
+        type=str,
+        default=Statistics.meanx2,
+    )
+    parser.add_argument(
+        "--alpha_mask_name",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
+        "--alpha_prior",
+        type=float,
+        default=slice(None),
+        nargs="+",
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
 
 def _parse_measure_inconsistency_args(parser, default_args):
     parser.add_argument(
@@ -186,8 +224,6 @@ def _parse_measure_inconsistency_args(parser, default_args):
 
 
 def get_inconsistency_measure(args):
-    import jax
-
     if args.inconsistency_measure == InconsistencyMeasures.cosine_distance:
         inconsistency_measure_func = _measure_inconsistency_cosine_distance(
             downsampling_factor=args.downsampling_factor,
@@ -278,7 +314,7 @@ def _parse_general_args(parser, default_args):
 
     if args.assert_device:
         assert jax.device_count() > 0, "jax devices are not available"
-        
+
     if args.disable_jit:
         logger.info("jit is disabled.")
         jax.config.update("jax_disable_jit", True)
@@ -417,23 +453,19 @@ def _process_gather_stats_args(args):
     init_architecture_forward_switch[args.architecture](args)
     logger.debug("initialized the architecture.")
 
-    if args.monitored_statistic == "meanx2":
-        monitored_statistic = Statistics.meanx2
-    else:
+    if args.monitored_statistic != Statistics.meanx2:
         raise NotImplementedError("other stats are not implemented")
 
-    if args.monitored_stream == "vanilla_grad_mask":
-        monitored_stream = StreamNames.vanilla_grad_mask
-    else:
+    if args.monitored_stream != StreamNames.vanilla_grad_mask:
         raise NotImplementedError("other streams must be implemented")
 
     args.monitored_statistic_key = Stream(
-        monitored_stream,
+        args.monitored_stream,
         Statistics.abs_delta,
     )
     args.monitored_statistic_source_key = Stream(
-        monitored_stream,
-        monitored_statistic,
+        args.monitored_stream,
+        args.monitored_statistic,
     )
     args.batch_index_key = Stream(
         StreamNames.batch_index,
@@ -626,19 +658,19 @@ def filter_relevant_parts(measure_inconsistency_name, merged_metadata):
 
     elif measure_inconsistency_name == InconsistencyMeasures.dssim:
         meanx2_metadata = merged_metadata[
-            (merged_metadata["stream_name"] == "vanilla_grad_mask")
-            & (merged_metadata["stream_statistic"] == "meanx2")
+            (merged_metadata["stream_name"] == StreamNames.vanilla_grad_mask)
+            & (merged_metadata["stream_statistic"] == Statistics.meanx2)
         ]
         meanx_metadata = merged_metadata[
-            (merged_metadata["stream_name"] == "vanilla_grad_mask")
-            & (merged_metadata["stream_statistic"] == "meanx")
+            (merged_metadata["stream_name"] == StreamNames.vanilla_grad_mask)
+            & (merged_metadata["stream_statistic"] == Statistics.meanx)
         ]
         assert len(meanx2_metadata) == len(meanx_metadata), (
             f"meanx2_metadata and meanx_metadata must have"
             f" the same length, got {len(meanx2_metadata)}"
             f" and {len(meanx_metadata)}"
         )
-        keys = ("meanx", "meanx2")
+        keys = (Statistics.meanx, Statistics.meanx2)
         return keys, (meanx_metadata, meanx2_metadata)
 
 

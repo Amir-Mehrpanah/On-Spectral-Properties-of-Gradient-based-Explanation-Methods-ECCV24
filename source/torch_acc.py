@@ -86,6 +86,7 @@ def compute_accuracy_at_q(
     save_metadata_dir,
     prefetch_factor,
     batch_size,
+    save_file_name_prefix,
     q,
     glob_path,
 ):
@@ -120,6 +121,5 @@ def compute_accuracy_at_q(
     preds["q"] = q
 
     sl_metadata = pd.concat([sl_metadata, preds], axis=1)
-    sl_metadata.to_csv(
-        os.path.join(save_metadata_dir, f"slq_merged_{q}.csv"), index=False
-    )
+    file_name = f"{save_file_name_prefix}_{q}.csv"
+    sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)

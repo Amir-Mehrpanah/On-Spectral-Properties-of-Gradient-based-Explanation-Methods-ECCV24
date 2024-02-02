@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.append(os.getcwd())
-from source.utils import Action, InconsistencyMeasures
+from source.utils import Action, InconsistencyMeasures, Statistics, StreamNames
 
 
 class DefaultArgs:
@@ -36,9 +36,9 @@ class DefaultArgs:
     logging_level = logging.INFO
     stats_log_level = 0
     skip_data = None
-    monitored_statistic = "meanx2"
+    monitored_statistic = Statistics.meanx2
     output_layer = output_layers[1]  # see paper for why
-    monitored_stream = "vanilla_grad_mask"
+    monitored_stream = StreamNames.vanilla_grad_mask
     min_change = 1e-2
     batch_size = 32
     max_batches = 10000 // batch_size

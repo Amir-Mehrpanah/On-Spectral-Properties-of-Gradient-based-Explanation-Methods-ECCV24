@@ -52,12 +52,18 @@ def load_experiment_inconsistency(save_metadata_dir, glob_path: str = "*.csv"):
     return pd.read_csv(metadata_path, index_col=False)
 
 
-def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv"):
+def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv", file_name: str = "merged_metadata.csv"):
     metadata_glob_path = os.path.join(save_metadata_dir, glob_path)
     metadata_paths = glob(metadata_glob_path)
     dataframes = []
     if metadata_paths:
         for metadata_path in metadata_paths:
+            # check if methadata_path contains "merged" and skip it
+            if file_name in metadata_path:
+                logger.debug(
+                    f"Skipping {metadata_path}, will be overwritten by merge action"
+                )
+                continue
             project_data = pd.read_csv(metadata_path)
             dataframes.append(project_data)
     else:
@@ -66,11 +72,19 @@ def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv"):
         )
 
     project_data = pd.concat(dataframes)
-    save_metadata_path = os.path.join(save_metadata_dir, f"merged_metadata.csv")
+    save_metadata_path = os.path.join(save_metadata_dir, file_name)
     logger.info(f"Saving merged metadata to {save_metadata_path}")
     project_data.to_csv(save_metadata_path, index=False)
 
-def compute_integrated_grad(save_metadata_dir, save_raw_data_dir):
+
+def compute_the_explanation_prior(
+    save_metadata_dir,
+    save_raw_data_dir,
+    stream_statistic,
+    save_results_fn,
+    alpha_mask_name,
+    alpha_prior,
+):
     project_metadata = load_experiment_metadata(
         save_metadata_dir, glob_path="merged_*.csv"
     )
@@ -88,132 +102,76 @@ def compute_integrated_grad(save_metadata_dir, save_raw_data_dir):
         .sort_index()
     )
     explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", "meanx2", slice(None), slice(None)), "data_path"
+        ("vanilla_grad_mask", stream_statistic, slice(None), alpha_prior), "data_path"
     ]
     explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
     explanations_temp.name = "grad_mask"
     explanations_temp.sort_index(inplace=True)
     explanations_temp = explanations_temp.reset_index()
 
+    explanations_mean_freq = explanations_temp.groupby(
+        "image_index", as_index=True
+    ).apply(
+        save_results_fn,
+        save_raw_data_dir=save_raw_data_dir,
+    )
+    explanations_mean_freq.name = "data_path"
+
+    logger.debug(
+        f"statistics shape before concatenating auxilary data {explanations_mean_freq.shape}"
+    )
+    # concat auxilary information
+    f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
+    explanations_temp = project_metadata.loc[
+        ("vanilla_grad_mask", stream_statistic, slice(None), f0),
+        ["image_path", "label"],
+    ]
+    explanations_temp = explanations_temp.droplevel(
+        ["stream_name", "stream_statistic", "alpha_mask_value"]
+    )
+    explanations_temp.sort_index(inplace=True)
+    explanations_mean_freq = pd.concat(
+        [explanations_mean_freq, explanations_temp], axis=1
+    )
+    explanations_mean_freq = explanations_mean_freq.reset_index()
+
+    explanations_mean_freq["alpha_mask_value"] = alpha_mask_name
+    logger.debug(
+        f"statistics shape after concatenating auxilary data {explanations_mean_freq.shape}"
+    )
+
+    save_path = os.path.join(save_metadata_dir, f"{alpha_mask_name}_metadata.csv")
+    explanations_mean_freq.to_csv(save_path, index=False)
+    logger.debug(f"saved {alpha_mask_name}_metadata in {save_path}")
+
+
+def compute_integrated_grad(
+    save_metadata_dir,
+    save_raw_data_dir,
+    stream_statistic="meanx2",
+    alpha_mask_name="ig_sq",
+    alpha_prior=slice(None),
+):
     from source.data_manager import save_integrated_grad
 
-    explanations_mean_freq = explanations_temp.groupby(
-        "image_index", as_index=True
-    ).apply(
-        save_integrated_grad,
-        save_raw_data_dir=save_raw_data_dir,
-    )
-    explanations_mean_freq.name = "data_path"
-
-    logger.debug(
-        f"integrated grad shape before concatenating auxilary data {explanations_mean_freq.shape}"
-    )
-    # concat auxilary information
-    f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
-    explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", "meanx2", slice(None), f0), ["image_path", "label"]
-    ]
-    explanations_temp = explanations_temp.droplevel(
-        ["stream_name", "stream_statistic", "alpha_mask_value"]
-    )
-    explanations_temp.sort_index(inplace=True)
-    explanations_mean_freq = pd.concat(
-        [explanations_mean_freq, explanations_temp], axis=1
-    )
-    explanations_mean_freq = explanations_mean_freq.reset_index()
-
-    logger.debug(
-        f"spectral lens shape after concatenating auxilary data {explanations_mean_freq.shape}"
+    compute_the_explanation_prior(
+        save_metadata_dir,
+        save_raw_data_dir,
+        stream_statistic,
+        save_results_fn=save_integrated_grad,
+        alpha_mask_name=alpha_mask_name,
+        alpha_prior=alpha_prior,
     )
 
-    explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", "meanx2", slice(None), slice(None)),
-        ["data_path", "image_path", "label"],
-    ]
-    explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
-    explanations_temp = explanations_temp.reset_index()
-    logger.debug(
-        f"merged_metadata shape before concatenating spectral lens metadata {explanations_temp.shape}"
-    )
-
-    explanations_temp = pd.concat([explanations_mean_freq, explanations_temp], axis=0)
-    logger.debug(
-        f"merged_metadata shape after concatenating spectral lens metadata {explanations_temp.shape}"
-    )
-    save_path = os.path.join(save_metadata_dir, "ig_merged_metadata.csv")
-    explanations_temp.to_csv(save_path, index=False)
-    logger.debug(f"saved ig_merged_metadata in {save_path}")
 
 def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
-    project_metadata = load_experiment_metadata(
-        save_metadata_dir, glob_path="merged_*.csv"
-    )
-    logger.info(f"Loaded metadata from {save_metadata_dir}")
-    project_metadata = (
-        project_metadata.dropna()
-        .set_index(
-            [
-                "stream_name",
-                "stream_statistic",
-                "image_index",
-                "alpha_mask_value",
-            ]
-        )
-        .sort_index()
-    )
-    explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", "meanx2", slice(None), slice(None)), "data_path"
-    ]
-    explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
-    explanations_temp.name = "grad_mask"
-    explanations_temp.sort_index(inplace=True)
-    explanations_temp = explanations_temp.reset_index()
-
     from source.data_manager import save_spectral_lens
 
-    explanations_mean_freq = explanations_temp.groupby(
-        "image_index", as_index=True
-    ).apply(
-        save_spectral_lens,
-        save_raw_data_dir=save_raw_data_dir,
+    compute_the_explanation_prior(
+        save_metadata_dir,
+        save_raw_data_dir,
+        "meanx2",
+        save_results_fn=save_spectral_lens,
+        alpha_mask_name="SL-SQ",
+        alpha_prior=slice(None),
     )
-    explanations_mean_freq.name = "data_path"
-
-    logger.debug(
-        f"spectral lens shape before concatenating auxilary data {explanations_mean_freq.shape}"
-    )
-    # concat auxilary information
-    f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
-    explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", "meanx2", slice(None), f0), ["image_path", "label"]
-    ]
-    explanations_temp = explanations_temp.droplevel(
-        ["stream_name", "stream_statistic", "alpha_mask_value"]
-    )
-    explanations_temp.sort_index(inplace=True)
-    explanations_mean_freq = pd.concat(
-        [explanations_mean_freq, explanations_temp], axis=1
-    )
-    explanations_mean_freq = explanations_mean_freq.reset_index()
-
-    logger.debug(
-        f"spectral lens shape after concatenating auxilary data {explanations_mean_freq.shape}"
-    )
-
-    explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", "meanx2", slice(None), slice(None)),
-        ["data_path", "image_path", "label"],
-    ]
-    explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
-    explanations_temp = explanations_temp.reset_index()
-    logger.debug(
-        f"merged_metadata shape before concatenating spectral lens metadata {explanations_temp.shape}"
-    )
-
-    explanations_temp = pd.concat([explanations_mean_freq, explanations_temp], axis=0)
-    logger.debug(
-        f"merged_metadata shape after concatenating spectral lens metadata {explanations_temp.shape}"
-    )
-    save_path = os.path.join(save_metadata_dir, "sl_merged_metadata.csv")
-    explanations_temp.to_csv(save_path, index=False)
-    logger.debug(f"saved sl_merged_metadata in {save_path}")

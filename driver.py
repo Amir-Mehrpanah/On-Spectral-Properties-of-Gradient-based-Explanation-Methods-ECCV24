@@ -54,6 +54,8 @@ if driver_args.action == Action.gather_stats:
 elif driver_args.action == Action.merge_stats:
     project_manager.merge_experiment_metadata(
         driver_args.save_metadata_dir,
+        action_args.glob_path,
+        action_args.file_name,
     )
 elif driver_args.action == Action.compute_inconsistency:
     stats = measure_inconsistency(
@@ -75,6 +77,9 @@ elif driver_args.action == Action.compute_integrated_grad:
     project_manager.compute_integrated_grad(
         driver_args.save_metadata_dir,
         driver_args.save_raw_data_dir,
+        stream_statistic=action_args.stream_statistic,
+        alpha_mask_name=action_args.alpha_mask_name,
+        alpha_prior=action_args.alpha_prior,
     )
 elif driver_args.action == Action.compute_accuracy_at_q:
     raise NotImplementedError("Call this from torch_driver.py")

@@ -90,14 +90,14 @@ def _parse_accuracy_at_q_args(parser, default_args):
         type=int,
         default=default_args.prefetch_factor,
     )
+    parser.add_argument(
+        "--save_file_name_prefix",
+        type=str,
+        default="q_",
+    )
     args, _ = parser.parse_known_args()
 
-    return argparse.Namespace(
-        q=args.q,
-        batch_size=args.batch_size,
-        prefetch_factor=args.prefetch_factor,
-        glob_path=args.glob_path,
-    )
+    return args
 
 
 parser = argparse.ArgumentParser()
@@ -113,6 +113,7 @@ if driver_args.action == Action.compute_accuracy_at_q:
             driver_args.save_metadata_dir,
             action_args.prefetch_factor,
             action_args.batch_size,
+            action_args.save_file_name_prefix,
             q,
             action_args.glob_path,
         )

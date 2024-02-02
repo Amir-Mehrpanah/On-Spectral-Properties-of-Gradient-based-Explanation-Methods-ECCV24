@@ -4,6 +4,7 @@ import inspect
 from collections import OrderedDict
 import itertools
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -149,6 +150,9 @@ class StreamNames:
 
 
 class Statistics:
+    @staticmethod
+    def str_cast(x):
+        return getattr(Statistics, x)
     none = "none"
     meanx = "meanx"
     meanx2 = "meanx2"
