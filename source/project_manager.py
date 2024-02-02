@@ -77,7 +77,7 @@ def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv", 
     project_data.to_csv(save_metadata_path, index=False)
 
 
-def compute_the_explanation_prior(
+def compute_with_explanation_prior(
     save_metadata_dir,
     save_raw_data_dir,
     stream_statistic,
@@ -158,7 +158,7 @@ def compute_integrated_grad(
 ):
     from source.data_manager import save_integrated_grad
 
-    compute_the_explanation_prior(
+    compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
         stream_statistic,
@@ -171,7 +171,7 @@ def compute_integrated_grad(
 def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
     from source.data_manager import save_spectral_lens
 
-    compute_the_explanation_prior(
+    compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
         "meanx2",
