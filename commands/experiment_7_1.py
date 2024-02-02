@@ -6,7 +6,7 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
-from source.utils import Action, StreamNames
+from source.utils import Action, Statistics, StreamNames
 
 from commands.experiment_base import (
     wait_in_queue,
@@ -14,14 +14,22 @@ from commands.experiment_base import (
     set_logging_level,
     save_raw_data_base_dir,
     save_metadata_base_dir,
-    save_output_base_dir,
 )
 
 # Slurm args
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0" #  FINALE
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  #  DEBUG 
+alpha_priors = {
+    "ig_u_0_0.3": "0.0 0.1 0.2 0.3",
+    # "ig_u_0_0.2": "0.0 0.1 0.2",
+    # "ig_u_0_0.1": "0.0 0.1",
+}
+stream_statistics = [
+    Statistics.meanx,
+    # Statistics.meanx2,
+]
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
@@ -37,6 +45,7 @@ baseline_mask_type = "static"
 baseline_mask_value = "0.0"
 projection_type = "prediction"
 projection_top_k = 1
+stats_log_level = 1
 demo = False
 skip_data = " ".join([StreamNames.log_probs, StreamNames.results_at_projection])
 
@@ -56,7 +65,6 @@ args_pattern = json.dumps(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
-    parser.add_argument("--merge_stats", "-m", action="store_true")
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
     parser.add_argument("--remove_raw_data", "-r", action="store_true")
@@ -66,12 +74,12 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(1)
 
-    for i in range(1):  # FINALE
+    for i in range(1):  # DEBUG
         experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(i)
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-        job_array = "0-980:20"  # FINALE
+        job_array = "0"  # DEBUG -980:20
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
             f'array_process="--image_index $((1000*{i} + $SLURM_ARRAY_TASK_ID)) 20"'
@@ -96,6 +104,7 @@ if __name__ == "__main__":
                 projection_top_k=projection_top_k,
                 baseline_mask_type=baseline_mask_type,
                 baseline_mask_value=baseline_mask_value,
+                stats_log_level=stats_log_level,
                 demo=demo,
                 skip_data=skip_data,
                 dataset_dir=dataset_dir,
@@ -109,7 +118,6 @@ if __name__ == "__main__":
 
             wait_in_queue(0)  # wait for all jobs to finish
 
-        if args.merge_stats:
             run_experiment(
                 experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
@@ -120,19 +128,41 @@ if __name__ == "__main__":
 
             wait_in_queue(0)  # wait for all jobs to finish
 
+            files = glob(os.path.join(save_metadata_dir, "*"))
+            for f in files:
+                if "merged" in f:
+                    continue
+                os.remove(f)
+
         if args.compute_integrated_grad:
+            for i, (alpha_mask_name, alpha_prior) in enumerate(alpha_priors.items()):
+                for j, stream_statistic in enumerate(stream_statistics):
+                    alpha_mask_name = alpha_mask_name + "_" + stream_statistic
+                    run_experiment(
+                        experiment_name=f"ig_{experiment_name}_{i}_{j}",
+                        constraint=constraint,
+                        action=Action.compute_integrated_grad,
+                        logging_level=logging_level,
+                        save_metadata_dir=save_metadata_dir,
+                        save_raw_data_dir=save_raw_data_dir,
+                        stream_statistic=stream_statistic,
+                        alpha_mask_name=alpha_mask_name,
+                        alpha_prior=alpha_prior,
+                    )
+
+            wait_in_queue(0)
             run_experiment(
-                experiment_name=f"ig_{experiment_name}",
+                experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
-                action=Action.compute_integrated_grad,
+                action=Action.merge_stats,
+                glob_path="ig_*.csv",
+                file_name="merged_ig_metadata.csv",
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
-                save_raw_data_dir=save_raw_data_dir,
             )
-
             wait_in_queue(0)  # wait for all jobs to finish
 
-        job_array = "10-90:20"  # FINALE
+        job_array = "10"  # DEBUG -90:20
         array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
             run_experiment(
@@ -142,7 +172,8 @@ if __name__ == "__main__":
                 experiment_name=f"acc_{experiment_name}",
                 constraint=constraint,
                 number_of_gpus=1,
-                glob_path="ig_merged_*.csv",
+                glob_path="merged_ig_*.csv",
+                save_file_name_prefix="igq",
                 action=Action.compute_accuracy_at_q,
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
@@ -150,8 +181,18 @@ if __name__ == "__main__":
             )
 
             wait_in_queue(0)  # wait for all jobs to finish
+            run_experiment(
+                experiment_name=f"merge_{experiment_name}",
+                constraint=constraint,
+                action=Action.merge_stats,
+                glob_path="igq_*.csv",
+                file_name="merged_igq_metadata.csv",
+                logging_level=logging_level,
+                save_metadata_dir=save_metadata_dir,
+            )
+            wait_in_queue(0)  # wait for all jobs to finish
 
-        if args.remove_raw_data:
+        if args.remove_raw_data and i != 0:
             files = glob(os.path.join(save_raw_data_dir, "*"))
             for f in files:
                 os.remove(f)
