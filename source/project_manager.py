@@ -104,11 +104,15 @@ def compute_the_explanation_prior(
     explanations_temp = project_metadata.loc[
         ("vanilla_grad_mask", stream_statistic, slice(None), alpha_prior), "data_path"
     ]
+
     explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
     explanations_temp.name = "grad_mask"
     explanations_temp.sort_index(inplace=True)
     explanations_temp = explanations_temp.reset_index()
 
+    logger.debug(
+        f"statistics shape before computing the aggregation function {explanations_temp.shape}")
+    
     explanations_mean_freq = explanations_temp.groupby(
         "image_index", as_index=True
     ).apply(

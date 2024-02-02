@@ -59,7 +59,7 @@ class SLQDataset(Dataset):
                 saliency_image,
                 axis=-1,
             )
-            mask = saliency_image < np.percentile(saliency_image, self.q)
+            mask = (saliency_image < np.percentile(saliency_image, self.q))*1.0
             masked_image = original_image * mask
         else:
             masked_image = original_image
@@ -69,7 +69,7 @@ class SLQDataset(Dataset):
                 "original_image": original_image,
                 "saliency": saliency_image,
                 "label": label,
-                "mask": 1.0 * mask,
+                "mask": mask,
                 "masked_image": masked_image,
                 "image_index": image_index,
                 "alpha_mask_value": alpha_mask_value,
@@ -78,6 +78,7 @@ class SLQDataset(Dataset):
             sample = {
                 "masked_image": masked_image,
                 "label": label,
+                "actual_q": mask.mean(),
             }
         return sample
 
@@ -106,16 +107,20 @@ def compute_accuracy_at_q(
     )
     forward.eval()
     preds = []
+    actual_qs = []
     with torch.no_grad():
         for batch in slqdl:
             logits = forward(batch["masked_image"])
             logits = logits.argmax(axis=1)
             preds.append(logits == batch["label"])
+            actual_qs.append(batch["actual_q"])
+
 
     # convert preds to dataframe
     preds = pd.DataFrame(
         {
             "preds": np.concatenate(preds, axis=0),
+            "actual_q": np.concatenate(actual_qs, axis=0),
         },
     )
     preds["q"] = q
