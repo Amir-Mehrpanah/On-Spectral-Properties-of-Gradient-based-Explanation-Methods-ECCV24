@@ -58,7 +58,6 @@ def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv", 
     dataframes = []
     if metadata_paths:
         for metadata_path in metadata_paths:
-            # check if methadata_path contains "merged" and skip it
             if file_name in metadata_path:
                 logger.debug(
                     f"Skipping {metadata_path}, will be overwritten by merge action"

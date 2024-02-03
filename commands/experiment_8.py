@@ -1,3 +1,4 @@
+from glob import glob
 import json
 import numpy as np
 import logging
@@ -18,11 +19,11 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = "0-990:10"  # FINALE
+job_array = "0-990:10"  # DEBUG
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3" # FINALE
+alpha_mask_value = "0.0 0.1 0.2 0.3" # DEBUG
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-2
@@ -56,14 +57,13 @@ args_pattern = json.dumps(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
-    parser.add_argument("--merge_stats", "-m", action="store_true")
 
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
         
-    for i in range(1): # FINALE
+    for i in range(1): # DEBUG
         experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(i)
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
@@ -101,8 +101,6 @@ if __name__ == "__main__":
             )
 
             wait_in_queue(0)  # wait for all jobs to finish
-
-        if args.merge_stats:
             run_experiment(
                 experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
@@ -110,5 +108,10 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-
             wait_in_queue(0)  # wait for all jobs to finish
+
+            files = glob(os.path.join(save_metadata_dir, "*"))
+            for f in files:
+                if "merged" in f:
+                    continue
+                os.remove(f)

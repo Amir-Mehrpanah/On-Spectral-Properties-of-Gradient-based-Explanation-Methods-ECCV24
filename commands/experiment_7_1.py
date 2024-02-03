@@ -1,3 +1,5 @@
+## Experiment 7.1: Integrated gradients with different alpha priors
+
 import json
 import logging
 import argparse
@@ -10,6 +12,7 @@ from source.utils import Action, Statistics, StreamNames
 
 from commands.experiment_base import (
     wait_in_queue,
+    remove_files,
     run_experiment,
     set_logging_level,
     save_raw_data_base_dir,
@@ -20,15 +23,17 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  #  DEBUG 
-alpha_priors = {
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG 
+alpha_priors = {#  DEBUG 
+    "ig_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    "ig_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
+    "ig_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_u_0_0.3": "0.0 0.1 0.2 0.3",
-    # "ig_u_0_0.2": "0.0 0.1 0.2",
-    # "ig_u_0_0.1": "0.0 0.1",
+    "ig_u_0_0.1": "0.0 0.1",
 }
-stream_statistics = [
+stream_statistics = [#  DEBUG 
     Statistics.meanx,
-    # Statistics.meanx2,
+    Statistics.meanx2,
 ]
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
@@ -47,7 +52,7 @@ projection_type = "prediction"
 projection_top_k = 1
 stats_log_level = 1
 demo = False
-skip_data = " ".join([StreamNames.log_probs, StreamNames.results_at_projection])
+skip_data = " ".join([StreamNames.results_at_projection])
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
@@ -79,10 +84,10 @@ if __name__ == "__main__":
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-        job_array = "0"  # DEBUG -980:20
+        job_array = "0-990:10"  # DEBUG 
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
-            f'array_process="--image_index $((1000*{i} + $SLURM_ARRAY_TASK_ID)) 20"'
+            f'array_process="--image_index $((1000*{i} + $SLURM_ARRAY_TASK_ID)) 10"'
         )
 
         if args.gather_stats:
@@ -117,7 +122,6 @@ if __name__ == "__main__":
             )
 
             wait_in_queue(0)  # wait for all jobs to finish
-
             run_experiment(
                 experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
@@ -125,28 +129,23 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-
             wait_in_queue(0)  # wait for all jobs to finish
 
-            files = glob(os.path.join(save_metadata_dir, "*"))
-            for f in files:
-                if "merged" in f:
-                    continue
-                os.remove(f)
+            remove_files(save_metadata_dir)
 
         if args.compute_integrated_grad:
-            for i, (alpha_mask_name, alpha_prior) in enumerate(alpha_priors.items()):
+            for k, (alpha_mask_name, alpha_prior) in enumerate(alpha_priors.items()):
                 for j, stream_statistic in enumerate(stream_statistics):
-                    alpha_mask_name = alpha_mask_name + "_" + stream_statistic
+                    temp_name = alpha_mask_name + "_" + stream_statistic
                     run_experiment(
-                        experiment_name=f"ig_{experiment_name}_{i}_{j}",
+                        experiment_name=f"ig_{experiment_name}_{k}_{j}",
                         constraint=constraint,
                         action=Action.compute_integrated_grad,
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,
                         save_raw_data_dir=save_raw_data_dir,
                         stream_statistic=stream_statistic,
-                        alpha_mask_name=alpha_mask_name,
+                        alpha_mask_name=temp_name,
                         alpha_prior=alpha_prior,
                     )
 
@@ -155,14 +154,16 @@ if __name__ == "__main__":
                 experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
                 action=Action.merge_stats,
-                glob_path="ig_*.csv",
+                glob_path="*.csv",
                 file_name="merged_ig_metadata.csv",
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
             wait_in_queue(0)  # wait for all jobs to finish
 
-        job_array = "10"  # DEBUG -90:20
+            remove_files(save_metadata_dir)
+
+        job_array = "10-90:20"  # DEBUG 
         array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
             run_experiment(
@@ -192,7 +193,8 @@ if __name__ == "__main__":
             )
             wait_in_queue(0)  # wait for all jobs to finish
 
+            remove_files(save_metadata_dir)
+
         if args.remove_raw_data and i != 0:
-            files = glob(os.path.join(save_raw_data_dir, "*"))
-            for f in files:
-                os.remove(f)
+            remove_files(save_raw_data_dir)
+            

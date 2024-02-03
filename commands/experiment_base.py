@@ -1,3 +1,4 @@
+from glob import glob
 import logging
 import os
 import subprocess
@@ -16,6 +17,12 @@ save_metadata_base_dir = (
     "/home/x_amime/x_amime/projects/an_explanation_model/outputs/metadata/"
 )
 
+def remove_files(base_path,glob_path="*",exclude="merged"):
+    files = glob(os.path.join(base_path,glob_path ))
+    for f in files:
+        if exclude in f:
+            continue
+        os.remove(f)
 
 def set_logging_level(logging_level):
     logging.basicConfig(

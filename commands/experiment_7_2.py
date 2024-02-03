@@ -1,32 +1,46 @@
+## Experiment 7.1: Integrated gradients with Smooth Grad different alpha priors
+
 import json
 import logging
 import argparse
+from glob import glob
 import sys
 import os
 
 sys.path.append(os.getcwd())
-from source.utils import Action, StreamNames
+from source.utils import Action, Statistics, StreamNames
 
 from commands.experiment_base import (
+    remove_files,
     wait_in_queue,
     run_experiment,
     set_logging_level,
     save_raw_data_base_dir,
     save_metadata_base_dir,
-    save_output_base_dir,
 )
 
 # Slurm args
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3"  #  FINALE
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG 
+alpha_priors = {#  DEBUG 
+    "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
+    "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
+    "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
+    "ig_sg_u_0_0.1": "0.0 0.1",
+}
+stream_statistics = [#  DEBUG 
+    Statistics.meanx,
+    Statistics.meanx2,
+]
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-2
-batch_size = 64
-normalize_sample = True
+batch_size = 2
+normalize_sample = "False"
 input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
 architecture = "resnet50"
@@ -35,8 +49,9 @@ dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
 baseline_mask_type = "gaussian"
 projection_type = "prediction"
 projection_top_k = 1
+stats_log_level = 1
 demo = False
-skip_data = " ".join([StreamNames.log_probs, StreamNames.results_at_projection])
+skip_data = " ".join([StreamNames.results_at_projection])
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
@@ -54,25 +69,24 @@ args_pattern = json.dumps(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
-    parser.add_argument("--merge_stats", "-m", action="store_true")
-    parser.add_argument("--compute_spectral_lens", "-s", action="store_true")
+    parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
+    parser.add_argument("--remove_raw_data", "-r", action="store_true")
 
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
 
-    for i in range(1):  # FINALE 
-        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(i)
+    for batch in range(1):  # DEBUG
+        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(batch)
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
-        save_output_dir = os.path.join(save_output_base_dir, experiment_name)
-        
-        job_array = "0-990:10"  # FINALE
+
+        job_array = "0-990:10"  # DEBUG 
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
-            f'array_process="--image_index $((1000*{i} + $SLURM_ARRAY_TASK_ID)) 10"'
+            f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
         )
 
         if args.gather_stats:
@@ -93,6 +107,7 @@ if __name__ == "__main__":
                 projection_type=projection_type,
                 projection_top_k=projection_top_k,
                 baseline_mask_type=baseline_mask_type,
+                stats_log_level=stats_log_level,
                 demo=demo,
                 skip_data=skip_data,
                 dataset_dir=dataset_dir,
@@ -105,8 +120,6 @@ if __name__ == "__main__":
             )
 
             wait_in_queue(0)  # wait for all jobs to finish
-
-        if args.merge_stats:
             run_experiment(
                 experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
@@ -114,25 +127,41 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-
             wait_in_queue(0)  # wait for all jobs to finish
 
-        if args.compute_spectral_lens:
+            remove_files(save_metadata_dir)
+
+        if args.compute_integrated_grad:
+            for k, (alpha_mask_name, alpha_prior) in enumerate(alpha_priors.items()):
+                for j, stream_statistic in enumerate(stream_statistics):
+                    temp_name = alpha_mask_name + "_" + stream_statistic
+                    run_experiment(
+                        experiment_name=f"ig_{experiment_name}_{k}_{j}",
+                        constraint=constraint,
+                        action=Action.compute_integrated_grad,
+                        logging_level=logging_level,
+                        save_metadata_dir=save_metadata_dir,
+                        save_raw_data_dir=save_raw_data_dir,
+                        stream_statistic=stream_statistic,
+                        alpha_mask_name=temp_name,
+                        alpha_prior=alpha_prior,
+                    )
+
+            wait_in_queue(0)
             run_experiment(
-                experiment_name=f"sl_{experiment_name}",
+                experiment_name=f"merge_{experiment_name}",
                 constraint=constraint,
-                action=Action.compute_spectral_lens,
+                action=Action.merge_stats,
+                glob_path="*.csv",
+                file_name="merged_ig_metadata.csv",
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
-                save_raw_data_dir=save_raw_data_dir,
             )
-
             wait_in_queue(0)  # wait for all jobs to finish
+            remove_files(save_metadata_dir)
 
-        job_array = "10-70:20"  # FINALE
-        array_process = (
-            f'array_process="--q $SLURM_ARRAY_TASK_ID"'
-        )
+        job_array = "10-90:20"  # DEBUG 
+        array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
             run_experiment(
                 sweeper_name="_sweeper_torch.sbatch",
@@ -141,10 +170,26 @@ if __name__ == "__main__":
                 experiment_name=f"acc_{experiment_name}",
                 constraint=constraint,
                 number_of_gpus=1,
+                glob_path="merged_ig_*.csv",
+                save_file_name_prefix="igq",
                 action=Action.compute_accuracy_at_q,
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
                 batch_size=128,
             )
 
-            # wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0)  # wait for all jobs to finish
+            run_experiment(
+                experiment_name=f"merge_{experiment_name}",
+                constraint=constraint,
+                action=Action.merge_stats,
+                glob_path="igq*.csv",
+                file_name="merged_igq_metadata.csv",
+                logging_level=logging_level,
+                save_metadata_dir=save_metadata_dir,
+            )
+            wait_in_queue(0)  # wait for all jobs to finish
+            remove_files(save_metadata_dir)
+            
+        if args.remove_raw_data and batch != 0:
+            remove_files(save_raw_data_dir)

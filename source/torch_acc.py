@@ -92,6 +92,11 @@ def compute_accuracy_at_q(
     glob_path,
 ):
     sl_metadata = load_experiment_metadata(save_metadata_dir, glob_path=glob_path)
+    # filter rows that only have vanilla_grad_mask in their stream_name
+    sl_metadata = sl_metadata[sl_metadata["stream_name"] == "vanilla_grad_mask"]
+    logger.info(f"Loaded metadata from {save_metadata_dir} of shape"
+                f" {sl_metadata.shape} after filtering vanilla_grad_mask")
+
     slqds = SLQDataset(sl_metadata, remove_q=q)
     slqdl = DataLoader(
         slqds,
