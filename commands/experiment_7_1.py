@@ -103,6 +103,7 @@ if __name__ == "__main__":
                 architecture=architecture,
                 dataset=dataset,
                 min_change=min_change,
+                combination_fn=combination_fn,
                 alpha_mask_value=alpha_mask_value,
                 alpha_mask_type=alpha_mask_type,
                 projection_type=projection_type,
