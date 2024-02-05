@@ -1,14 +1,6 @@
-# Experiment 7.1: Integrated gradients with Smooth Grad different alpha priors
+# Experiment 7.2: Integrated gradients with Smooth Grad different alpha priors
 
-from commands.experiment_base import (
-    remove_files,
-    wait_in_queue,
-    run_experiment,
-    set_logging_level,
-    save_raw_data_base_dir,
-    save_metadata_base_dir,
-)
-from source.utils import Action, Statistics, StreamNames
+
 import json
 import logging
 import argparse
@@ -17,7 +9,15 @@ import sys
 import os
 
 sys.path.append(os.getcwd())
-
+from source.utils import Action, Statistics
+from commands.experiment_base import (
+    remove_files,
+    wait_in_queue,
+    run_experiment,
+    set_logging_level,
+    save_raw_data_base_dir,
+    save_metadata_base_dir,
+)
 
 # Slurm args
 constraint = "thin"
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         save_metadata_dir = os.path.join(
             save_metadata_base_dir, experiment_name)
 
-        job_array = "0-990:10"  # DEBUG
+        job_array = "0"  # DEBUG -990:10
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
             f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
@@ -162,7 +162,7 @@ if __name__ == "__main__":
             wait_in_queue(0)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
-        job_array = "10-90:20"  # DEBUG
+        job_array = "10"  # DEBUG -90:20
         array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
             run_experiment(
