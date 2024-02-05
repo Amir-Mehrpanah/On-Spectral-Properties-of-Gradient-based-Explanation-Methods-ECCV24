@@ -1,3 +1,4 @@
+from functools import partial
 import pandas as pd
 from glob import glob
 import os
@@ -127,7 +128,7 @@ def compute_with_explanation_prior(
     f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
     explanations_temp = project_metadata.loc[
         ("vanilla_grad_mask", stream_statistic, slice(None), f0),
-        ["image_path", "label", "baseline_mask_value", "baseline_mask_type"],
+        ["image_path", "label", "baseline_mask_type"],
     ]
     explanations_temp = explanations_temp.droplevel(
         ["stream_name", "stream_statistic", "alpha_mask_value"]
@@ -156,14 +157,22 @@ def compute_integrated_grad(
     stream_statistic="meanx2",
     alpha_mask_name="ig_sq",
     alpha_prior=slice(None),
+    ig_elementwise=False,
 ):
     from source.data_manager import save_integrated_grad
-
+    logger.debug(
+        f"Computing integrated grad for stream_statistic {stream_statistic} "
+        f"with alpha_mask_name {alpha_mask_name} and alpha_prior "
+        f"{alpha_prior} with ig_elementwise {ig_elementwise}"
+    )
+    save_results_fn = partial(
+        save_integrated_grad, ig_elementwise=ig_elementwise
+    )
     compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
         stream_statistic,
-        save_results_fn=save_integrated_grad,
+        save_results_fn=save_results_fn,
         alpha_mask_name=alpha_mask_name,
         alpha_prior=alpha_prior,
     )
@@ -179,4 +188,5 @@ def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
         save_results_fn=save_spectral_lens,
         alpha_mask_name="SL-SQ",
         alpha_prior=slice(None),
+        ig_elementwise=False,
     )

@@ -28,7 +28,7 @@ preprocess = torchvision.transforms.Compose(
 class SLQDataset(Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, sl_metadata, remove_q=0, verbose=False):
+    def __init__(self, sl_metadata, remove_q=0, verbose=False, ig_elementwise=False):
         """
         Arguments:
             sl_metadata (string): Path to the csv metadata file.
@@ -37,6 +37,7 @@ class SLQDataset(Dataset):
         self.sl_metadata = sl_metadata
         self.q = 100 - remove_q
         self.verbose = verbose
+        self.ig_elementwise = ig_elementwise
 
     def __len__(self):
         return len(self.sl_metadata)

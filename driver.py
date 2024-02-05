@@ -80,6 +80,7 @@ elif driver_args.action == Action.compute_integrated_grad:
         stream_statistic=action_args.stream_statistic,
         alpha_mask_name=action_args.alpha_mask_name,
         alpha_prior=action_args.alpha_prior,
+        ig_elementwise=action_args.ig_elementwise,
     )
 elif driver_args.action == Action.compute_accuracy_at_q:
     raise NotImplementedError("Call this from torch_driver.py")

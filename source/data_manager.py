@@ -17,7 +17,14 @@ gcs_utils._is_gcs_disabled = True
 
 logger = logging.getLogger(__name__)
 
-
+def _bool(x) -> bool:
+    if x.lower() == "true":
+        return True
+    elif x.lower() == "false":
+        return False
+    else:
+        raise ValueError(f"expected True or False got {x}")
+    
 def preprocess(x, img_size):
     x = tf.keras.layers.experimental.preprocessing.CenterCrop(
         height=img_size,
@@ -115,7 +122,7 @@ def spectral_lens_mean_freq(data):
     init_val = np.expand_dims(init_val, axis=0)
     return init_val
 
-def integrated_grad(data):
+def integrated_grad(data,ig_elementwise=False,):
     def func(init_val, temp_grad):
         return init_val + temp_grad
     
@@ -131,6 +138,12 @@ def integrated_grad(data):
         temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
         init_val = func(init_val, temp_grad)
 
+    if ig_elementwise:
+        image = np.load(data.iloc[0]["image_path"])
+        image = preprocess(image, img_size=224)
+        image = sum_channels(image)
+        init_val = init_val * image
+
     assert init_val.ndim == 3, f"{init_val.shape} must be 4d (H,W,C)"
     init_val = np.expand_dims(init_val, axis=0)
     return init_val
@@ -143,8 +156,8 @@ def save_spectral_lens(data, save_raw_data_dir):
     np.save(save_path, init_val)
     return save_path
 
-def save_integrated_grad(data, save_raw_data_dir):
-    init_val = integrated_grad(data)
+def save_integrated_grad(data, save_raw_data_dir,ig_elementwise):
+    init_val = integrated_grad(data,ig_elementwise=ig_elementwise)
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"IG_{path_prefix}.npy")

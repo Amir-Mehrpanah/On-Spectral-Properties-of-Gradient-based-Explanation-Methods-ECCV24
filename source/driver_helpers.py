@@ -14,7 +14,7 @@ import tensorflow as tf
 
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
-from source.data_manager import query_imagenet, query_cifar10
+from source.data_manager import query_imagenet, query_cifar10,_bool
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
 from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward
 from source.inconsistency_measures import (
@@ -154,6 +154,11 @@ def _parse_integrated_grad_args(parser):
         type=float,
         default=slice(None),
         nargs="+",
+    )
+    parser.add_argument(
+        "--ig_elementwise",
+        type=_bool,
+        default=False,
     )
 
     args, _ = parser.parse_known_args()

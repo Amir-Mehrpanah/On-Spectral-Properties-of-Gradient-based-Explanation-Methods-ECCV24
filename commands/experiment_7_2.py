@@ -23,16 +23,16 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1"  # DEBUG  0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  # DEBUG 
 alpha_priors = {  # DEBUG
-    # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
+    "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
+    "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
+    "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
     "ig_sg_u_0_0.1": "0.0 0.1",
 }
 stream_statistics = [  # DEBUG
-    # Statistics.meanx,
+    Statistics.meanx,
     Statistics.meanx2,
 ]
 alpha_mask_type = "static"
@@ -86,15 +86,16 @@ if __name__ == "__main__":
         save_metadata_dir = os.path.join(
             save_metadata_base_dir, experiment_name)
 
-        job_array = "0"  # DEBUG -990:10
+        job_array = "0-990:10"  # DEBUG 
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
             f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
         )
 
         if args.gather_stats:
+            job_name = experiment_name
             run_experiment(
-                experiment_name=experiment_name,
+                experiment_name=job_name,
                 job_array=job_array,
                 array_process=array_process,
                 constraint=constraint,
@@ -122,23 +123,26 @@ if __name__ == "__main__":
                 save_metadata_dir=save_metadata_dir,
             )
 
-            wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            job_name = f"merge_{experiment_name}"
             run_experiment(
-                experiment_name=f"merge_{experiment_name}",
+                experiment_name=job_name,
                 constraint=constraint,
                 action=Action.merge_stats,
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-            wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
         if args.compute_integrated_grad:
+            job_name = []
             for k, (alpha_mask_name, alpha_prior) in enumerate(alpha_priors.items()):
                 for j, stream_statistic in enumerate(stream_statistics):
                     temp_name = alpha_mask_name + "_" + stream_statistic
+                    job_name.append(f"ig_{experiment_name}_{k}_{j}")
                     run_experiment(
-                        experiment_name=f"ig_{experiment_name}_{k}_{j}",
+                        experiment_name=job_name[-1],
                         constraint=constraint,
                         action=Action.compute_integrated_grad,
                         logging_level=logging_level,
@@ -149,9 +153,10 @@ if __name__ == "__main__":
                         alpha_prior=alpha_prior,
                     )
 
-            wait_in_queue(0)
+            wait_in_queue(0,job_name)
+            job_name = f"merge_{experiment_name}"
             run_experiment(
-                experiment_name=f"merge_{experiment_name}",
+                experiment_name=job_name,
                 constraint=constraint,
                 action=Action.merge_stats,
                 glob_path="*.csv",
@@ -159,17 +164,18 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-            wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
-        job_array = "10"  # DEBUG -90:20
+        job_array = "10-90:20"  # DEBUG 
         array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
+            job_name = f"acc_{experiment_name}"
             run_experiment(
                 sweeper_name="_sweeper_torch.sbatch",
                 job_array=job_array,
                 array_process=array_process,
-                experiment_name=f"acc_{experiment_name}",
+                experiment_name=job_name,
                 constraint=constraint,
                 number_of_gpus=1,
                 glob_path="merged_ig_*.csv",
@@ -180,17 +186,18 @@ if __name__ == "__main__":
                 batch_size=128,
             )
 
-            wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            job_name = f"merge_{experiment_name}"
             run_experiment(
-                experiment_name=f"merge_{experiment_name}",
+                experiment_name=job_name,
                 constraint=constraint,
                 action=Action.merge_stats,
-                glob_path="igq*.csv",
+                glob_path="igq_*.csv",
                 file_name="merged_igq_metadata.csv",
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-            wait_in_queue(0)  # wait for all jobs to finish
+            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
         if args.remove_batch_data and batch != 0:

@@ -29,7 +29,7 @@ set_logging_level(logging_level)
 alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6"  # space separated string
 min_change = 5e-4
 batch_size = 16
-normalize_sample = True
+normalize_sample = "True"
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"

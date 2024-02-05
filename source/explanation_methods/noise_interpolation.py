@@ -8,7 +8,7 @@ from source.utils import (
 )
 from source import neighborhoods, explainers, operations
 from source.model_manager import forward_with_projection
-from source.data_manager import minmax_normalize
+from source.data_manager import minmax_normalize ,_bool
 import argparse
 import copy
 from functools import partial
@@ -26,14 +26,6 @@ sys.path.append(os.getcwd())
 
 logger = logging.getLogger(__name__)
 
-
-def _bool(x) -> bool:
-    if x.lower() == "true":
-        return True
-    elif x.lower() == "false":
-        return False
-    else:
-        raise ValueError(f"expected True or False got {x}")
 
 
 class TypeOrNone:

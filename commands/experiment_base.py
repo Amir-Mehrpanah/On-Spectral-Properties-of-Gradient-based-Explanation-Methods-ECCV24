@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 import os
+from typing import List
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
@@ -126,12 +127,19 @@ def run_experiment(**args):
     logger.debug("sumbitting a job")
     cmd = _sweeper_cmd(**args)
     os.system(cmd)
-    wait_in_queue()
+    # wait_in_queue()
 
 
-def wait_in_queue(thresh=50):
+def wait_in_queue(thresh=50, jobnames: List[str] = None):
+    command = ["squeue", "-u", "x_amime"]
+    if jobnames is not None:
+        command.append("--name")
+        if isinstance(jobnames, list):
+            jobnames = ",".join(jobnames)
+        command.append(jobnames)
+        
     while True:
-        result = subprocess.run(["squeue", "-u", "x_amime"], stdout=subprocess.PIPE)
+        result = subprocess.run(command, stdout=subprocess.PIPE)
         result = result.stdout.decode()
         result = len(result.split("\n")) - 2
         logger.debug(
