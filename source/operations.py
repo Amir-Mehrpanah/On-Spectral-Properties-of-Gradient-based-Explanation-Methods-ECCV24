@@ -80,7 +80,7 @@ def resize_mask(
     )
 
 
-def convex_combination_mask(
+def convex_combination(
     *,
     source_mask: str,
     target_mask: str,
@@ -100,6 +100,29 @@ def convex_combination_mask(
         the target mask. all masks should have the same spatial shape or be scalars.
     """
     return (1 - alpha_mask) * source_mask + alpha_mask * target_mask
+
+
+def additive_combination(
+    *,
+    source_mask: str,
+    target_mask: str,
+    alpha_mask: str,
+) -> jax.Array:
+    """
+    args:
+        name: name of the mask
+        source_name: name of the source mask
+        target_name: name of the target mask
+        alpha_name: name of the alpha mask
+    returns:
+        An inplace function that takes a stream and key and interpolates the source mask
+        and the target mask with the alpha mask provided and puts the interpolated
+        mask in the stream. `output = source+target*(alpha)` if alpha is
+        zero, the output is the source mask and when alpha is one, the output is
+        the target mask. all masks should have the same spatial shape or be scalars.
+    """
+    return source_mask + alpha_mask * target_mask
+
 
 
 def linear_combination_mask(

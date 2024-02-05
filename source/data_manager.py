@@ -147,7 +147,7 @@ def save_integrated_grad(data, save_raw_data_dir):
     init_val = integrated_grad(data)
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
-    save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
+    save_path = os.path.join(save_raw_data_dir, f"IG_{path_prefix}.npy")
     np.save(save_path, init_val)
     return save_path
 

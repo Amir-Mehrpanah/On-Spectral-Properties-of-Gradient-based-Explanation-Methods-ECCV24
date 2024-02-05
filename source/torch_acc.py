@@ -92,8 +92,11 @@ def compute_accuracy_at_q(
     glob_path,
 ):
     sl_metadata = load_experiment_metadata(save_metadata_dir, glob_path=glob_path)
-    # filter rows that only have vanilla_grad_mask in their stream_name
+    
+    logger.info(f"Loaded metadata from {save_metadata_dir} of shape"
+                f" {sl_metadata.shape} before filtering vanilla_grad_mask")
     sl_metadata = sl_metadata[sl_metadata["stream_name"] == "vanilla_grad_mask"]
+    sl_metadata = sl_metadata.reset_index(drop=True)
     logger.info(f"Loaded metadata from {save_metadata_dir} of shape"
                 f" {sl_metadata.shape} after filtering vanilla_grad_mask")
 
@@ -130,6 +133,12 @@ def compute_accuracy_at_q(
     )
     preds["q"] = q
 
-    sl_metadata = pd.concat([sl_metadata, preds], axis=1)
+    logger.debug(f"preds shape: {preds.shape} (q results)")
+    logger.debug(f"sl_metadata shape: {sl_metadata.shape} before concatenation of q results")
+
+    sl_metadata = pd.concat([sl_metadata,
+                              preds], axis=1)
+    logger.debug(f"sl_metadata shape: {sl_metadata.shape} after concatenation of q results")
+
     file_name = f"{save_file_name_prefix}_{q}.csv"
     sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)

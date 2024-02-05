@@ -13,7 +13,7 @@ def vanilla_gradient(
         forward,
         has_aux=True,
     )(*inputs)
-    return grads, *aux
+    return grads, aux
 
 
 # class FiniteDifference(Explainer):

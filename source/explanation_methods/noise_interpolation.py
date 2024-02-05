@@ -1,3 +1,14 @@
+from source.utils import (
+    Statistics,
+    Stream,
+    StreamNames,
+    AbstractFunction,
+    pattern_generator,
+    debug_nice,
+)
+from source import neighborhoods, explainers, operations
+from source.model_manager import forward_with_projection
+from source.data_manager import minmax_normalize
 import argparse
 import copy
 from functools import partial
@@ -12,17 +23,6 @@ import sys
 import numpy as np
 
 sys.path.append(os.getcwd())
-from source.data_manager import minmax_normalize
-from source.model_manager import forward_with_projection
-from source import neighborhoods, explainers, operations
-from source.utils import (
-    Statistics,
-    Stream,
-    StreamNames,
-    AbstractFunction,
-    pattern_generator,
-    debug_nice,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ class NoiseInterpolation:
         alpha_mask,
         image,
         baseline_mask,
+        combination_fn,
         normalize_sample=True,
         demo=False,
     ):
@@ -65,24 +66,20 @@ class NoiseInterpolation:
         if isinstance(alpha_mask, Callable):
             alpha_mask = alpha_mask(key=key)
 
-        convex_combination_mask = operations.convex_combination_mask(
+        combination_mask = combination_fn(
             source_mask=image,
             target_mask=baseline_mask,
             alpha_mask=alpha_mask,
         )
-        # set image to the expected range [0,1]
-        # this transformation makes the resulting image
-        # invariant to fixed perturbations of the image
-        # (e.g. adding a constant to all pixels)
         if normalize_sample:
-            convex_combination_mask = minmax_normalize(convex_combination_mask)
+            combination_mask = minmax_normalize(combination_mask)
         (
             vanilla_grad_mask,
-            results_at_projection,
+            # results_at_projection,
             log_probs,
         ) = explainers.vanilla_gradient(
             forward=forward_with_projection,
-            inputs=(convex_combination_mask, projection, forward),
+            inputs=(combination_mask, projection, forward),
         )
 
         if demo:
@@ -90,21 +87,22 @@ class NoiseInterpolation:
                 Stream(
                     StreamNames.vanilla_grad_mask, Statistics.none
                 ): vanilla_grad_mask,
-                Stream(
-                    StreamNames.results_at_projection, Statistics.none
-                ): results_at_projection,
+                # Stream(
+                #     StreamNames.results_at_projection, Statistics.none
+                # ): results_at_projection,
                 Stream(StreamNames.log_probs, Statistics.none): log_probs,
                 Stream(StreamNames.image, Statistics.none): image,
                 Stream(
-                    "convex_combination_mask", Statistics.none
-                ): convex_combination_mask,
+                    "combination_mask", Statistics.none
+                ): combination_mask,
                 Stream("projection", Statistics.none): projection,
                 Stream("alpha_mask", Statistics.none): alpha_mask,
                 Stream("baseline_mask", Statistics.none): baseline_mask,
+                Stream("combination_fn", Statistics.none): combination_fn,
             }
         return {
             StreamNames.vanilla_grad_mask: vanilla_grad_mask,
-            StreamNames.results_at_projection: results_at_projection,
+            # StreamNames.results_at_projection: results_at_projection,
             StreamNames.log_probs: log_probs,
         }
 
@@ -172,11 +170,19 @@ class NoiseInterpolation:
             default=[True],
             nargs="+",
         )
+        base_parser.add_argument(
+            "--combination_fn",
+            type=str,
+            required=True,
+            nargs="+",
+            choices=["convex_combination", "additive_combination"],
+        )
 
     @classmethod
     def process_args(cls, args):
         mixed_args = cls.extract_mixed_args(args)
-        mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
+        mixed_pattern = cls.extract_mixed_pattern(
+            args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
         num_samplers = cls.compute_num_samplers(mixed_args, mixed_pattern)
         if logger.isEnabledFor(logging.INFO):
@@ -218,7 +224,8 @@ class NoiseInterpolation:
             combined_static_kwargs,
             combined_meta_kwargs,
         ) in splitted_args:
-            combined_dynamic_kwargs = cls._sort_dynamic_kwargs(combined_dynamic_kwargs)
+            combined_dynamic_kwargs = cls._sort_dynamic_kwargs(
+                combined_dynamic_kwargs)
             vmap_axis = (0,) + tuple(
                 None for _ in combined_dynamic_kwargs
             )  # 0 for key, None for dynamic args
@@ -250,6 +257,7 @@ class NoiseInterpolation:
         args_dict = cls._process_projection(args_dict)
         args_dict = cls._process_baseline_mask(args_dict)
         args_dict = cls._process_alpha_mask(args_dict)
+        args_dict = cls._process_combination_fn(args_dict)
 
         for arg in cls.sampler_args:
             assert (
@@ -304,6 +312,7 @@ class NoiseInterpolation:
 
         inplace_infer(args_pattern, "baseline_mask", "method")
         inplace_infer(args_pattern, "normalize_sample", "method")
+        inplace_infer(args_pattern, "combination_fn", "method")
         inplace_infer(args_pattern, "projection", "method")
         inplace_infer(args_pattern, "alpha_mask", "method")
         inplace_infer(args_pattern, "image", "method")
@@ -327,7 +336,8 @@ class NoiseInterpolation:
 
         mixed_pattern = {}
         for arg_name in mixed_args:
-            pattern_proposal = [v for k, v in args_pattern.items() if k in arg_name]
+            pattern_proposal = [
+                v for k, v in args_pattern.items() if k in arg_name]
             assert (
                 len(pattern_proposal) == 1
             ), f"{arg_name} has the following proposals {pattern_proposal} according to the provided pattern {args_pattern} and cannot be uniquely identified"
@@ -360,6 +370,7 @@ class NoiseInterpolation:
             "baseline_mask_type",
             "baseline_mask_value",
             "normalize_sample",
+            "combination_fn",
             "projection_type",
             "projection_distribution",
             "projection_top_k",
@@ -494,9 +505,20 @@ class NoiseInterpolation:
             assert args_dict["alpha_mask_value"] is None
 
     @staticmethod
+    def _process_combination_fn(args_dict):
+        if args_dict["combination_fn"] == "convex_combination":
+            args_dict["combination_fn"] = operations.convex_combination
+        elif args_dict["combination_fn"] == "additive_combination":
+            args_dict["combination_fn"] = operations.additive_combination
+        else:
+            raise NotImplementedError
+        return args_dict
+
+    @staticmethod
     def _process_alpha_mask(args_dict):
         if args_dict["alpha_mask_type"] == "static":
-            alpha_mask = args_dict["alpha_mask_value"] * jnp.ones(shape=(1, 1, 1, 1))
+            alpha_mask = args_dict["alpha_mask_value"] * \
+                jnp.ones(shape=(1, 1, 1, 1))
         elif args_dict["alpha_mask_type"] == "scalar_uniform":
             alpha_mask = partial(
                 jax.random.uniform,

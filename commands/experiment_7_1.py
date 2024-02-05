@@ -23,7 +23,7 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG 
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG
 alpha_priors = {#  DEBUG 
     "ig_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
     "ig_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
@@ -43,6 +43,7 @@ batch_size = 2
 normalize_sample = "False"
 input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
+combination_fn = "convex_combination"
 architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
@@ -72,22 +73,22 @@ if __name__ == "__main__":
     parser.add_argument("--gather_stats", "-g", action="store_true")
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--remove_raw_data", "-r", action="store_true")
+    parser.add_argument("--remove_batch_data", "-r", action="store_true")
 
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
 
-    for i in range(1):  # DEBUG
-        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(i)
+    for batch in range(1):  # DEBUG
+        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(batch)
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
         job_array = "0-990:10"  # DEBUG 
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
-            f'array_process="--image_index $((1000*{i} + $SLURM_ARRAY_TASK_ID)) 10"'
+            f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
         )
 
         if args.gather_stats:
@@ -130,7 +131,6 @@ if __name__ == "__main__":
                 save_metadata_dir=save_metadata_dir,
             )
             wait_in_queue(0)  # wait for all jobs to finish
-
             remove_files(save_metadata_dir)
 
         if args.compute_integrated_grad:
@@ -160,7 +160,6 @@ if __name__ == "__main__":
                 save_metadata_dir=save_metadata_dir,
             )
             wait_in_queue(0)  # wait for all jobs to finish
-
             remove_files(save_metadata_dir)
 
         job_array = "10-90:20"  # DEBUG 
@@ -192,9 +191,8 @@ if __name__ == "__main__":
                 save_metadata_dir=save_metadata_dir,
             )
             wait_in_queue(0)  # wait for all jobs to finish
-
             remove_files(save_metadata_dir)
-
-        if args.remove_raw_data and i != 0:
+            
+        if args.remove_batch_data and batch != 0:
             remove_files(save_raw_data_dir)
             

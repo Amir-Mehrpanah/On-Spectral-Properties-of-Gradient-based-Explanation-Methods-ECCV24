@@ -1,14 +1,4 @@
-## Experiment 7.1: Integrated gradients with Smooth Grad different alpha priors
-
-import json
-import logging
-import argparse
-from glob import glob
-import sys
-import os
-
-sys.path.append(os.getcwd())
-from source.utils import Action, Statistics, StreamNames
+# Experiment 7.1: Integrated gradients with Smooth Grad different alpha priors
 
 from commands.experiment_base import (
     remove_files,
@@ -18,31 +8,42 @@ from commands.experiment_base import (
     save_raw_data_base_dir,
     save_metadata_base_dir,
 )
+from source.utils import Action, Statistics, StreamNames
+import json
+import logging
+import argparse
+from glob import glob
+import sys
+import os
+
+sys.path.append(os.getcwd())
+
 
 # Slurm args
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG 
-alpha_priors = {#  DEBUG 
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  # DEBUG
+alpha_priors = {  # DEBUG
     "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
     "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
     "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
     "ig_sg_u_0_0.1": "0.0 0.1",
 }
-stream_statistics = [#  DEBUG 
+stream_statistics = [  # DEBUG
     Statistics.meanx,
     Statistics.meanx2,
 ]
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-min_change = 5e-2
-batch_size = 2
-normalize_sample = "False"
+min_change = 5e-3  # DEBUG
+batch_size = 128  # DEBUG
+normalize_sample = "False"  # DEBUG
 input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
+combination_fn = "additive_combination"
 architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
@@ -71,7 +72,7 @@ if __name__ == "__main__":
     parser.add_argument("--gather_stats", "-g", action="store_true")
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--remove_raw_data", "-r", action="store_true")
+    parser.add_argument("--remove_batch_data", "-r", action="store_true")
 
     args = parser.parse_args()
     if not any(vars(args).values()):
@@ -79,11 +80,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     for batch in range(1):  # DEBUG
-        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(batch)
-        save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
-        save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
+        experiment_name = os.path.basename(__file__).split(".")[
+            0] + "_" + str(batch)
+        save_raw_data_dir = os.path.join(
+            save_raw_data_base_dir, experiment_name)
+        save_metadata_dir = os.path.join(
+            save_metadata_base_dir, experiment_name)
 
-        job_array = "0-990:10"  # DEBUG 
+        job_array = "0-990:10"  # DEBUG
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
             f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
@@ -128,7 +132,6 @@ if __name__ == "__main__":
                 save_metadata_dir=save_metadata_dir,
             )
             wait_in_queue(0)  # wait for all jobs to finish
-
             remove_files(save_metadata_dir)
 
         if args.compute_integrated_grad:
@@ -160,7 +163,7 @@ if __name__ == "__main__":
             wait_in_queue(0)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
-        job_array = "10-90:20"  # DEBUG 
+        job_array = "10-90:20"  # DEBUG
         array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
             run_experiment(
@@ -190,6 +193,6 @@ if __name__ == "__main__":
             )
             wait_in_queue(0)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
-            
-        if args.remove_raw_data and batch != 0:
+
+        if args.remove_batch_data and batch != 0:
             remove_files(save_raw_data_dir)

@@ -127,7 +127,7 @@ def compute_with_explanation_prior(
     f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
     explanations_temp = project_metadata.loc[
         ("vanilla_grad_mask", stream_statistic, slice(None), f0),
-        ["image_path", "label"],
+        ["image_path", "label", "baseline_mask_value", "baseline_mask_type"],
     ]
     explanations_temp = explanations_temp.droplevel(
         ["stream_name", "stream_statistic", "alpha_mask_value"]
@@ -139,6 +139,8 @@ def compute_with_explanation_prior(
     explanations_mean_freq = explanations_mean_freq.reset_index()
 
     explanations_mean_freq["alpha_mask_value"] = alpha_mask_name
+    explanations_mean_freq["stream_name"] = "vanilla_grad_mask"
+    explanations_mean_freq["stream_statistic"] = stream_statistic
     logger.debug(
         f"statistics shape after concatenating auxilary data {explanations_mean_freq.shape}"
     )

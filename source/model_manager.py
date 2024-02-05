@@ -11,7 +11,7 @@ def forward_with_projection(inputs, projection, forward):
     assert inputs.shape[0] == 1, "batch size must match"
     log_prob = forward(inputs)
     results_at_projection = (log_prob @ projection).squeeze()
-    return results_at_projection, (results_at_projection, log_prob)
+    return results_at_projection, log_prob
 
 
 def init_resnet50_forward(args):
