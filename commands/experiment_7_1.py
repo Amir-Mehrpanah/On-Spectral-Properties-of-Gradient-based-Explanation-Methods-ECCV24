@@ -53,7 +53,6 @@ projection_type = "prediction"
 projection_top_k = 1
 stats_log_level = 1
 demo = False
-skip_data = " ".join([StreamNames.results_at_projection])
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
@@ -112,7 +111,6 @@ if __name__ == "__main__":
                 baseline_mask_value=baseline_mask_value,
                 stats_log_level=stats_log_level,
                 demo=demo,
-                skip_data=skip_data,
                 dataset_dir=dataset_dir,
                 batch_size=batch_size,
                 args_state=args_state,

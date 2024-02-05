@@ -473,10 +473,10 @@ def _process_gather_stats_args(args):
     )
     args.stats = {
         args.monitored_statistic_source_key: jnp.zeros(shape=args.input_shape),
-        Stream(
-            StreamNames.results_at_projection,
-            Statistics.meanx,
-        ): jnp.zeros(shape=()),
+        # Stream(
+        #     StreamNames.results_at_projection,
+        #     Statistics.meanx,
+        # ): jnp.zeros(shape=()),
         Stream(
             StreamNames.log_probs,
             Statistics.meanx,
@@ -493,12 +493,12 @@ def _process_gather_stats_args(args):
                     Statistics.meanx2,
                 )
             ] = jnp.zeros(shape=(1, args.num_classes))
-            args.stats[
-                Stream(
-                    StreamNames.results_at_projection,
-                    Statistics.meanx2,
-                )
-            ] = jnp.zeros(shape=())
+            # args.stats[
+            #     Stream(
+            #         StreamNames.results_at_projection,
+            #         Statistics.meanx2,
+            #     )
+            # ] = jnp.zeros(shape=())
 
         args.stats[
             Stream(

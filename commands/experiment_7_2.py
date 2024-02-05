@@ -23,16 +23,16 @@ sys.path.append(os.getcwd())
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  # DEBUG
+alpha_mask_value = "0.0 0.1"  # DEBUG  0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
 alpha_priors = {  # DEBUG
-    "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
+    # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    # "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
+    # "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
+    # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
     "ig_sg_u_0_0.1": "0.0 0.1",
 }
 stream_statistics = [  # DEBUG
-    Statistics.meanx,
+    # Statistics.meanx,
     Statistics.meanx2,
 ]
 alpha_mask_type = "static"
@@ -52,7 +52,6 @@ projection_type = "prediction"
 projection_top_k = 1
 stats_log_level = 1
 demo = False
-skip_data = " ".join([StreamNames.results_at_projection])
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
@@ -106,6 +105,7 @@ if __name__ == "__main__":
                 architecture=architecture,
                 dataset=dataset,
                 min_change=min_change,
+                combination_fn=combination_fn,
                 alpha_mask_value=alpha_mask_value,
                 alpha_mask_type=alpha_mask_type,
                 projection_type=projection_type,
@@ -113,7 +113,6 @@ if __name__ == "__main__":
                 baseline_mask_type=baseline_mask_type,
                 stats_log_level=stats_log_level,
                 demo=demo,
-                skip_data=skip_data,
                 dataset_dir=dataset_dir,
                 batch_size=batch_size,
                 args_state=args_state,
