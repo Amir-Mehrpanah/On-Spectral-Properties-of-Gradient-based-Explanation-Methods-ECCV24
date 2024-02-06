@@ -144,7 +144,15 @@ class NoiseInterpolation:
             "--baseline_mask_type",
             type=str,
             required=True,
-            choices=["static", "gaussian"],
+            choices=[
+                "static",
+                "gaussian",
+                "gaussian-0.1",
+                "gaussian-0.3",
+                "gaussian-0.5",
+                "gaussian-0.7",
+                "gaussian-1.0",
+            ],
             nargs="+",
         )
         base_parser.add_argument(
@@ -480,7 +488,7 @@ class NoiseInterpolation:
                 assert not args_dict[
                     "normalize_sample"
                 ], "normalization of convex interpolation with static baseline is not expected"
-        elif args_dict["baseline_mask_type"] == "gaussian":
+        elif "gaussian" in args_dict["baseline_mask_type"]:
             assert args_dict["baseline_mask_value"] is None
 
     @staticmethod
@@ -529,6 +537,13 @@ class NoiseInterpolation:
         elif args_dict["baseline_mask_type"] == "gaussian":
             baseline_mask = partial(
                 jax.random.normal,
+                shape=args_dict["input_shape"],
+            )
+        elif "gaussian" in args_dict["baseline_mask_type"]:
+            scale = args_dict["baseline_mask_type"].split("-")[1]
+            scale = float(scale)
+            baseline_mask = lambda key: scale * jax.random.normal(
+                key=key,
                 shape=args_dict["input_shape"],
             )
         else:
