@@ -126,7 +126,10 @@ def compute_with_explanation_prior(
         save_results_fn,
         save_raw_data_dir=save_raw_data_dir,
     )
-    explanations_temp = explanations_temp.rename(columns={0: "data_path"})
+    logger.debug(
+        f"columns after computing the aggregation function {explanations_mean_freq.name}"
+    )
+    explanations_mean_freq.name = "data_path"
 
     logger.debug(
         f"statistics shape before concatenating auxilary data {explanations_mean_freq.shape}"

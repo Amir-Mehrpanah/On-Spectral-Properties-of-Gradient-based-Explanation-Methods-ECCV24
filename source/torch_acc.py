@@ -84,6 +84,22 @@ class SLQDataset(Dataset):
         return sample
 
 
+def write_auxiliary_metadata(
+    save_metadata_dir,
+    save_file_name_prefix,
+    glob_path,
+):
+    sl_metadata = load_experiment_metadata(save_metadata_dir, glob_path=glob_path)
+    ids = sl_metadata["stream_name"] != "vanilla_grad_mask"
+    sl_metadata = sl_metadata[ids]
+    logger.info(
+        f"Loaded auxillary metadata from {save_metadata_dir}/{glob_path} of shape"
+        f" {sl_metadata.shape} "
+    )
+    file_name = f"{save_file_name_prefix}_auxillary_q.csv"
+    sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)
+
+
 def compute_accuracy_at_q(
     save_metadata_dir,
     prefetch_factor,
@@ -98,7 +114,8 @@ def compute_accuracy_at_q(
         f"Loaded metadata from {save_metadata_dir} of shape"
         f" {sl_metadata.shape} before filtering vanilla_grad_mask"
     )
-    sl_metadata = sl_metadata[sl_metadata["stream_name"] == "vanilla_grad_mask"]
+    ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
+    sl_metadata = sl_metadata[ids]
     sl_metadata = sl_metadata.reset_index(drop=True)
     logger.info(
         f"Loaded metadata from {save_metadata_dir} of shape"
@@ -147,5 +164,5 @@ def compute_accuracy_at_q(
         f"sl_metadata shape: {sl_metadata.shape} after concatenation of q results"
     )
 
-    file_name = f"{save_file_name_prefix}_{q}.csv"
+    file_name = f"{save_file_name_prefix}_q{q}.csv"
     sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)

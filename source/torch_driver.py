@@ -117,5 +117,10 @@ if driver_args.action == Action.compute_accuracy_at_q:
             q,
             action_args.glob_path,
         )
+    torch_acc.write_auxiliary_metadata(
+        driver_args.save_metadata_dir,
+        action_args.save_file_name_prefix,
+        action_args.glob_path,
+    )
 else:
     raise NotImplementedError
