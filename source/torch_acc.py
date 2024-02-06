@@ -60,7 +60,7 @@ class SLQDataset(Dataset):
                 saliency_image,
                 axis=-1,
             )
-            mask = (saliency_image < np.percentile(saliency_image, self.q))*1.0
+            mask = (saliency_image < np.percentile(saliency_image, self.q)) * 1.0
             masked_image = original_image * mask
         else:
             masked_image = original_image
@@ -93,13 +93,17 @@ def compute_accuracy_at_q(
     glob_path,
 ):
     sl_metadata = load_experiment_metadata(save_metadata_dir, glob_path=glob_path)
-    
-    logger.info(f"Loaded metadata from {save_metadata_dir} of shape"
-                f" {sl_metadata.shape} before filtering vanilla_grad_mask")
+
+    logger.info(
+        f"Loaded metadata from {save_metadata_dir} of shape"
+        f" {sl_metadata.shape} before filtering vanilla_grad_mask"
+    )
     sl_metadata = sl_metadata[sl_metadata["stream_name"] == "vanilla_grad_mask"]
     sl_metadata = sl_metadata.reset_index(drop=True)
-    logger.info(f"Loaded metadata from {save_metadata_dir} of shape"
-                f" {sl_metadata.shape} after filtering vanilla_grad_mask")
+    logger.info(
+        f"Loaded metadata from {save_metadata_dir} of shape"
+        f" {sl_metadata.shape} after filtering vanilla_grad_mask"
+    )
 
     slqds = SLQDataset(sl_metadata, remove_q=q)
     slqdl = DataLoader(
@@ -124,7 +128,6 @@ def compute_accuracy_at_q(
             preds.append(logits == batch["label"])
             actual_qs.append(batch["actual_q"])
 
-
     # convert preds to dataframe
     preds = pd.DataFrame(
         {
@@ -135,11 +138,14 @@ def compute_accuracy_at_q(
     preds["q"] = q
 
     logger.debug(f"preds shape: {preds.shape} (q results)")
-    logger.debug(f"sl_metadata shape: {sl_metadata.shape} before concatenation of q results")
+    logger.debug(
+        f"sl_metadata shape: {sl_metadata.shape} before concatenation of q results"
+    )
 
-    sl_metadata = pd.concat([sl_metadata,
-                              preds], axis=1)
-    logger.debug(f"sl_metadata shape: {sl_metadata.shape} after concatenation of q results")
+    sl_metadata = pd.concat([sl_metadata, preds], axis=1)
+    logger.debug(
+        f"sl_metadata shape: {sl_metadata.shape} after concatenation of q results"
+    )
 
     file_name = f"{save_file_name_prefix}_{q}.csv"
     sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)

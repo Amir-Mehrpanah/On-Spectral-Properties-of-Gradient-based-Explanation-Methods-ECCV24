@@ -23,7 +23,7 @@ job_array = "0-990:10"  # DEBUG
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3" # DEBUG
+alpha_mask_value = "0.0 0.1 0.2 0.3"  # DEBUG
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-2
@@ -62,14 +62,16 @@ if __name__ == "__main__":
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
-        
-    for i in range(1): # DEBUG
+
+    for i in range(1):  # DEBUG
         experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(i)
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
         save_output_dir = os.path.join(save_output_base_dir, experiment_name)
         # image_index = "0 100" # skip num_elements (a very bad hack) todo clean up
-        array_process = f'array_process="--image_index $((1000*{i} + 10*$SLURM_ARRAY_TASK_ID)) 10"'
+        array_process = (
+            f'array_process="--image_index $((1000*{i} + 10*$SLURM_ARRAY_TASK_ID)) 10"'
+        )
 
         if args.gather_stats:
             run_experiment(

@@ -153,6 +153,7 @@ class Statistics:
     @staticmethod
     def str_cast(x):
         return getattr(Statistics, x)
+
     none = "none"
     meanx = "meanx"
     meanx2 = "meanx2"

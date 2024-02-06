@@ -18,14 +18,14 @@ from commands.experiment_base import (
 )
 
 # Slurm args
-job_array = "0" # -15
+job_array = "0"  # -15
 array_process = 'array_process="--layer_randomization Dense_$SLURM_ARRAY_TASK_ID"'
 # array_process = 'array_process="--layer_randomization Bottleneck_$SLURM_ARRAY_TASK_ID"'
 constraint = "thin"
 experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
-image_index = "0 1" 
+image_index = "0 1"
 alpha_mask_value = " ".join([str(x) for x in np.linspace(0, 0.6, 61)])
 logging_level = logging.DEBUG
 set_logging_level(logging_level)

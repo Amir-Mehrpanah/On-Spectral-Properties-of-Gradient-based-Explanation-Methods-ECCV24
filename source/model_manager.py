@@ -6,6 +6,7 @@ from functools import partial
 
 logger = logging.getLogger(__name__)
 
+
 def forward_with_projection(inputs, projection, forward):
     assert inputs.ndim == 4, "inputs should be a batch of images"
     assert inputs.shape[0] == 1, "batch size must match"
@@ -18,7 +19,7 @@ def init_resnet50_forward(args):
     resnet50 = fm.ResNet50(
         output=args.output_layer,
         pretrained="imagenet",
-        ckpt_dir="/home/x_amime/x_amime/projects/an_explanation_model/commands/temp/"
+        ckpt_dir="/home/x_amime/x_amime/projects/an_explanation_model/commands/temp/",
     )
     params = resnet50.init(
         jax.random.PRNGKey(0),
@@ -55,14 +56,18 @@ def init_resnet50_randomized_forward(args):
         jnp.empty(args.input_shape, dtype=jnp.float32),
     )
 
-    assert args.layer_randomization in params["params"].keys(), f"layer_randomization must be one of {params['params'].keys()}"
-    
+    assert (
+        args.layer_randomization in params["params"].keys()
+    ), f"layer_randomization must be one of {params['params'].keys()}"
+
     params_random = resnet50_random.init(
         jax.random.PRNGKey(0),
         jnp.empty(args.input_shape, dtype=jnp.float32),
     )
     # Randomize the weights of the last layer
-    params["params"][args.layer_randomization] = params_random["params"][args.layer_randomization]
+    params["params"][args.layer_randomization] = params_random["params"][
+        args.layer_randomization
+    ]
     logger.info(f"Randomized layer: {args.layer_randomization}")
     resnet50_forward = partial(
         resnet50.apply,

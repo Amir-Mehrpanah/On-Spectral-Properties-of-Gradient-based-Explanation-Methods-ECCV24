@@ -18,12 +18,14 @@ save_metadata_base_dir = (
     "/home/x_amime/x_amime/projects/an_explanation_model/outputs/metadata/"
 )
 
-def remove_files(base_path,glob_path="*",exclude="merged"):
-    files = glob(os.path.join(base_path,glob_path ))
+
+def remove_files(base_path, glob_path="*", exclude="merged"):
+    files = glob(os.path.join(base_path, glob_path))
     for f in files:
         if exclude in f:
             continue
         os.remove(f)
+
 
 def set_logging_level(logging_level):
     logging.basicConfig(
@@ -137,7 +139,7 @@ def wait_in_queue(thresh=50, jobnames: List[str] = None):
         if isinstance(jobnames, list):
             jobnames = ",".join(jobnames)
         command.append(jobnames)
-        
+
     while True:
         result = subprocess.run(command, stdout=subprocess.PIPE)
         result = result.stdout.decode()

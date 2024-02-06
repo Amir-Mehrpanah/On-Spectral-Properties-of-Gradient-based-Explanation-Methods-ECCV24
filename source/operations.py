@@ -124,7 +124,6 @@ def additive_combination(
     return source_mask + alpha_mask * target_mask
 
 
-
 def linear_combination_mask(
     *,
     source_mask: str,

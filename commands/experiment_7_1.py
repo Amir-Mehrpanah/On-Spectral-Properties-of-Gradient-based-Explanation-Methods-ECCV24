@@ -23,15 +23,15 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG  
-alpha_priors = {#  DEBUG 
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  #  DEBUG
+alpha_priors = {  #  DEBUG
     "ig_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
     # "ig_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
     # "ig_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_u_0_0.3": "0.0 0.1 0.2 0.3",
     # "ig_u_0_0.1": "0.0 0.1",
 }
-stream_statistics = [#  DEBUG 
+stream_statistics = [  #  DEBUG
     Statistics.meanx,
     Statistics.meanx2,
 ]
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-        job_array = "0-990:10"  # DEBUG  
+        job_array = "0-990:10"  # DEBUG
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
             f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
@@ -123,7 +123,7 @@ if __name__ == "__main__":
                 save_metadata_dir=save_metadata_dir,
             )
 
-            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             job_name = f"merge_{experiment_name}"
             run_experiment(
                 experiment_name=job_name,
@@ -132,13 +132,15 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
         if args.compute_integrated_grad:
             job_name = []
             for r, ig_prod in enumerate(ig_elementwise):
-                for k, (alpha_mask_name, alpha_prior) in enumerate(alpha_priors.items()):
+                for k, (alpha_mask_name, alpha_prior) in enumerate(
+                    alpha_priors.items()
+                ):
                     for j, stream_statistic in enumerate(stream_statistics):
                         temp_name = alpha_mask_name + "_" + stream_statistic
                         job_name.append(f"ig_{experiment_name}_{r}_{k}_{j}")
@@ -155,7 +157,7 @@ if __name__ == "__main__":
                             ig_elementwise=ig_prod,
                         )
 
-            wait_in_queue(0,job_name)
+            wait_in_queue(0, job_name)
             job_name = f"merge_{experiment_name}"
             run_experiment(
                 experiment_name=job_name,
@@ -166,10 +168,10 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
 
-        job_array = "10-90:20"  # DEBUG 
+        job_array = "10-90:20"  # DEBUG
         array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
         if args.compute_accuracy_at_q:
             job_name = f"acc_{experiment_name}"
@@ -188,7 +190,7 @@ if __name__ == "__main__":
                 batch_size=128,
             )
 
-            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             job_name = f"merge_{experiment_name}"
             run_experiment(
                 experiment_name=job_name,
@@ -199,9 +201,8 @@ if __name__ == "__main__":
                 logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
             )
-            wait_in_queue(0,jobnames=job_name)  # wait for all jobs to finish
+            wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
-            
+
         if args.remove_batch_data and batch != 0:
             remove_files(save_raw_data_dir)
-            

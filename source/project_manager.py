@@ -53,7 +53,11 @@ def load_experiment_inconsistency(save_metadata_dir, glob_path: str = "*.csv"):
     return pd.read_csv(metadata_path, index_col=False)
 
 
-def merge_experiment_metadata(save_metadata_dir: str, glob_path: str = "*.csv", file_name: str = "merged_metadata.csv"):
+def merge_experiment_metadata(
+    save_metadata_dir: str,
+    glob_path: str = "*.csv",
+    file_name: str = "merged_metadata.csv",
+):
     metadata_glob_path = os.path.join(save_metadata_dir, glob_path)
     metadata_paths = glob(metadata_glob_path)
     dataframes = []
@@ -84,6 +88,7 @@ def compute_with_explanation_prior(
     save_results_fn,
     alpha_mask_name,
     alpha_prior,
+    ig_elementwise,
 ):
     project_metadata = load_experiment_metadata(
         save_metadata_dir, glob_path="merged_*.csv"
@@ -102,24 +107,26 @@ def compute_with_explanation_prior(
         .sort_index()
     )
     explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", stream_statistic, slice(None), alpha_prior), "data_path"
+        ("vanilla_grad_mask", stream_statistic, slice(None), alpha_prior),
+        ["data_path", "image_path"],
     ]
 
     explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
-    explanations_temp.name = "grad_mask"
+    explanations_temp = explanations_temp.rename(columns={"data_path": "grad_mask"})
     explanations_temp.sort_index(inplace=True)
     explanations_temp = explanations_temp.reset_index()
 
     logger.debug(
-        f"statistics shape before computing the aggregation function {explanations_temp.shape}")
-    
+        f"statistics shape before computing the aggregation function {explanations_temp.shape}"
+    )
+
     explanations_mean_freq = explanations_temp.groupby(
         "image_index", as_index=True
     ).apply(
         save_results_fn,
         save_raw_data_dir=save_raw_data_dir,
     )
-    explanations_mean_freq.name = "data_path"
+    explanations_temp = explanations_temp.rename(columns={0: "data_path"})
 
     logger.debug(
         f"statistics shape before concatenating auxilary data {explanations_mean_freq.shape}"
@@ -142,6 +149,8 @@ def compute_with_explanation_prior(
     explanations_mean_freq["alpha_mask_value"] = alpha_mask_name
     explanations_mean_freq["stream_name"] = "vanilla_grad_mask"
     explanations_mean_freq["stream_statistic"] = stream_statistic
+    explanations_mean_freq["ig_elementwise"] = ig_elementwise
+
     logger.debug(
         f"statistics shape after concatenating auxilary data {explanations_mean_freq.shape}"
     )
@@ -160,14 +169,13 @@ def compute_integrated_grad(
     ig_elementwise=False,
 ):
     from source.data_manager import save_integrated_grad
+
     logger.debug(
         f"Computing integrated grad for stream_statistic {stream_statistic} "
         f"with alpha_mask_name {alpha_mask_name} and alpha_prior "
         f"{alpha_prior} with ig_elementwise {ig_elementwise}"
     )
-    save_results_fn = partial(
-        save_integrated_grad, ig_elementwise=ig_elementwise
-    )
+    save_results_fn = partial(save_integrated_grad, ig_elementwise=ig_elementwise)
     compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
@@ -175,18 +183,25 @@ def compute_integrated_grad(
         save_results_fn=save_results_fn,
         alpha_mask_name=alpha_mask_name,
         alpha_prior=alpha_prior,
+        ig_elementwise=ig_elementwise,
     )
 
 
-def compute_spectral_lens(save_metadata_dir, save_raw_data_dir):
+def compute_spectral_lens(
+    save_metadata_dir,
+    save_raw_data_dir,
+    stream_statistic="meanx2",
+    alpha_mask_name="sl_sg",
+    alpha_prior=slice(None),
+):
     from source.data_manager import save_spectral_lens
 
     compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
-        "meanx2",
+        stream_statistic,
         save_results_fn=save_spectral_lens,
-        alpha_mask_name="SL-SQ",
-        alpha_prior=slice(None),
+        alpha_mask_name=alpha_mask_name,
+        alpha_prior=alpha_prior,
         ig_elementwise=False,
     )

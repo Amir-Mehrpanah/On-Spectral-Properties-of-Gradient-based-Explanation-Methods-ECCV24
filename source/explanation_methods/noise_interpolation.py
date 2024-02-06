@@ -8,7 +8,7 @@ from source.utils import (
 )
 from source import neighborhoods, explainers, operations
 from source.model_manager import forward_with_projection
-from source.data_manager import minmax_normalize ,_bool
+from source.data_manager import minmax_normalize, _bool
 import argparse
 import copy
 from functools import partial
@@ -25,7 +25,6 @@ import numpy as np
 sys.path.append(os.getcwd())
 
 logger = logging.getLogger(__name__)
-
 
 
 class TypeOrNone:
@@ -84,9 +83,7 @@ class NoiseInterpolation:
                 # ): results_at_projection,
                 Stream(StreamNames.log_probs, Statistics.none): log_probs,
                 Stream(StreamNames.image, Statistics.none): image,
-                Stream(
-                    "combination_mask", Statistics.none
-                ): combination_mask,
+                Stream("combination_mask", Statistics.none): combination_mask,
                 Stream("projection", Statistics.none): projection,
                 Stream("alpha_mask", Statistics.none): alpha_mask,
                 Stream("baseline_mask", Statistics.none): baseline_mask,
@@ -173,8 +170,7 @@ class NoiseInterpolation:
     @classmethod
     def process_args(cls, args):
         mixed_args = cls.extract_mixed_args(args)
-        mixed_pattern = cls.extract_mixed_pattern(
-            args.args_pattern, mixed_args)
+        mixed_pattern = cls.extract_mixed_pattern(args.args_pattern, mixed_args)
         mixed_args = cls.maybe_broadcast_shapes(mixed_pattern, mixed_args)
         num_samplers = cls.compute_num_samplers(mixed_args, mixed_pattern)
         if logger.isEnabledFor(logging.INFO):
@@ -216,8 +212,7 @@ class NoiseInterpolation:
             combined_static_kwargs,
             combined_meta_kwargs,
         ) in splitted_args:
-            combined_dynamic_kwargs = cls._sort_dynamic_kwargs(
-                combined_dynamic_kwargs)
+            combined_dynamic_kwargs = cls._sort_dynamic_kwargs(combined_dynamic_kwargs)
             vmap_axis = (0,) + tuple(
                 None for _ in combined_dynamic_kwargs
             )  # 0 for key, None for dynamic args
@@ -328,8 +323,7 @@ class NoiseInterpolation:
 
         mixed_pattern = {}
         for arg_name in mixed_args:
-            pattern_proposal = [
-                v for k, v in args_pattern.items() if k in arg_name]
+            pattern_proposal = [v for k, v in args_pattern.items() if k in arg_name]
             assert (
                 len(pattern_proposal) == 1
             ), f"{arg_name} has the following proposals {pattern_proposal} according to the provided pattern {args_pattern} and cannot be uniquely identified"
@@ -509,8 +503,7 @@ class NoiseInterpolation:
     @staticmethod
     def _process_alpha_mask(args_dict):
         if args_dict["alpha_mask_type"] == "static":
-            alpha_mask = args_dict["alpha_mask_value"] * \
-                jnp.ones(shape=(1, 1, 1, 1))
+            alpha_mask = args_dict["alpha_mask_value"] * jnp.ones(shape=(1, 1, 1, 1))
         elif args_dict["alpha_mask_type"] == "scalar_uniform":
             alpha_mask = partial(
                 jax.random.uniform,
