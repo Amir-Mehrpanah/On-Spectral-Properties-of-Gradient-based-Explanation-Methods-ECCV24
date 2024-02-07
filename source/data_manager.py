@@ -114,13 +114,11 @@ def integrated_grad(init_val, temp_grad, _):
 
 
 def beta_mul_freq(init_val, temp_grad, frequency, a=2, b=2):
-    return init_val + temp_grad * (frequency ** (3 / 2)) * beta.pdf(
-        frequency, alpha=a, beta=b
-    )
+    return init_val + temp_grad * (frequency ** (3 / 2)) * beta.pdf(frequency, a, b)
 
 
 def beta_integrated_grad(init_val, temp_grad, frequency, a=2, b=2):
-    return init_val + temp_grad * beta.pdf(frequency, alpha=a, beta=b)
+    return init_val + temp_grad * beta.pdf(frequency, a, b)
 
 
 def save_spectral_lens(data, save_raw_data_dir, agg_func=unif_mul_freq):

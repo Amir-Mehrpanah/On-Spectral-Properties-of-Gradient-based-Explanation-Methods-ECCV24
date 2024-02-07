@@ -32,3 +32,6 @@ signal damping,sl_u_0_0.3_meanx2_gaussian-0.3_meanx2   ,0.2306
 signal damping,sl_u_0_0.5_meanx2_gaussian-0.3_meanx2   ,0.2324
 signal damping,ig_sg_u_0_0.5_meanx2_gaussian-0.3_meanx2,0.2330
 signal damping,sl_u_0_0.7_meanx2_gaussian-0.3_meanx2   ,0.2342
+additive noise, ig_sg_b_0_1.0_meanx2_gaussian-0.3_meanx2,0.2216
+additive noise, sl_b_0_1.0_meanx2_gaussian-0.3_meanx2   ,0.2224
+additive noise, ig_sg_b_0_1.0_meanx_gaussian-0.3_meanx  ,0.2672
