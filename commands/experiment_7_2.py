@@ -55,7 +55,6 @@ batch_size = 10  # DEBUG
 normalize_sample = "False"  # DEBUG
 input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
-combination_fn = "damping_combination"
 architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
@@ -81,37 +80,35 @@ args_pattern = json.dumps(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
-    parser.add_argument(
-        "--combination_fn",
-        "-c",
-        type=str,
-        required=True,
-        options=[
-            "convex_combination",
-            "additive_combination",
-            "damping_combination",
-        ],
-    )
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_spectral_lens", "-s", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
     parser.add_argument("--num_batches", "-n", type=int, default=1)
+    parser.add_argument(
+        "--combination_fn",
+        "-c",
+        type=str,
+        default="additive_combination",
+        choices=[
+            "convex_combination",
+            "additive_combination",
+            "damping_combination",
+        ],
+    )
 
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
+    combination_fn = args.combination_fn
 
-    if args.combination_fn:
-        combination_fn = args.combination_fn
-
-    for batch in range(args.num_batches):  # DEBUG
+    for batch in range(args.num_batches):
         experiment_name = (
             os.path.basename(__file__).split(".")[0]
             + "_"
-            + args.combination_fn
+            + combination_fn
             + "_"
             + str(batch)
         )
@@ -284,12 +281,8 @@ if __name__ == "__main__":
                 experiment_name=job_name,
                 constraint=constraint,
                 action=Action.compute_entropy,
-                logging_level=logging_level,
                 save_metadata_dir=save_metadata_dir,
-                save_raw_data_dir=save_raw_data_dir,
             )
-
-            wait_in_queue(0, jobnames=job_name)
 
         if args.remove_batch_data and batch != 0:
             remove_files(save_raw_data_dir)

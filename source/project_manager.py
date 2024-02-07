@@ -68,6 +68,7 @@ def compute_entropy(save_metadata_dir):
     metadata = metadata.apply(lambda x: np.load(x))
     metadata = metadata.apply(lambda x: -(x * np.exp(x)).sum())
     metadata = metadata.groupby("alpha_mask_value").mean()
+    metadata.name = "predictive_entropy"
     filename = os.path.join(save_metadata_dir, "predictive_entropy.csv")
     metadata = metadata.reset_index()
     metadata.to_csv(filename, index=False)
