@@ -169,18 +169,34 @@ def compute_integrated_grad(
     save_metadata_dir,
     save_raw_data_dir,
     stream_statistic="meanx2",
-    alpha_mask_name="ig_sq",
+    alpha_mask_name="ig_u_sq",
     alpha_prior=slice(None),
     ig_elementwise=False,
 ):
-    from source.data_manager import save_integrated_grad
 
     logger.debug(
         f"Computing integrated grad for stream_statistic {stream_statistic} "
         f"with alpha_mask_name {alpha_mask_name} and alpha_prior "
         f"{alpha_prior} with ig_elementwise {ig_elementwise}"
     )
-    save_results_fn = partial(save_integrated_grad, ig_elementwise=ig_elementwise)
+    from source.data_manager import save_integrated_grad
+
+    if "_u_" in alpha_mask_name:  # uniform prior
+        save_results_fn = partial(save_integrated_grad, ig_elementwise=ig_elementwise)
+    elif "_b_" in alpha_mask_name:  # beta prior
+        from source.data_manager import beta_integrated_grad
+
+        save_results_fn = partial(
+            save_integrated_grad,
+            ig_elementwise=ig_elementwise,
+            agg_func=beta_integrated_grad,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported alpha_mask_name {alpha_mask_name} for integrated grad."
+            "Supported are _u_ for uniform and _b_ beta prior."
+        )
+
     compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
@@ -196,16 +212,27 @@ def compute_spectral_lens(
     save_metadata_dir,
     save_raw_data_dir,
     stream_statistic="meanx2",
-    alpha_mask_name="sl_sg",
+    alpha_mask_name="sl_u_",
     alpha_prior=slice(None),
 ):
     from source.data_manager import save_spectral_lens
 
+    if "_u_" in alpha_mask_name:  # uniform prior
+        save_results_fn = save_spectral_lens
+    elif "_b_" in alpha_mask_name:  # beta prior
+        from source.data_manager import beta_mul_freq
+
+        save_results_fn = partial(save_spectral_lens, agg_func=beta_mul_freq)
+    else:
+        raise ValueError(
+            f"Unsupported alpha_mask_name {alpha_mask_name} for spectral lens."
+            "Supported are _u_ for uniform and _b_ beta prior."
+        )
     compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,
         stream_statistic,
-        save_results_fn=save_spectral_lens,
+        save_results_fn=save_results_fn,
         alpha_mask_name=alpha_mask_name,
         alpha_prior=alpha_prior,
         ig_elementwise=False,

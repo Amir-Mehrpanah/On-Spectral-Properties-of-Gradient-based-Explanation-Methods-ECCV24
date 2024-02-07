@@ -4,6 +4,7 @@ import os
 import PIL
 from matplotlib import pyplot as plt
 import numpy as np
+from scipy.stats import beta
 import argparse
 from pandas import Series
 import tensorflow as tf
@@ -82,17 +83,17 @@ def preprocess_masks_ndarray(masks, preprocesses):
     return masks
 
 
-def spectral_lens_generic(data, func, perprocess):
+def aggregate_grad_mask_generic(data, agg_func, perprocess):
     init_val = np.load(data.iloc[0]["grad_mask"])
-    init_val = preprocess_masks_ndarray(init_val, preprocesses=perprocess)
+    init_val = np.zeros_like(init_val)
 
     for id, row in data.iterrows():
         temp_grad = np.load(row["grad_mask"])
         temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
-        init_val = func(init_val, temp_grad)
+        init_val = agg_func(init_val, temp_grad, row["alpha_mask_value"])
 
-    assert init_val.ndim == 3, f"{init_val.shape} must be 4d (H,W,C)"
-
+    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W,C)"
+    init_val = np.expand_dims(init_val, axis=0)
     return init_val
 
 
@@ -104,60 +105,26 @@ def div_by_sum(grad_mask, grad_sum):
     return grad_mask / grad_sum
 
 
-def spectral_lens_mean_freq(data):
-    def func(init_val, temp_grad, frequency):
-        return init_val + temp_grad * (frequency ** (3 / 2))
-
-    perprocess = [
-        sum_channels,
-    ]
-
-    init_val = np.load(data.iloc[0]["grad_mask"])
-    init_val = np.zeros_like(sum_channels(init_val))
-
-    for id, row in data.iterrows():
-        temp_grad = np.load(row["grad_mask"])
-        temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
-        init_val = func(init_val, temp_grad, row["alpha_mask_value"])
-
-    assert init_val.ndim == 3, f"{init_val.shape} must be 4d (H,W,C)"
-    init_val = np.expand_dims(init_val, axis=0)
-    return init_val
+def unif_mul_freq(init_val, temp_grad, frequency):
+    return init_val + temp_grad * (frequency ** (3 / 2))
 
 
-def integrated_grad(
-    data,
-    ig_elementwise=False,
-):
-    def func(init_val, temp_grad):
-        return init_val + temp_grad
-
-    perprocess = [
-        sum_channels,
-    ]
-
-    init_val = np.load(data.iloc[0]["grad_mask"])
-    init_val = np.zeros_like(sum_channels(init_val))
-
-    for id, row in data.iterrows():
-        temp_grad = np.load(row["grad_mask"])
-        temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
-        init_val = func(init_val, temp_grad)
-
-    if ig_elementwise:
-        image = PIL.Image.open(data.iloc[0]["image_path"])
-        image = tf.keras.utils.img_to_array(image)
-        image = preprocess(image, img_size=224)
-        image = sum_channels(image).squeeze(0)
-        init_val = init_val * image
-
-    assert init_val.ndim == 3, f"{init_val.shape} must be 4d (H,W,C)"
-    init_val = np.expand_dims(init_val, axis=0)
-    return init_val
+def integrated_grad(init_val, temp_grad, _):
+    return init_val + temp_grad
 
 
-def save_spectral_lens(data, save_raw_data_dir):
-    init_val = spectral_lens_mean_freq(data)
+def beta_mul_freq(init_val, temp_grad, frequency, a=2, b=2):
+    return init_val + temp_grad * (frequency ** (3 / 2)) * beta.pdf(
+        frequency, alpha=a, beta=b
+    )
+
+
+def beta_integrated_grad(init_val, temp_grad, frequency, a=2, b=2):
+    return init_val + temp_grad * beta.pdf(frequency, alpha=a, beta=b)
+
+
+def save_spectral_lens(data, save_raw_data_dir, agg_func=unif_mul_freq):
+    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
@@ -165,8 +132,21 @@ def save_spectral_lens(data, save_raw_data_dir):
     return save_path
 
 
-def save_integrated_grad(data, save_raw_data_dir, ig_elementwise):
-    init_val = integrated_grad(data, ig_elementwise=ig_elementwise)
+def save_integrated_grad(
+    data,
+    save_raw_data_dir,
+    ig_elementwise,
+    agg_func=integrated_grad,
+):
+    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+
+    if ig_elementwise:
+        image = PIL.Image.open(data.iloc[0]["image_path"])
+        image = tf.keras.utils.img_to_array(image)
+        image = preprocess(image, img_size=224)
+        image = sum_channels(image)
+        init_val = init_val * image
+
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"IG_{path_prefix}.npy")
