@@ -89,8 +89,8 @@ if __name__ == "__main__":
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_spectral_lens", "-s", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--remove_batch_data", "-r", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
+    parser.add_argument("--remove_batch_data", "-r", action="store_true")
     parser.add_argument("--num_batches", "-n", type=int, default=1)
 
     args = parser.parse_args()
