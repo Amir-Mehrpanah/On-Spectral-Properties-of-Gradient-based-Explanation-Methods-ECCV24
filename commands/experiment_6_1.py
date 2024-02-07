@@ -25,20 +25,20 @@ constraint = "thin"
 experiment_name = os.path.basename(__file__).split(".")[0]
 
 # Method args
-alpha_mask_value = " ".join([f"{x:.2}" for x in np.linspace(0, 1, 50)])
+alpha_mask_value = " ".join([f"{x:.2}" for x in np.linspace(0, 0.5, 20)])
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-4
-alpha_prior = ("sl_u_0_1.0", alpha_mask_value)
+alpha_prior = ("sl_u_0_0.5", alpha_mask_value)
 batch_size = 1
 normalize_sample = "False"
 method = "noise_interpolation"
-combination_fn = "convex_combination" # DEBUG additive_combination
+combination_fn = "additive_combination" # DEBUG additive_combination
 architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
 input_shape = (1, 224, 224, 3)
-baseline_mask_type = "gaussian-0.3" # why?
+baseline_mask_type = "gaussian-0.3" # DEBUG
 projection_type = "prediction"
 projection_top_k = 1
 alpha_mask_type = "static"

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Action:
     gather_stats = "gather_stats"
+    compute_entropy = "compute_entropy"
     compute_inconsistency = "compute_inconsistency"
     merge_stats = "merge_stats"
     compute_accuracy_at_q = "compute_accuracy_at_q"

@@ -51,6 +51,10 @@ if driver_args.action == Action.gather_stats:
                 **meta_kwargs,  # stats independent metadata
             },
         )
+elif driver_args.action == Action.compute_entropy:
+    project_manager.compute_entropy(
+        driver_args.save_metadata_dir,
+    )
 elif driver_args.action == Action.merge_stats:
     project_manager.merge_experiment_metadata(
         driver_args.save_metadata_dir,
@@ -72,6 +76,9 @@ elif driver_args.action == Action.compute_spectral_lens:
     project_manager.compute_spectral_lens(
         driver_args.save_metadata_dir,
         driver_args.save_raw_data_dir,
+        stream_statistic=action_args.stream_statistic,
+        alpha_mask_name=action_args.alpha_mask_name,
+        alpha_prior=action_args.alpha_prior,
     )
 elif driver_args.action == Action.compute_integrated_grad:
     project_manager.compute_integrated_grad(

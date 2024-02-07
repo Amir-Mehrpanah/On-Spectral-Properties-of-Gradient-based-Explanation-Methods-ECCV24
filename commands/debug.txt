@@ -1,10 +1,34 @@
-python driver.py \
-    --method=noise_interpolation \
-    --architecture=resnet50 \
-    --dataset=imagenet \
-    --alpha_mask_type=static \
-    --alpha_mask_value=0.1 \
-    --projection_type=label \
-    --baseline_mask_type=static \
-    --baseline_mask_value=0 \
-    --image_index=7
+combination,method,score
+additive noise,sl_u_0_0.5_meanx2_gaussian-0.3_meanx2   ,0.2014
+additive noise,ig_sg_u_0_0.5_meanx2_gaussian-0.3_meanx2,0.2072
+additive noise,sl_u_0_0.7_meanx2_gaussian-0.3_meanx2   ,0.2082
+additive noise,ig_sg_u_0_0.7_meanx2_gaussian-0.3_meanx2,0.2092
+additive noise,ig_sg_u_0_1.0_meanx2_gaussian-0.3_meanx2,0.2130
+additive noise,ig_sg_u_0_0.3_meanx2_gaussian-0.3_meanx2,0.2136
+additive noise,ig_sg_u_0_0.9_meanx2_gaussian-0.3_meanx2,0.2140
+additive noise,sl_u_0_0.3_meanx2_gaussian-0.3_meanx2   ,0.2142
+additive noise,sl_u_0_1.0_meanx2_gaussian-0.3_meanx2   ,0.2146
+additive noise,sl_u_0_0.9_meanx2_gaussian-0.3_meanx2   ,0.2178
+additive noise,ig_sg_u_0_0.1_meanx2_gaussian-0.3_meanx2,0.2352
+convex,ig_sg_u_0_0.3_meanx2_gaussian-0.3_meanx2  ,0.2108
+convex,sl_u_0_0.3_meanx2_gaussian-0.3_meanx2     ,0.2114
+convex,ig_sg_u_0_0.5_meanx2_gaussian-0.3_meanx2  ,0.2196
+convex,sl_u_0_1.0_meanx2_gaussian-0.3_meanx2     ,0.2204
+convex,ig_sg_u_0_1.0_meanx2_gaussian-0.3_meanx2  ,0.2242
+convex,ig_sg_u_0_0.9_meanx2_gaussian-0.3_meanx2  ,0.2244
+convex,ig_sg_u_0_0.7_meanx2_gaussian-0.3_meanx2  ,0.2276
+convex,sl_u_0_0.5_meanx2_gaussian-0.3_meanx2     ,0.2290
+convex,sl_u_0_0.9_meanx2_gaussian-0.3_meanx2     ,0.2292
+convex,ig_sg_u_0_0.1_meanx2_gaussian-0.3_meanx2  ,0.2320
+convex,sl_u_0_0.7_meanx2_gaussian-0.3_meanx2     ,0.2358
+signal damping,sl_u_0_1.0_meanx2_gaussian-0.3_meanx2   ,0.2142
+signal damping,ig_sg_u_0_0.1_meanx2_gaussian-0.3_meanx2,0.2176
+signal damping,sl_u_0_0.9_meanx2_gaussian-0.3_meanx2   ,0.2196
+signal damping,ig_sg_u_0_1.0_meanx2_gaussian-0.3_meanx2,0.2204
+signal damping,ig_sg_u_0_0.7_meanx2_gaussian-0.3_meanx2,0.2268
+signal damping,ig_sg_u_0_0.3_meanx2_gaussian-0.3_meanx2,0.2282
+signal damping,ig_sg_u_0_0.9_meanx2_gaussian-0.3_meanx2,0.2284
+signal damping,sl_u_0_0.3_meanx2_gaussian-0.3_meanx2   ,0.2306
+signal damping,sl_u_0_0.5_meanx2_gaussian-0.3_meanx2   ,0.2324
+signal damping,ig_sg_u_0_0.5_meanx2_gaussian-0.3_meanx2,0.2330
+signal damping,sl_u_0_0.7_meanx2_gaussian-0.3_meanx2   ,0.2342

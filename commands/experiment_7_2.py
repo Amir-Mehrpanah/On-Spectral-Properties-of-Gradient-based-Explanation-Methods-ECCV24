@@ -28,17 +28,16 @@ ig_alpha_priors = {  # DEBUG
     "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
     "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
-    # "ig_sg_u_0_0.1": "0.0 0.1",
+    "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
+    "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
+    "ig_sg_u_0_0.1": "0.0 0.1",
 }
 sl_alpha_priors = {  # DEBUG
     "sl_u_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     "sl_u_0_0.9": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    "sl_u_0_0.8": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8",
     "sl_u_0_0.7": "0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "sl_u_0_0.3": "0.1 0.2 0.3",
-    # "sl_u_0_0.1": "0.1",
+    "sl_u_0_0.5": "0.1 0.2 0.3 0.4 0.5",
+    "sl_u_0_0.3": "0.1 0.2 0.3",
 }
 ig_stream_statistics = [  # DEBUG
     # Statistics.meanx,
@@ -56,7 +55,7 @@ batch_size = 10  # DEBUG
 normalize_sample = "False"  # DEBUG
 input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
-combination_fn = "convex_combination"
+combination_fn = "damping_combination"
 architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/home/x_amime/azizpour-group/datasets/imagenet"
@@ -82,22 +81,44 @@ args_pattern = json.dumps(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
+    parser.add_argument(
+        "--combination_fn",
+        "-c",
+        type=str,
+        required=True,
+        options=[
+            "convex_combination",
+            "additive_combination",
+            "damping_combination",
+        ],
+    )
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_spectral_lens", "-s", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
+    parser.add_argument("--compute_entropy", "-e", action="store_true")
+    parser.add_argument("--num_batches", "-n", type=int, default=1)
 
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
 
-    for batch in range(1):  # DEBUG
-        experiment_name = os.path.basename(__file__).split(".")[0] + "_" + str(batch)
+    if args.combination_fn:
+        combination_fn = args.combination_fn
+
+    for batch in range(args.num_batches):  # DEBUG
+        experiment_name = (
+            os.path.basename(__file__).split(".")[0]
+            + "_"
+            + args.combination_fn
+            + "_"
+            + str(batch)
+        )
         save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
         save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-        job_array = "0-990:10"  # DEBUG 
+        job_array = "0-990:10"  # DEBUG
         # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
         array_process = (
             f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
@@ -238,7 +259,7 @@ if __name__ == "__main__":
                     save_metadata_dir=save_metadata_dir,
                     batch_size=128,
                 )
-                
+
             wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             job_name = []
 
@@ -256,6 +277,19 @@ if __name__ == "__main__":
                 )
             wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
             remove_files(save_metadata_dir)
+
+        if args.compute_entropy:
+            job_name = f"entropy_{experiment_name}"
+            run_experiment(
+                experiment_name=job_name,
+                constraint=constraint,
+                action=Action.compute_entropy,
+                logging_level=logging_level,
+                save_metadata_dir=save_metadata_dir,
+                save_raw_data_dir=save_raw_data_dir,
+            )
+
+            wait_in_queue(0, jobnames=job_name)
 
         if args.remove_batch_data and batch != 0:
             remove_files(save_raw_data_dir)

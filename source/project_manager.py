@@ -1,4 +1,5 @@
 from functools import partial
+import numpy as np
 import pandas as pd
 from glob import glob
 import os
@@ -51,6 +52,25 @@ def load_experiment_inconsistency(save_metadata_dir, glob_path: str = "*.csv"):
 
     metadata_path = metadata_paths_inconsistency[0]
     return pd.read_csv(metadata_path, index_col=False)
+
+
+def compute_entropy(save_metadata_dir):
+    metadata = load_experiment_metadata(
+        save_metadata_dir, glob_path="merged_metadata.csv"
+    )
+    metadata = metadata.set_index(
+        [
+            "stream_name",
+            "alpha_mask_value",
+        ]
+    )
+    metadata = metadata.loc["log_probs", "data_path"]
+    metadata = metadata.apply(lambda x: np.load(x))
+    metadata = metadata.apply(lambda x: -(x * np.exp(x)).sum())
+    metadata = metadata.groupby("alpha_mask_value").mean()
+    filename = os.path.join(save_metadata_dir, "predictive_entropy.csv")
+    metadata = metadata.reset_index()
+    metadata.to_csv(filename, index=False)
 
 
 def merge_experiment_metadata(

@@ -89,6 +89,12 @@ def base_parser(parser, default_args: DefaultArgs):
             save_metadata_dir=args.save_metadata_dir,
             skip_data=args.skip_data,
         )
+    elif args.action == Action.compute_entropy:
+        action_args = argparse.Namespace()
+        driver_args = argparse.Namespace(
+            action=args.action,
+            save_metadata_dir=args.save_metadata_dir,
+        )
     elif args.action == Action.compute_inconsistency:
         action_args = _parse_measure_inconsistency_args(parser, default_args)
         driver_args = argparse.Namespace(
