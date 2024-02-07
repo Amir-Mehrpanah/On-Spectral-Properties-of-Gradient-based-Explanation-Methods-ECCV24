@@ -19,7 +19,7 @@ def init_resnet50_forward(args):
     resnet50 = fm.ResNet50(
         output=args.output_layer,
         pretrained="imagenet",
-        ckpt_dir="/home/x_amime/x_amime/projects/an_explanation_model/commands/temp/",
+        ckpt_dir=args.save_temp_base_dir,
     )
     params = resnet50.init(
         jax.random.PRNGKey(0),

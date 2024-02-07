@@ -10,13 +10,20 @@ from typing import List
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
-save_raw_data_base_dir = (
-    "/home/x_amime/x_amime/projects/an_explanation_model/outputs/raw_data/"
-)
-save_output_base_dir = "/home/x_amime/x_amime/projects/an_explanation_model/outputs/"
-save_metadata_base_dir = (
-    "/home/x_amime/x_amime/projects/an_explanation_model/outputs/metadata/"
-)
+cwd = os.getcwd()
+assert cwd.endswith(
+    "an_explanation_model"
+), f"please run this script from the root of the project cwd: {cwd}"
+
+username = "x_amime"
+save_raw_data_base_dir = os.path.join(cwd, "outputs/raw_data/")
+save_metadata_base_dir = os.path.join(cwd, "outputs/metadata/")
+save_temp_base_dir = os.path.join(cwd, "outputs/temp/")
+slurm_logs_base_dir = os.path.join(cwd, "outputs/slurm_logs/")
+
+os.makedirs(save_raw_data_base_dir, exist_ok=True)
+os.makedirs(save_metadata_base_dir, exist_ok=True)
+os.makedirs(slurm_logs_base_dir, exist_ok=True)
 
 
 def remove_files(base_path, glob_path="*", exclude="merged"):
@@ -119,8 +126,16 @@ def handle_sbatch_args(kwargs):
         sweeper_name = kwargs["sweeper_name"]
         logger.debug(f"sweeper_name: {sweeper_name}")
         del kwargs["sweeper_name"]
-
-    slurm_args = f"{experiment_name_cmd}{number_of_gpus}{job_array}{constraint}"
+    slurm_logs = os.path.join(slurm_logs_base_dir, f"%J_%x_%N.out")
+    slurm_errs = os.path.join(slurm_logs_base_dir, f"%J_%x_%N.err")
+    slurm_args = (
+        f"--output={slurm_logs} "
+        f"--error={slurm_errs} "
+        f"{experiment_name_cmd}"
+        f"{number_of_gpus}"
+        f"{job_array}"
+        f"{constraint}"
+    )
 
     return experiment_name, slurm_args, array_process, sweeper_name
 
@@ -133,7 +148,7 @@ def run_experiment(**args):
 
 
 def wait_in_queue(thresh=50, jobnames: List[str] = None):
-    command = ["squeue", "-u", "x_amime"]
+    command = ["squeue", "-u", username]
     if jobnames is not None:
         command.append("--name")
         if isinstance(jobnames, list):

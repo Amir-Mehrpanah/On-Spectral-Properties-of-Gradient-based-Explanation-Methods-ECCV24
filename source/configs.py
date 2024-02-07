@@ -56,6 +56,7 @@ class DefaultArgs:
     save_raw_data_dir = "no_default_path"
     save_metadata_dir = "no_default_path"
     jupyter_data_dir = "no_default_path"
+    save_temp_base_dir = "no_default_path"
     visualizations_dir = os.path.join(jupyter_data_dir, "visualizations")
     profiler_dir = os.path.join(jupyter_data_dir, "profiler")
 
