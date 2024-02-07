@@ -24,7 +24,7 @@ slurm_logs_base_dir = os.path.join(cwd, "outputs/slurm_logs/")
 os.makedirs(save_raw_data_base_dir, exist_ok=True)
 os.makedirs(save_metadata_base_dir, exist_ok=True)
 os.makedirs(slurm_logs_base_dir, exist_ok=True)
-
+os.makedirs(save_temp_base_dir, exist_ok=True)
 
 def remove_files(base_path, glob_path="*", exclude="merged"):
     files = glob(os.path.join(base_path, glob_path))

@@ -87,7 +87,6 @@ def base_parser(parser, default_args: DefaultArgs):
             write_demo=write_demo,
             save_raw_data_dir=args.save_raw_data_dir,
             save_metadata_dir=args.save_metadata_dir,
-            save_temp_base_dir=args.save_temp_base_dir,
             skip_data=args.skip_data,
         )
     elif args.action == Action.compute_entropy:
