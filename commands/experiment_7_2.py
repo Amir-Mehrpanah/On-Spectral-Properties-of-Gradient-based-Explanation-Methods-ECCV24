@@ -24,24 +24,25 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5"  # DEBUG  0.6 0.7 0.8 0.9 1.0
+alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  # DEBUG
 ig_alpha_priors = {  # DEBUG
-    # "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
+    "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
+    "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
     "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
-    # "ig_sg_u_0_0.1": "0.0 0.1",
+    "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
+    # "ig_sg_b_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
 }
 sl_alpha_priors = {  # DEBUG
     # "sl_u_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "sl_u_0_0.9": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "sl_u_0_0.7": "0.1 0.2 0.3 0.4 0.5 0.6 0.7",
+    "sl_u_0_0.7": "0.1 0.2 0.3 0.4 0.5 0.6 0.7",
     "sl_u_0_0.5": "0.1 0.2 0.3 0.4 0.5",
-    # "sl_u_0_0.3": "0.1 0.2 0.3",
+    "sl_u_0_0.3": "0.1 0.2 0.3",
+    # "sl_b_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
 }
 ig_stream_statistics = [  # DEBUG
-    # Statistics.meanx,
+    Statistics.meanx,
     Statistics.meanx2,
 ]
 sl_stream_statistics = [  # DEBUG
@@ -50,7 +51,7 @@ sl_stream_statistics = [  # DEBUG
 ]
 combination_fns = [
     "additive_combination",
-    # "convex_combination",
+    "convex_combination",
     "damping_combination",
 ]
 alpha_mask_type = "static"
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
-        sys.exit(1)
+        sys.exit(1) 
 
     for batch in range(args.num_batches):
         for combination_fn in combination_fns:
@@ -110,7 +111,7 @@ if __name__ == "__main__":
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0"  # DEBUG -990:10
+            job_array = "0-990:10"  # DEBUG 
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -232,7 +233,7 @@ if __name__ == "__main__":
                 remove_files(save_metadata_dir)
 
             if args.compute_accuracy_at_q:
-                job_array = "10"  # DEBUG -90:20
+                job_array = "10-90:20"  # DEBUG 
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, "merged_??_metadata.csv"))
