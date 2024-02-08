@@ -94,7 +94,7 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG
+            job_array = "0"  # DEBUG -990:10
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -170,7 +170,6 @@ def experiment_master(
                     logging_level=logging_level,
                     save_metadata_dir=save_metadata_dir,
                 )
-            if args.compute_integrated_grad:
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
                 remove_files(save_metadata_dir)
 
@@ -182,7 +181,7 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "10-90:20"  # DEBUG
+                job_array = "10"  # DEBUG -90:20
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
