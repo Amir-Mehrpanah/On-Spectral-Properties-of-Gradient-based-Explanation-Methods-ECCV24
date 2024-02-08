@@ -24,14 +24,14 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  # DEBUG
+alpha_mask_value = "0.0"  # DEBUG
 ig_alpha_priors = {  # DEBUG
     # "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
     # "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
     # "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
-    "ig_sg_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    # "ig_sg_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
 }
 sl_alpha_priors = {  # DEBUG
     # "sl_u_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
@@ -39,14 +39,14 @@ sl_alpha_priors = {  # DEBUG
     # "sl_u_0_0.7": "0.1 0.2 0.3 0.4 0.5 0.6 0.7",
     # "sl_u_0_0.5": "0.1 0.2 0.3 0.4 0.5",
     # "sl_u_0_0.3": "0.1 0.2 0.3",
-    "sl_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
+    # "sl_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
 }
 ig_stream_statistics = [  # DEBUG
-    # Statistics.meanx,
+    Statistics.meanx,
     Statistics.meanx2,
 ]
 sl_stream_statistics = [  # DEBUG
-    # Statistics.meanx,
+    Statistics.meanx,
     Statistics.meanx2,
 ]
 combination_fns = [
@@ -90,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_spectral_lens", "-s", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
+    parser.add_argument("--include_raw_data_at_q", "-v", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
     parser.add_argument("--num_batches", "-n", type=int, default=1)
@@ -97,7 +98,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
-        sys.exit(1) 
+        sys.exit(1)
+    assert (
+        not args.include_raw_data_at_q or args.compute_accuracy_at_q
+    ), "include_raw_data_at_q requires compute_accuracy_at_q"
 
     for batch in range(args.num_batches):
         for combination_fn in combination_fns:
@@ -111,7 +115,7 @@ if __name__ == "__main__":
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG 
+            job_array = "0-990:10"  # DEBUG
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -233,13 +237,17 @@ if __name__ == "__main__":
                 remove_files(save_metadata_dir)
 
             if args.compute_accuracy_at_q:
-                job_array = "10-90:20"  # DEBUG 
+                if args.include_raw_data_at_q:
+                    glob_file_name = "merged_*metadata.csv"
+                else:
+                    glob_file_name = "merged_??_metadata.csv"
+                job_array = "0,10,30,50,70,90,100"  # DEBUG
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
-                files = glob(os.path.join(save_metadata_dir, "merged_??_metadata.csv"))
+                files = glob(os.path.join(save_metadata_dir, glob_file_name))
                 for k, file in enumerate(files):
                     glob_path = os.path.basename(file)
-                    prefix = glob_path.split("_")[1]
+                    prefix = glob_path.split("_")[1][:2]
                     job_name.append(f"acc{k}_{experiment_name}")
                     run_experiment(
                         sweeper_name="_sweeper_torch.sbatch",
@@ -260,7 +268,8 @@ if __name__ == "__main__":
                 job_name = []
 
                 for k, file in enumerate(files):
-                    prefix = os.path.basename(file).split("_")[1]
+                    prefix = os.path.basename(file).split("_")[1][:2]
+                    print(f"prefix: {prefix}")
                     job_name.append(f"merge_{prefix}_{experiment_name}")
                     run_experiment(
                         experiment_name=job_name[-1],
