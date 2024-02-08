@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
     parser.add_argument("--compute_spectral_lens", "-s", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--include_raw_data_at_q", "-v", action="store_true")
+    parser.add_argument("--compute_raw_data_accuracy_at_q", "-v", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
     parser.add_argument("--num_batches", "-n", type=int, default=1)
@@ -99,9 +99,6 @@ if __name__ == "__main__":
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
-    assert (
-        not args.include_raw_data_at_q or args.compute_accuracy_at_q
-    ), "include_raw_data_at_q requires compute_accuracy_at_q"
 
     for batch in range(args.num_batches):
         for combination_fn in combination_fns:
@@ -236,15 +233,19 @@ if __name__ == "__main__":
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
                 remove_files(save_metadata_dir)
 
-            if args.compute_accuracy_at_q:
-                if args.include_raw_data_at_q:
+            if args.compute_accuracy_at_q or args.compute_raw_data_accuracy_at_q:
+                if args.compute_accuracy_at_q and args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_*metadata.csv"
-                else:
+                elif args.compute_accuracy_at_q:
                     glob_file_name = "merged_??_metadata.csv"
+                elif args.compute_raw_data_accuracy_at_q:
+                    glob_file_name = "merged_metadata.csv"
+
                 job_array = "0,10,30,50,70,90,100"  # DEBUG
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
+                print("files: ", files)
                 for k, file in enumerate(files):
                     glob_path = os.path.basename(file)
                     prefix = glob_path.split("_")[1][:2]
