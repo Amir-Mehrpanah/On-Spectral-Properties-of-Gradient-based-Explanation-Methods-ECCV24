@@ -25,6 +25,15 @@ constraint = "thin"
 
 # Method args
 alpha_mask_value = ""  # DEBUG
+# name must contain _i_ for elementwise multiplication
+# name must contain _x_ for meanx
+# name must contain _x2_ for meanx2
+# name must contain ig_ for integrated gradients
+# name must contain _sg_ for smooth grad
+# name must contain _b_ for beta explanation prior
+# name must contain _u_ for uniform explanation prior
+# name must contain sl_ for spectral lens
+# other characters are ignored
 ig_alpha_priors = {  # DEBUG
     # "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
@@ -33,30 +42,10 @@ ig_alpha_priors = {  # DEBUG
     # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
     # "ig_sg_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
 }
-sl_alpha_priors = {  # DEBUG
-    # "sl_u_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    # "sl_u_0_0.9": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "sl_u_0_0.7": "0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "sl_u_0_0.5": "0.1 0.2 0.3 0.4 0.5",
-    # "sl_u_0_0.3": "0.1 0.2 0.3",
-    # "sl_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-}
-ig_stream_statistics = [  # DEBUG
-    # Statistics.meanx,
-    # Statistics.meanx2,
-]
-sl_stream_statistics = [  # DEBUG
-    # Statistics.meanx,
-    # Statistics.meanx2,
-]
 combination_fns = [
     # "additive_combination",
     # "convex_combination",
     # "damping_combination",
-]
-ig_elementwise = [
-    "True",
-    "False",
 ]
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
@@ -155,27 +144,20 @@ def experiment_master(
 
             if args.compute_integrated_grad:
                 job_name = []
-                for r, ig_prod in enumerate(ig_elementwise):
-                    for k, (alpha_mask_name, alpha_prior) in enumerate(
-                        ig_alpha_priors.items()
-                    ):
-                        for j, stream_statistic in enumerate(ig_stream_statistics):
-                            temp_name = (
-                                alpha_mask_name + "_" + stream_statistic + "_" + ig_prod
-                            )
-                            job_name.append(f"ig_{experiment_name}_{r}_{k}_{j}")
-                            run_experiment(
-                                experiment_name=job_name[-1],
-                                constraint=constraint,
-                                action=Action.compute_integrated_grad,
-                                logging_level=logging_level,
-                                save_metadata_dir=save_metadata_dir,
-                                save_raw_data_dir=save_raw_data_dir,
-                                stream_statistic=stream_statistic,
-                                alpha_mask_name=temp_name,
-                                alpha_prior=alpha_prior,
-                                ig_elementwise=ig_prod,
-                            )
+                for k, (alpha_mask_name, alpha_prior) in enumerate(
+                    ig_alpha_priors.items()
+                ):
+                    job_name.append(f"ig_{experiment_name}_{k}")
+                    run_experiment(
+                        experiment_name=job_name[-1],
+                        constraint=constraint,
+                        action=Action.compute_integrated_grad,
+                        logging_level=logging_level,
+                        save_metadata_dir=save_metadata_dir,
+                        save_raw_data_dir=save_raw_data_dir,
+                        alpha_mask_name=alpha_mask_name,
+                        alpha_prior=alpha_prior,
+                    )
                 wait_in_queue(0, job_name)
                 job_name = []
                 job_name.append(f"merge_ig_{experiment_name}")

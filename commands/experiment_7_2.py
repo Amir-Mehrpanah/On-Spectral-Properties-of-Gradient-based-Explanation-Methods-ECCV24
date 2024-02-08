@@ -27,19 +27,7 @@ commands.experiment_7.ig_alpha_priors = {  # DEBUG
     # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
     # "ig_sg_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
 }
-commands.experiment_7.sl_alpha_priors = {  # DEBUG
-    "sl_u_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    # "sl_u_0_0.9": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "sl_u_0_0.7": "0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "sl_u_0_0.5": "0.1 0.2 0.3 0.4 0.5",
-    # "sl_u_0_0.3": "0.1 0.2 0.3",
-    # "sl_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-}
 commands.experiment_7.ig_stream_statistics = [  # DEBUG
-    # Statistics.meanx,
-    # Statistics.meanx2,
-]
-commands.experiment_7.sl_stream_statistics = [  # DEBUG
     # Statistics.meanx,
     # Statistics.meanx2,
 ]

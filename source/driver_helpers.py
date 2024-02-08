@@ -139,11 +139,6 @@ def _merge_stats_args(parser):
 
 def _parse_integrated_grad_args(parser):
     parser.add_argument(
-        "--stream_statistic",
-        type=str,
-        default=Statistics.meanx2,
-    )
-    parser.add_argument(
         "--alpha_mask_name",
         type=str,
         required=True,
@@ -153,11 +148,6 @@ def _parse_integrated_grad_args(parser):
         type=float,
         default=slice(None),
         nargs="+",
-    )
-    parser.add_argument(
-        "--ig_elementwise",
-        type=_bool,
-        default=False,
     )
 
     args, _ = parser.parse_known_args()

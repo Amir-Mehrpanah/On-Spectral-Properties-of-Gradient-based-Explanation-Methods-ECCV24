@@ -12,6 +12,7 @@ from source.data_manager import (
     save_integrated_grad,
     save_spectral_lens,
 )
+from source.utils import Statistics, StreamNames
 
 logger = logging.getLogger(__name__)
 
@@ -175,28 +176,29 @@ def compute_with_explanation_prior(
 def compute_integrated_grad(
     save_metadata_dir,
     save_raw_data_dir,
-    stream_statistic,
     alpha_mask_name,
     alpha_prior,
-    ig_elementwise,
 ):
-
-    logger.debug(
-        f"Computing integrated grad for stream_statistic {stream_statistic} "
-        f"with alpha_mask_name {alpha_mask_name} and alpha_prior "
-        f"{alpha_prior} with ig_elementwise {ig_elementwise}"
+    ig_elementwise = "_i_" in alpha_mask_name
+    stream_statistic = (
+        Statistics.meanx2 if "_x2_" in alpha_mask_name else Statistics.meanx
     )
-    if alpha_mask_name.startswith("ig_u_"):  # uniform prior
-        save_results_fn = partial(save_integrated_grad, ig_elementwise=ig_elementwise)
-    elif alpha_mask_name.startswith("ig_b_"):  # beta prior
+    if alpha_mask_name.startswith("ig_") and "_u_" in alpha_mask_name:  # uniform prior
+        save_results_fn = partial(
+            save_integrated_grad,
+            ig_elementwise=ig_elementwise,
+        )
+    elif alpha_mask_name.startswith("ig_") and "_b_" in alpha_mask_name:  # beta prior
         save_results_fn = partial(
             save_integrated_grad,
             agg_func=beta_integrated_grad,
             ig_elementwise=ig_elementwise,
         )
-    elif alpha_mask_name.startswith("sl_u_"):  # uniform prior
+    elif (
+        alpha_mask_name.startswith("sl_") and "_u_" in alpha_mask_name
+    ):  # uniform prior
         save_results_fn = save_spectral_lens
-    elif alpha_mask_name.startswith("sl_b_"):  # beta prior
+    elif alpha_mask_name.startswith("sl_") and "_b_" in alpha_mask_name:  # beta prior
         save_results_fn = partial(save_spectral_lens, agg_func=beta_mul_freq)
     else:
         raise ValueError(
@@ -204,6 +206,12 @@ def compute_integrated_grad(
             "Supported are _u_ for uniform and _b_ beta prior."
         )
 
+    logger.debug(
+        f"Computing integrated grad for stream_statistic {stream_statistic} "
+        f"with alpha_mask_name {alpha_mask_name} and alpha_prior "
+        f"{alpha_prior} with ig_elementwise {ig_elementwise} "
+        f"using save_results_fn {save_results_fn}"
+    )
     compute_with_explanation_prior(
         save_metadata_dir,
         save_raw_data_dir,

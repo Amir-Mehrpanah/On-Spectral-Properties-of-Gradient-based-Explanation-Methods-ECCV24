@@ -76,10 +76,8 @@ elif driver_args.action == Action.compute_integrated_grad:
     project_manager.compute_integrated_grad(
         driver_args.save_metadata_dir,
         driver_args.save_raw_data_dir,
-        stream_statistic=action_args.stream_statistic,
         alpha_mask_name=action_args.alpha_mask_name,
         alpha_prior=action_args.alpha_prior,
-        ig_elementwise=action_args.ig_elementwise,
     )
 elif driver_args.action == Action.compute_accuracy_at_q:
     raise NotImplementedError("Call this from torch_driver.py")
