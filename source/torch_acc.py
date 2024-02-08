@@ -64,6 +64,7 @@ class SLQDataset(Dataset):
             masked_image = original_image * mask
         else:
             masked_image = original_image
+            mask = torch.zeros_like(original_image)
 
         if self.verbose:
             sample = {

@@ -155,13 +155,16 @@ def wait_in_queue(thresh=50, jobnames: List[str] = None):
             jobnames = ",".join(jobnames)
         command.append(jobnames)
 
+    i=0
     while True:
         result = subprocess.run(command, stdout=subprocess.PIPE)
         result = result.stdout.decode()
         result = len(result.split("\n")) - 2
-        logger.debug(
-            f"there are {result} number of jobs in the queue, waiting for finishing the jobs",
-        )
+        i+=1
+        if i%10==0:
+            logger.debug(
+                f"there are {result} number of jobs in the queue, waiting for finishing the jobs",
+            )
         if result <= thresh:
             return
         time.sleep(5)
