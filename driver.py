@@ -72,14 +72,6 @@ elif driver_args.action == Action.compute_inconsistency:
         action_args.pivot_column,
         action_args.inconsistency_measure_name,
     )
-elif driver_args.action == Action.compute_spectral_lens:
-    project_manager.compute_spectral_lens(
-        driver_args.save_metadata_dir,
-        driver_args.save_raw_data_dir,
-        stream_statistic=action_args.stream_statistic,
-        alpha_mask_name=action_args.alpha_mask_name,
-        alpha_prior=action_args.alpha_prior,
-    )
 elif driver_args.action == Action.compute_integrated_grad:
     project_manager.compute_integrated_grad(
         driver_args.save_metadata_dir,

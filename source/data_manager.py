@@ -121,7 +121,11 @@ def beta_integrated_grad(init_val, temp_grad, frequency, a=2, b=2):
     return init_val + temp_grad * beta.pdf(frequency, a, b)
 
 
-def save_spectral_lens(data, save_raw_data_dir, agg_func=unif_mul_freq):
+def save_spectral_lens(
+    data,
+    save_raw_data_dir,
+    agg_func=unif_mul_freq,
+):
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
@@ -133,8 +137,8 @@ def save_spectral_lens(data, save_raw_data_dir, agg_func=unif_mul_freq):
 def save_integrated_grad(
     data,
     save_raw_data_dir,
-    ig_elementwise,
     agg_func=integrated_grad,
+    ig_elementwise=False,
 ):
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
 

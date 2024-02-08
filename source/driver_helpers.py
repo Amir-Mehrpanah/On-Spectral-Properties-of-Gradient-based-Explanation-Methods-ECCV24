@@ -107,14 +107,6 @@ def base_parser(parser, default_args: DefaultArgs):
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
         )
-    elif args.action == Action.compute_spectral_lens:
-        # similar args to _parse_integrated_grad_args
-        action_args = _parse_integrated_grad_args(parser)
-        driver_args = argparse.Namespace(
-            action=args.action,
-            save_metadata_dir=args.save_metadata_dir,
-            save_raw_data_dir=args.save_raw_data_dir,
-        )
     elif args.action == Action.compute_integrated_grad:
         action_args = _parse_integrated_grad_args(parser)
         driver_args = argparse.Namespace(
