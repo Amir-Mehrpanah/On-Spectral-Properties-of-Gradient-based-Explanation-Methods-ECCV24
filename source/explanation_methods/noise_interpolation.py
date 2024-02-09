@@ -173,9 +173,9 @@ class NoiseInterpolation:
             required=True,
             nargs="+",
             choices=[
-                "convex_combination",
-                "additive_combination",
-                "damping_combination",
+                "convex",
+                "additive",
+                "damping",
             ],
         )
 
@@ -504,11 +504,11 @@ class NoiseInterpolation:
 
     @staticmethod
     def _process_combination_fn(args_dict):
-        if args_dict["combination_fn"] == "convex_combination":
+        if args_dict["combination_fn"] == "convex":
             args_dict["combination_fn"] = operations.convex_combination
-        elif args_dict["combination_fn"] == "additive_combination":
+        elif args_dict["combination_fn"] == "additive":
             args_dict["combination_fn"] = operations.additive_combination
-        elif args_dict["combination_fn"] == "damping_combination":
+        elif args_dict["combination_fn"] == "damping":
             args_dict["combination_fn"] = operations.damping_combination
         else:
             raise NotImplementedError

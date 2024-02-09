@@ -25,28 +25,17 @@ constraint = "thin"
 
 # Method args
 alpha_mask_value = ""  # DEBUG
+# name must contain ig_ for integrated gradients
+# name must contain sl_ for spectral lens
 # name must contain _i_ for elementwise multiplication
 # name must contain _x_ for meanx
 # name must contain _x2_ for meanx2
-# name must contain ig_ for integrated gradients
 # name must contain _sg_ for smooth grad
 # name must contain _b_ for beta explanation prior
 # name must contain _u_ for uniform explanation prior
-# name must contain sl_ for spectral lens
 # other characters are ignored
-ig_alpha_priors = {  # DEBUG
-    # "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
-    # "ig_sg_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-}
-combination_fns = [
-    # "additive_combination",
-    # "convex_combination",
-    # "damping_combination",
-]
+ig_alpha_priors = {}  # DEBUG
+combination_fns = []  # DEBUG
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
@@ -59,6 +48,7 @@ architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/proj/azizpour-group/datasets/imagenet"
 baseline_mask_type = "gaussian-0.3"
+baseline_mask_value = None
 projection_type = "prediction"
 projection_top_k = 1
 stats_log_level = 1
@@ -80,21 +70,23 @@ args_pattern = json.dumps(
 
 def experiment_master(
     args,
+    experiment_prefix=None,
 ):
     for batch in range(args.num_batches):
         for combination_fn in combination_fns:
-            experiment_name = (
+            experiment_prefix = (
                 os.path.basename(__file__).split(".")[0]
-                + "_"
-                + combination_fn
-                + "_"
-                + str(batch)
+                if experiment_prefix is None
+                else experiment_prefix
+            )
+            experiment_name = (
+                experiment_prefix + "_" + combination_fn + "_" + str(batch)
             )
 
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0"  # DEBUG -990:10
+            job_array = "0-990:10"  # DEBUG
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -128,6 +120,7 @@ def experiment_master(
                     normalize_sample=normalize_sample,
                     save_raw_data_dir=save_raw_data_dir,
                     save_metadata_dir=save_metadata_dir,
+                    baseline_mask_value=baseline_mask_value,
                 )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
@@ -165,7 +158,7 @@ def experiment_master(
                     experiment_name=job_name[-1],
                     constraint=constraint,
                     action=Action.merge_stats,
-                    glob_path="ig_*.csv",
+                    glob_path="??_*.csv",
                     file_name="merged_ig_metadata.csv",
                     logging_level=logging_level,
                     save_metadata_dir=save_metadata_dir,
@@ -181,7 +174,7 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "10"  # DEBUG -90:20
+                job_array = "10-90:20"  # DEBUG
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
@@ -232,6 +225,7 @@ def experiment_master(
                     action=Action.compute_entropy,
                     save_metadata_dir=save_metadata_dir,
                 )
+                wait_in_queue(0, jobnames=job_name)
 
-            if args.remove_batch_data and batch != 0:
+            if args.force_remove_batch_data or (args.remove_batch_data and batch != 0):
                 remove_files(save_raw_data_dir)

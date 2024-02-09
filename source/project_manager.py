@@ -6,12 +6,6 @@ import os
 
 import logging
 
-from source.data_manager import (
-    beta_integrated_grad,
-    beta_mul_freq,
-    save_integrated_grad,
-    save_spectral_lens,
-)
 from source.utils import Statistics, StreamNames
 
 logger = logging.getLogger(__name__)
@@ -179,6 +173,13 @@ def compute_integrated_grad(
     alpha_mask_name,
     alpha_prior,
 ):
+    from source.data_manager import (
+        beta_integrated_grad,
+        beta_mul_freq,
+        save_integrated_grad,
+        save_spectral_lens,
+    )
+
     ig_elementwise = "_i_" in alpha_mask_name
     stream_statistic = (
         Statistics.meanx2 if "_x2_" in alpha_mask_name else Statistics.meanx
@@ -203,7 +204,8 @@ def compute_integrated_grad(
     else:
         raise ValueError(
             f"Unsupported alpha_mask_name {alpha_mask_name} for integrated grad."
-            "Supported are _u_ for uniform and _b_ beta prior."
+            "Supported are ig_ or sl_ and _u_ for uniform and _b_ beta prior."
+            " _x_ for meanx and _x2_ for meanx2. _i_ for elementwise multiplication."
         )
 
     logger.debug(

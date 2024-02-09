@@ -1,4 +1,4 @@
-# Experiment 7.2: Integrated gradients + Smooth Grad with different alpha priors
+# Experiment 7.0: Smooth Grad to compute entropy
 
 import argparse
 import sys
@@ -12,28 +12,18 @@ import commands.experiment_7
 
 
 commands.experiment_7.alpha_mask_value = (
-    "0.1 0.2 0.3 0.4 0.5"  # DEBUG  0.6 0.7 0.8 0.9 1.0
+    "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0"  # DEBUG
 )
 
 # Method args
-commands.experiment_7.ig_alpha_priors = {  # DEBUG
-    # "ig_sg_u_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    # "ig_sg_u_0_0.9": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-    # "ig_sg_u_0_0.7": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7",
-    # "ig_sg_u_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_0_0.3": "0.0 0.1 0.2 0.3",
-    # "ig_sg_u_0_0.1": "0.0 0.1",
-    "sl_x2_u_0_0.5": "0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_b_0_1.0": "0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9",
-}
 commands.experiment_7.combination_fns = [
     "additive",
-    # "convex",
-    # "damping",
+    "convex",
+    "damping",
 ]
 
 commands.experiment_7.batch_size = 128  # DEBUG
-commands.experiment_7.baseline_mask_type = "gaussian-0.3"
+commands.experiment_7.baseline_mask_type = "gaussian"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -43,7 +33,6 @@ if __name__ == "__main__":
     parser.add_argument("--compute_raw_data_accuracy_at_q", "-v", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
-    parser.add_argument("--force_remove_batch_data", "-f", action="store_true")
     parser.add_argument("--num_batches", "-n", type=int, default=1)
 
     args = parser.parse_args()
