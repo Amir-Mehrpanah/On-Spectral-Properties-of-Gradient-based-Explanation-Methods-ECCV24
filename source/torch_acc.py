@@ -1,3 +1,4 @@
+from datetime import datetime
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import torchvision
@@ -140,7 +141,8 @@ def compute_accuracy_at_q(
     preds = []
     actual_qs = []
     with torch.no_grad():
-        for batch in slqdl:
+        for i, batch in enumerate(slqdl):
+            logger.debug(f"batch: {i} of {len(slqdl)} time: {datetime.now()}")
             logits = forward(batch["masked_image"])
             logits = logits.argmax(axis=1)
             preds.append(logits == batch["label"])

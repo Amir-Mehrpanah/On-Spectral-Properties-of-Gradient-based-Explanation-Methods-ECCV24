@@ -195,7 +195,7 @@ def experiment_master(
                         action=Action.compute_accuracy_at_q,
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,
-                        batch_size=128,
+                        batch_size=256,
                     )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
