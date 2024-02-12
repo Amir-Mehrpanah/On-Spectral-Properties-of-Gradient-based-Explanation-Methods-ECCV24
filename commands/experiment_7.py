@@ -72,7 +72,7 @@ def experiment_master(
     args,
     experiment_prefix=None,
 ):
-    for batch in range(args.num_batches):
+    for batch in range(args.start_batches,args.num_batches):
         for combination_fn in combination_fns:
             experiment_prefix = (
                 os.path.basename(__file__).split(".")[0]
