@@ -26,6 +26,7 @@ class DefaultArgs:
 
     c1 = 0.01**2  # SSIM constant
     c2 = 0.03**2  # SSIM constant
+    q_direction = "deletion"
     downsampling_factor = 5
     prefetch_factor = 4
     pivot_indices = ["image_index", "projection_index"]

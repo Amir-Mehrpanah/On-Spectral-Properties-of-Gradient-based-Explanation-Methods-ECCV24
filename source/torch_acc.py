@@ -29,7 +29,7 @@ preprocess = torchvision.transforms.Compose(
 class SLQDataset(Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, sl_metadata, remove_q=0, verbose=False, ig_elementwise=False):
+    def __init__(self, sl_metadata, remove_q=0, verbose=False, q_direction="deletion"):
         """
         Arguments:
             sl_metadata (string): Path to the csv metadata file.
@@ -38,7 +38,7 @@ class SLQDataset(Dataset):
         self.sl_metadata = sl_metadata
         self.q = 100 - remove_q
         self.verbose = verbose
-        self.ig_elementwise = ig_elementwise
+        self.q_direction = q_direction
 
     def __len__(self):
         return len(self.sl_metadata)
@@ -61,11 +61,18 @@ class SLQDataset(Dataset):
                 saliency_image,
                 axis=-1,
             )
-            mask = (saliency_image < np.percentile(saliency_image, self.q)) * 1.0
+            if self.q_direction == "deletion":
+                mask = (saliency_image < np.percentile(saliency_image, self.q)) * 1.0
+            else:
+                mask = (saliency_image > np.percentile(saliency_image, self.q)) * 1.0
             masked_image = original_image * mask
         else:
-            masked_image = original_image
-            mask = torch.zeros_like(original_image)
+            if self.q_direction == "deletion":
+                masked_image = original_image
+                mask = torch.ones_like(original_image)
+            else:
+                masked_image = torch.zeros_like(original_image)
+                mask = torch.zeros_like(original_image)
 
         if self.verbose:
             sample = {
@@ -108,6 +115,7 @@ def compute_accuracy_at_q(
     batch_size,
     save_file_name_prefix,
     q,
+    q_direction,
     glob_path,
 ):
     sl_metadata = load_experiment_metadata(save_metadata_dir, glob_path=glob_path)
@@ -124,7 +132,11 @@ def compute_accuracy_at_q(
         f" {sl_metadata.shape} after filtering vanilla_grad_mask"
     )
 
-    slqds = SLQDataset(sl_metadata, remove_q=q)
+    slqds = SLQDataset(
+        sl_metadata,
+        remove_q=q,
+        q_direction=q_direction,
+    )
     slqdl = DataLoader(
         slqds,
         batch_size=batch_size,

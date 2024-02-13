@@ -76,6 +76,12 @@ def _parse_accuracy_at_q_args(parser, default_args):
         nargs="+",
     )
     parser.add_argument(
+        "--q_direction",
+        type=str,
+        default=default_args.q_direction,
+        choices=["deletion", "insertion"],
+    )
+    parser.add_argument(
         "--glob_path",
         type=str,
         default="sl_merged_*.csv",
@@ -115,6 +121,7 @@ if driver_args.action == Action.compute_accuracy_at_q:
             action_args.batch_size,
             action_args.save_file_name_prefix,
             q,
+            action_args.q_direction,
             action_args.glob_path,
         )
     torch_acc.write_auxiliary_metadata(
