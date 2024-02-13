@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 import jax
+import jax.dlpack
 import jax.numpy as jnp
 import tensorflow as tf
 
@@ -157,7 +158,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
     )
     parser.add_argument(
         "--input_shape",
-        nargs=4,
+        nargs=3,
         type=int,
         default=default_args.input_shape,
     )
@@ -201,11 +202,13 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         args.batch_size,
         args.prefetch_factor,
     )
+    
     init_architecture_forward_switch[args.architecture](args)
 
     return argparse.Namespace(
         slq_dataloader=slq_dataloader,
-        forward=args.forward,
+        sl_metadata=sl_metadata,
+        forward=args.forward[0],
         save_file_name_prefix=args.save_file_name_prefix,
         q=args.q,
         q_direction=args.q_direction,
@@ -906,8 +909,13 @@ def save_inconsistency(
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")
 
 
+def tf_to_jax(x):
+    return jax.dlpack.from_dlpack(tf.experimental.dlpack.to_dlpack(x))
+
+
 def compute_accuracy_at_q(
     save_metadata_dir,
+    sl_metadata,
     save_file_name_prefix,
     q,
     q_direction,
@@ -917,8 +925,10 @@ def compute_accuracy_at_q(
     preds = []
     actual_qs = []
     for i, batch in enumerate(slq_dataloader):
-        logger.debug(f"batch: {i} of {len(slq_dataloader)} time: {datetime.now()}")
-        logits = forward(batch["masked_image"])
+        masked_image = tf_to_jax(batch["masked_image"])
+        logger.debug(masked_image.shape)
+        logger.debug(f"batch: {i} of {sl_metadata.shape[0]} time: {datetime.now()}")
+        logits = forward(masked_image)
         logits = logits.argmax(axis=1)
         preds.append(logits == batch["label"])
         actual_qs.append(batch["actual_q"])

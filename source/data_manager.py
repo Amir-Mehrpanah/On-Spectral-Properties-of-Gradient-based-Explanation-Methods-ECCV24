@@ -267,7 +267,6 @@ def _tf_parse_image_fn(image_path, input_shape):
         height=input_shape[-2],
         width=input_shape[-3],
     )(image)
-    image = tf.expand_dims(image, axis=0)
     return image
 
 

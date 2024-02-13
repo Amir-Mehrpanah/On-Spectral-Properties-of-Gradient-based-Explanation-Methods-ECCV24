@@ -40,9 +40,8 @@ alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-3
-batch_size = 128 
+batch_size = 128
 normalize_sample = "False"
-input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
@@ -107,7 +106,7 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0"  # DEBUG -990:10
+            job_array = "0-990:10"  # DEBUG 
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -196,7 +195,7 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "10-90:20"  # DEBUG
+                job_array = "10-90:20"  # DEBUG 
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
@@ -211,13 +210,17 @@ def experiment_master(
                         experiment_name=job_name[-1],
                         constraint=constraint,
                         number_of_gpus=1,
+                        input_shape="224 224 3",
                         glob_path=glob_path,
+                        save_temp_base_dir=save_temp_base_dir,
                         save_file_name_prefix=f"{prefix}q_{q_direction}",
                         action=Action.compute_accuracy_at_q,
                         q_direction=q_direction,
+                        architecture=architecture,
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,
                         batch_size=256,
+                        prefetch_factor=4,
                     )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish

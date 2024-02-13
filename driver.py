@@ -82,6 +82,7 @@ elif driver_args.action == Action.compute_integrated_grad:
 elif driver_args.action == Action.compute_accuracy_at_q:
     driver_helpers.compute_accuracy_at_q(
         driver_args.save_metadata_dir,
+        action_args.sl_metadata,
         action_args.save_file_name_prefix,
         action_args.q,
         action_args.q_direction,
