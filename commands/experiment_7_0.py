@@ -26,20 +26,8 @@ commands.experiment_7.batch_size = 128  # DEBUG
 commands.experiment_7.baseline_mask_type = "gaussian"
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--gather_stats", "-g", action="store_true")
-    parser.add_argument("--compute_integrated_grad", "-i", action="store_true")
-    parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--compute_raw_data_accuracy_at_q", "-v", action="store_true")
-    parser.add_argument("--compute_entropy", "-e", action="store_true")
-    parser.add_argument("--remove_batch_data", "-r", action="store_true")
-    parser.add_argument("--force_remove_batch_data", "-f", action="store_true")
-    parser.add_argument("--num_batches", "-n", type=int, default=1)
-
-    args = parser.parse_args()
-    if not any(vars(args).values()):
-        parser.print_help()
-        sys.exit(1)
+    args = commands.experiment_7.parse_args()
+    
     experiment_prefix = os.path.basename(__file__).split(".")[0].replace("experiment_", "")
     experiment_master(
         args, experiment_prefix=experiment_prefix

@@ -68,11 +68,32 @@ args_pattern = json.dumps(
 )
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gather_stats", "-g", action="store_true")
+    parser.add_argument("--compute_integrated_grad", "-t", action="store_true")
+    parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
+    parser.add_argument("--compute_raw_data_accuracy_at_q", "-Q", action="store_true")
+    parser.add_argument("--q_insertion_score", "-i", action="store_true")
+    parser.add_argument("--compute_entropy", "-e", action="store_true")
+    parser.add_argument("--remove_batch_data", "-r", action="store_true")
+    parser.add_argument("--force_remove_batch_data", "-f", action="store_true")
+    parser.add_argument("--num_batches", "-n", type=int, default=1)
+    parser.add_argument("--start_batches", "-s", type=int, default=0)
+
+    args = parser.parse_args()
+    if not any(vars(args).values()):
+        parser.print_help()
+        sys.exit(1)
+
+    return args
+
+
 def experiment_master(
     args,
     experiment_prefix=None,
 ):
-    for batch in range(args.start_batches,args.num_batches):
+    for batch in range(args.start_batches, args.num_batches):
         for combination_fn in combination_fns:
             experiment_prefix = (
                 os.path.basename(__file__).split(".")[0]
@@ -167,6 +188,7 @@ def experiment_master(
                 remove_files(save_metadata_dir)
 
             if args.compute_accuracy_at_q or args.compute_raw_data_accuracy_at_q:
+                q_direction = "insertion" if args.q_insertion_score else "deletion"
                 if args.compute_accuracy_at_q and args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_*metadata.csv"
                 elif args.compute_accuracy_at_q:
@@ -191,8 +213,9 @@ def experiment_master(
                         constraint=constraint,
                         number_of_gpus=1,
                         glob_path=glob_path,
-                        save_file_name_prefix=f"{prefix}q",
+                        save_file_name_prefix=f"{prefix}q_{q_direction}",
                         action=Action.compute_accuracy_at_q,
+                        q_direction=q_direction,
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,
                         batch_size=256,
@@ -209,7 +232,7 @@ def experiment_master(
                         experiment_name=job_name[-1],
                         constraint=constraint,
                         action=Action.merge_stats,
-                        glob_path=f"{prefix}q_*.csv",
+                        glob_path=f"{prefix}q_{q_direction}*.csv",
                         file_name=f"merged_{prefix}q_metadata.csv",
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,
