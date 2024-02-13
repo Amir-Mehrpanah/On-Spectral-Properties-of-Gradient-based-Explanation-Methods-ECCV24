@@ -232,7 +232,7 @@ def experiment_master(
                         experiment_name=job_name[-1],
                         constraint=constraint,
                         action=Action.merge_stats,
-                        glob_path=f"{prefix}q_{q_direction}*.csv",
+                        glob_path=f"{prefix}q_{q_direction}_*.csv",
                         file_name=f"merged_{prefix}q_metadata.csv",
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,

@@ -168,6 +168,7 @@ def compute_accuracy_at_q(
         },
     )
     preds["q"] = q
+    preds["q_direction"] = q_direction
 
     logger.debug(f"preds shape: {preds.shape} (q results)")
     logger.debug(
@@ -179,5 +180,5 @@ def compute_accuracy_at_q(
         f"sl_metadata shape: {sl_metadata.shape} after concatenation of q results"
     )
 
-    file_name = f"{save_file_name_prefix}_q{q}.csv"
+    file_name = f"{save_file_name_prefix}_{q}.csv"
     sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)
