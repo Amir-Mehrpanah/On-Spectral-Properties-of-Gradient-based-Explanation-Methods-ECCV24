@@ -8,6 +8,7 @@ from scipy.stats import beta
 import argparse
 from pandas import Series
 import tensorflow as tf
+import tensorflow_probability as tfp
 import tensorflow_datasets as tfds
 import jax.numpy as jnp
 import logging
@@ -236,6 +237,97 @@ def load_images(image_paths: Series, img_size):
         lambda x: preprocess(x, img_size=img_size).squeeze()
     )
     return image_paths
+
+
+def npy_header_offset(npy_path):
+    with open(str(npy_path), "rb") as f:
+        if f.read(6) != b"\x93NUMPY":
+            raise ValueError("Invalid NPY file.")
+        version_major, version_minor = f.read(2)
+        if version_major == 1:
+            header_len_size = 2
+        elif version_major == 2:
+            header_len_size = 4
+        else:
+            raise ValueError(
+                "Unknown NPY file version {}.{}.".format(version_major, version_minor)
+            )
+        header_len = sum(b << (8 * i) for i, b in enumerate(f.read(header_len_size)))
+        header = f.read(header_len)
+        if not header.endswith(b"\n"):
+            raise ValueError("Invalid NPY file.")
+        return f.tell()
+
+
+def _tf_parse_image_fn(image_path, input_shape):
+    image = tf.io.read_file(image_path)
+    image = tf.io.decode_image(image, channels=input_shape[-1])
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = tf.keras.layers.experimental.preprocessing.CenterCrop(
+        height=input_shape[-2],
+        width=input_shape[-3],
+    )(image)
+    image = tf.expand_dims(image, axis=0)
+    return image
+
+
+def _masking_q(image, explanation, label, q):
+    explanation_q = tfp.stats.percentile(explanation, 100 - q)
+    explanation_q = explanation < explanation_q
+    explanation_q = tf.cast(explanation_q, tf.float32)
+    masked_image = image * explanation_q
+
+    return {
+        # "original_image": image,
+        # "saliency": explanation,
+        "masked_image": masked_image,
+        "label": label,
+        "actual_q": tf.reduce_mean(explanation_q),
+    }
+
+
+def imagenet_loader_from_metadata(
+    sl_metadata,
+    q,
+    input_shape,
+    batch_size,
+    prefetch_factor,
+):
+
+    header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
+    shape_size = np.prod(input_shape) * tf.float32.size
+    explanation_dataset = tf.data.FixedLengthRecordDataset(
+        sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
+    )
+    explanation_dataset = explanation_dataset.map(
+        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+
+    image_dataset = tf.data.Dataset.from_tensor_slices(sl_metadata["image_path"].values)
+    _parse_fn = functools.partial(_tf_parse_image_fn, input_shape=input_shape)
+    image_dataset = image_dataset.map(
+        _parse_fn,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+
+    label_dataset = tf.data.Dataset.from_tensor_slices(sl_metadata["label"].values)
+
+    slq_dataset = tf.data.Dataset.zip(
+        (image_dataset, explanation_dataset, label_dataset)
+    )
+    _masking_q_fn = functools.partial(
+        _masking_q,
+        q=q,
+    )
+    slq_dataset = slq_dataset.map(
+        _masking_q_fn,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+    slq_dataset = slq_dataset.batch(batch_size)
+    slq_dataset = slq_dataset.prefetch(prefetch_factor)
+
+    return slq_dataset
 
 
 def query_cifar10(args):

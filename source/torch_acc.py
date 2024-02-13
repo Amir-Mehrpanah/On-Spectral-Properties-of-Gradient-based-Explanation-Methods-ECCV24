@@ -27,8 +27,6 @@ preprocess = torchvision.transforms.Compose(
 
 
 class SLQDataset(Dataset):
-    """Face Landmarks dataset."""
-
     def __init__(self, sl_metadata, remove_q=0, verbose=False, q_direction="deletion"):
         """
         Arguments:

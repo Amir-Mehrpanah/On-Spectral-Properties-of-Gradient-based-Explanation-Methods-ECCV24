@@ -80,6 +80,13 @@ elif driver_args.action == Action.compute_integrated_grad:
         alpha_prior=action_args.alpha_prior,
     )
 elif driver_args.action == Action.compute_accuracy_at_q:
-    raise NotImplementedError("Call this from torch_driver.py")
+    driver_helpers.compute_accuracy_at_q(
+        driver_args.save_metadata_dir,
+        action_args.save_file_name_prefix,
+        action_args.q,
+        action_args.q_direction,
+        action_args.forward,
+        action_args.slq_dataloader,
+    )
 else:
     raise NotImplementedError

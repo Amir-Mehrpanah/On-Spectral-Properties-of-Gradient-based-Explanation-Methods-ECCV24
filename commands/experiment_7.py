@@ -24,7 +24,7 @@ from commands.experiment_base import (
 constraint = "thin"
 
 # Method args
-alpha_mask_value = ""  # DEBUG
+alpha_mask_value = ""
 # name must contain ig_ for integrated gradients
 # name must contain sl_ for spectral lens
 # name must contain _i_ for elementwise multiplication
@@ -34,13 +34,13 @@ alpha_mask_value = ""  # DEBUG
 # name must contain _b_ for beta explanation prior
 # name must contain _u_ for uniform explanation prior
 # other characters are ignored
-ig_alpha_priors = {}  # DEBUG
-combination_fns = []  # DEBUG
+ig_alpha_priors = {}
+combination_fns = []
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-min_change = 5e-3  # DEBUG
-batch_size = 128  # DEBUG
+min_change = 5e-3
+batch_size = 128 
 normalize_sample = "False"
 input_shape = (1, 224, 224, 3)
 method = "noise_interpolation"
@@ -107,7 +107,7 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG
+            job_array = "0"  # DEBUG -990:10
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -206,7 +206,6 @@ def experiment_master(
                     prefix = glob_path.split("_")[1][:2]
                     job_name.append(f"acc{k}_{experiment_name}")
                     run_experiment(
-                        sweeper_name="_sweeper_torch.sbatch",
                         job_array=job_array,
                         array_process=array_process,
                         experiment_name=job_name[-1],

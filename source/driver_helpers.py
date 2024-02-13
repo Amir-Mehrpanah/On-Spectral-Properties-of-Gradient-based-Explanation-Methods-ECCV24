@@ -12,9 +12,15 @@ import jax
 import jax.numpy as jnp
 import tensorflow as tf
 
+from source.project_manager import load_experiment_metadata
+
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
-from source.data_manager import query_imagenet, query_cifar10, _bool
+from source.data_manager import (
+    imagenet_loader_from_metadata,
+    query_imagenet,
+    query_cifar10,
+)
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
 from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward
 from source.inconsistency_measures import (
@@ -115,11 +121,91 @@ def base_parser(parser, default_args: DefaultArgs):
             save_raw_data_dir=args.save_raw_data_dir,
         )
     elif args.action == Action.compute_accuracy_at_q:
-        raise ValueError("compute_accuracy_at_q must be called from torch driver")
+        action_args = _parse_compute_accuracy_at_q_args(parser, default_args)
+        driver_args = argparse.Namespace(
+            action=args.action,
+            save_metadata_dir=args.save_metadata_dir,
+        )
     else:
         raise NotImplementedError("other actions are not implemented")
 
     return driver_args, action_args
+
+
+def _parse_compute_accuracy_at_q_args(parser, default_args):
+    parser.add_argument(
+        "--save_file_name_prefix",
+        type=str,
+        default="accuracy_at_q",
+    )
+    parser.add_argument(
+        "--q",
+        type=float,
+        required=True,
+    )
+    parser.add_argument(
+        "--q_direction",
+        type=str,
+        required=True,
+        choices=["deletion", "insertion"],
+    )
+    parser.add_argument(
+        "--architecture",
+        type=str,
+        required=True,
+        choices=default_args.architectures,
+    )
+    parser.add_argument(
+        "--input_shape",
+        nargs=4,
+        type=int,
+        default=default_args.input_shape,
+    )
+    parser.add_argument(
+        "--output_layer",
+        type=str,
+        default=default_args.output_layer,
+        choices=default_args.output_layers,
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=default_args.batch_size,
+    )
+    parser.add_argument(
+        "--prefetch_factor",
+        type=int,
+        default=default_args.prefetch_factor,
+    )
+    parser.add_argument(
+        "--save_temp_base_dir",
+        type=str,
+        default=default_args.save_temp_base_dir,
+    )
+    parser.add_argument(
+        "--glob_path",
+        type=str,
+        default="*.csv",
+    )
+    args, _ = parser.parse_known_args()
+
+    input_shape = tuple(args.input_shape)
+    sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
+    slq_dataloader = imagenet_loader_from_metadata(
+        sl_metadata,
+        input_shape,
+        args.batch_size,
+        args.prefetch_factor,
+    )
+    init_architecture_forward_switch[args.architecture](args)
+
+    return argparse.Namespace(
+        slq_dataloader=slq_dataloader,
+        forward=args.forward,
+        save_file_name_prefix=args.save_file_name_prefix,
+        q=args.q,
+        q_direction=args.q_direction,
+    )
 
 
 def _merge_stats_args(parser):
@@ -250,7 +336,7 @@ def _parse_gather_stats_args(parser, default_args):
     methods_switch[args.method].inplace_add_args(parser)
     logger.debug("added method args to parser.")
 
-    _add_base_args(parser, default_args)
+    _add_gather_stats_base_args(parser, default_args)
     logger.debug("added base args to parser.")
 
     args = parser.parse_args()
@@ -337,7 +423,7 @@ def _parse_general_args(parser, default_args):
     return args
 
 
-def _add_base_args(parser, default_args):
+def _add_gather_stats_base_args(parser, default_args):
     parser.add_argument(
         "--no_demo",
         action="store_false",
@@ -814,3 +900,44 @@ def save_inconsistency(
     dataframe = pd.DataFrame(metadata)
     dataframe.to_csv(metadata_file_path, index=False)
     logger.info(f"saved the correspoding meta data to {metadata_file_path}")
+
+
+def compute_accuracy_at_q(
+    save_metadata_dir,
+    save_file_name_prefix,
+    q,
+    q_direction,
+    forward,
+    slq_dataloader,
+):
+    preds = []
+    actual_qs = []
+    for i, batch in enumerate(slq_dataloader):
+        logger.debug(f"batch: {i} of {len(slq_dataloader)} time: {datetime.now()}")
+        logits = forward(batch["masked_image"])
+        logits = logits.argmax(axis=1)
+        preds.append(logits == batch["label"])
+        actual_qs.append(batch["actual_q"])
+
+    # convert preds to dataframe
+    preds = pd.DataFrame(
+        {
+            "preds": np.concatenate(preds, axis=0),
+            "actual_q": np.concatenate(actual_qs, axis=0),
+        },
+    )
+    preds["q"] = q
+    preds["q_direction"] = q_direction
+
+    logger.debug(f"preds shape: {preds.shape} (q results)")
+    logger.debug(
+        f"sl_metadata shape: {sl_metadata.shape} before concatenation of q results"
+    )
+
+    sl_metadata = pd.concat([sl_metadata, preds], axis=1)
+    logger.debug(
+        f"sl_metadata shape: {sl_metadata.shape} after concatenation of q results"
+    )
+
+    file_name = f"{save_file_name_prefix}_{q}.csv"
+    sl_metadata.to_csv(os.path.join(save_metadata_dir, file_name), index=False)
