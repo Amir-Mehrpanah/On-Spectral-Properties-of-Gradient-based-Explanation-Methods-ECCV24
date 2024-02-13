@@ -140,7 +140,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
     )
     parser.add_argument(
         "--q",
-        type=float,
+        type=int,
         required=True,
     )
     parser.add_argument(
@@ -191,8 +191,12 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
 
     input_shape = tuple(args.input_shape)
     sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
+    ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
+    sl_metadata = sl_metadata[ids]
+    sl_metadata = sl_metadata.reset_index(drop=True)
     slq_dataloader = imagenet_loader_from_metadata(
         sl_metadata,
+        args.q,
         input_shape,
         args.batch_size,
         args.prefetch_factor,
