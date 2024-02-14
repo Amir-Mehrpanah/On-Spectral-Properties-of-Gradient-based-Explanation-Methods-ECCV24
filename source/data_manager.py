@@ -269,8 +269,10 @@ def _tf_parse_image_fn(image_path, input_shape):
     return image
 
 
-def _masking_q(image, explanation, label, q, verbose=False):
-    explanation_q = tfp.stats.percentile(explanation, 100 - q)
+def _masking_q(image, explanation, label, alpha, q, verbose=False):
+    explanation_q = tfp.stats.percentile(
+        explanation, 100 - q, axis=(0, 1), keepdims=True
+    )
     explanation_q = explanation < explanation_q
     explanation_q = tf.cast(explanation_q, tf.float32)
     masked_image = image * explanation_q
@@ -280,6 +282,7 @@ def _masking_q(image, explanation, label, q, verbose=False):
             "saliency": explanation,
             "masked_image": masked_image,
             "label": label,
+            "alpha_mask_value": alpha,
             "actual_q": tf.reduce_mean(explanation_q),
         }
 
@@ -326,9 +329,12 @@ def imagenet_loader_from_metadata(
     )
 
     label_dataset = tf.data.Dataset.from_tensor_slices(sl_metadata["label"].values)
+    alpha_dataset = tf.data.Dataset.from_tensor_slices(
+        sl_metadata["alpha_mask_value"].values
+    )
 
     slq_dataset = tf.data.Dataset.zip(
-        (image_dataset, explanation_dataset, label_dataset)
+        (image_dataset, explanation_dataset, label_dataset, alpha_dataset)
     )
 
     logger.info(

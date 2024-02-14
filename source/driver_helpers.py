@@ -924,10 +924,10 @@ def compute_accuracy_at_q(
 ):
     preds = []
     actual_qs = []
+    total_steps = sl_metadata.shape[0]/slq_dataloader.batch_size
     for i, batch in enumerate(slq_dataloader):
         masked_image = tf_to_jax(batch["masked_image"])
-        logger.debug(masked_image.shape)
-        logger.debug(f"batch: {i} of {sl_metadata.shape[0]} time: {datetime.now()}")
+        logger.debug(f"batch: {i} of {total_steps} time: {datetime.now()}")
         logits = forward(masked_image)
         logits = logits.argmax(axis=1)
         preds.append(logits == batch["label"])
