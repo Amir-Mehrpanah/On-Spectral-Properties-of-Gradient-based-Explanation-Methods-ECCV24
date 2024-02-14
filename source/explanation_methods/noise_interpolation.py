@@ -457,7 +457,7 @@ class NoiseInterpolation:
     def _process_logics_projection(args_dict):
         if args_dict["projection_type"] == "label":
             assert args_dict["label"] is not None
-            assert args_dict["projection_distribution"] is None
+            assert args_dict["projection_distribution"] == "delta"
             assert args_dict["projection_index"] is None
             logger.warning(
                 "projection_type is label, this means that the label will be used as the projection."

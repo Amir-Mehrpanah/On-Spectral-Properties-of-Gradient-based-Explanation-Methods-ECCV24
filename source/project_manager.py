@@ -79,8 +79,11 @@ def merge_experiment_metadata(
             f"Could not find any metadata files in {metadata_glob_path}"
         )
 
-    project_data = pd.concat(dataframes)
     save_metadata_path = os.path.join(save_metadata_dir, file_name)
+    if os.path.exists(save_metadata_path):
+        logger.debug(f"Removing {save_metadata_path}")
+        dataframes.append(pd.read_csv(save_metadata_path))
+    project_data = pd.concat(dataframes)
     logger.info(f"Saving merged metadata to {save_metadata_path}")
     project_data.to_csv(save_metadata_path, index=False)
 

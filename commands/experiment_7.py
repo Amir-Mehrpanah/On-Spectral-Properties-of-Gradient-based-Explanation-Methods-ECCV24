@@ -55,16 +55,21 @@ demo = False
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
-    "alpha_mask": ["j", "dynamic"],
+    "alpha_mask": ["a", "dynamic"],
     "image": ["i", "dynamic"],
 }
-args_state = json.dumps(
-    {k: v[1] for k, v in _args_pattern_state.items()},
-    separators=(";", ":"),  # semi-colon is used to separate args
-)
-args_pattern = json.dumps(
-    {k: v[0] for k, v in _args_pattern_state.items()}, separators=(";", ":")
-)
+
+
+def update_pattern_state():
+    global args_state, args_pattern
+    args_state = json.dumps(
+        {k: v[1] for k, v in _args_pattern_state.items()},
+        separators=(";", ":"),  # semi-colon is used to separate args
+    )
+    args_pattern = json.dumps(
+        {k: v[0] for k, v in _args_pattern_state.items()},
+        separators=(";", ":"),
+    )
 
 
 def parse_args():
@@ -72,7 +77,6 @@ def parse_args():
     parser.add_argument("--gather_stats", "-g", action="store_true")
     parser.add_argument("--compute_integrated_grad", "-t", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--compute_raw_data_accuracy_at_q", "-Q", action="store_true")
     parser.add_argument("--q_insertion_score", "-i", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
@@ -80,10 +84,14 @@ def parse_args():
     parser.add_argument("--num_batches", "-n", type=int, default=1)
     parser.add_argument("--start_batches", "-s", type=int, default=0)
 
+    parser.add_argument("--compute_raw_data_accuracy_at_q", "-Q", action="store_true")
+
     args = parser.parse_args()
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
+        
+    update_pattern_state()
 
     return args
 
@@ -106,7 +114,7 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG 
+            job_array = "0"  # DEBUG -990:10
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -195,7 +203,7 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "10-90:20"  # DEBUG 
+                job_array = "0,10-90:20,100"  # DEBUG
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))

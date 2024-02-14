@@ -269,11 +269,19 @@ def _tf_parse_image_fn(image_path, input_shape):
     return image
 
 
-def _masking_q(image, explanation, label, alpha, q, verbose=False):
+def _masking_q(image, explanation, label, alpha, q, direction, verbose=False):
     explanation_q = tfp.stats.percentile(
-        explanation, 100 - q, axis=(0, 1), keepdims=True
+        explanation,
+        100 - q,
+        axis=(0, 1),
+        keepdims=True,
     )
-    explanation_q = explanation < explanation_q
+
+    if direction == "deletion":
+        explanation_q = explanation < explanation_q
+    else:
+        explanation_q = explanation > explanation_q
+
     explanation_q = tf.cast(explanation_q, tf.float32)
     masked_image = image * explanation_q
     if verbose:
@@ -296,6 +304,7 @@ def _masking_q(image, explanation, label, alpha, q, verbose=False):
 def imagenet_loader_from_metadata(
     sl_metadata,
     q,
+    direction,
     input_shape,
     batch_size,
     prefetch_factor,
@@ -343,6 +352,7 @@ def imagenet_loader_from_metadata(
     _masking_q_fn = functools.partial(
         _masking_q,
         q=q,
+        direction=direction,
         verbose=verbose,
     )
     slq_dataset = slq_dataset.map(
