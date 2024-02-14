@@ -93,7 +93,7 @@ def aggregate_grad_mask_generic(data, agg_func, perprocess):
         temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
         init_val = agg_func(init_val, temp_grad, row["alpha_mask_value"])
 
-    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W,C)"
+    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W,1)"
     init_val = np.expand_dims(init_val, axis=0)
     return init_val
 
@@ -127,7 +127,7 @@ def save_spectral_lens(
     save_raw_data_dir,
     agg_func=unif_mul_freq,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+    init_val = aggregate_grad_mask_generic(data, agg_func)
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
@@ -141,13 +141,12 @@ def save_integrated_grad(
     agg_func=integrated_grad,
     ig_elementwise=False,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+    init_val = aggregate_grad_mask_generic(data, agg_func)
 
     if ig_elementwise:
         image = PIL.Image.open(data.iloc[0]["image_path"])
         image = tf.keras.utils.img_to_array(image)
         image = preprocess(image, img_size=224)
-        image = sum_channels(image)
         init_val = init_val * image
 
     rnd = np.random.randint(0, 1000)
@@ -270,15 +269,21 @@ def _tf_parse_image_fn(image_path, input_shape):
     return image
 
 
-def _masking_q(image, explanation, label, q):
+def _masking_q(image, explanation, label, q, verbose=False):
     explanation_q = tfp.stats.percentile(explanation, 100 - q)
     explanation_q = explanation < explanation_q
     explanation_q = tf.cast(explanation_q, tf.float32)
     masked_image = image * explanation_q
+    if verbose:
+        return {
+            "original_image": image,
+            "saliency": explanation,
+            "masked_image": masked_image,
+            "label": label,
+            "actual_q": tf.reduce_mean(explanation_q),
+        }
 
     return {
-        # "original_image": image,
-        # "saliency": explanation,
         "masked_image": masked_image,
         "label": label,
         "actual_q": tf.reduce_mean(explanation_q),
@@ -291,7 +296,17 @@ def imagenet_loader_from_metadata(
     input_shape,
     batch_size,
     prefetch_factor,
+    verbose=False,
 ):
+    logger.info(
+        f"creating dataloader... the dataset shape before filtering is {sl_metadata.shape}"
+    )
+    ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
+    sl_metadata = sl_metadata[ids]
+    sl_metadata = sl_metadata.reset_index(drop=True)
+    logger.info(
+        f"creating dataloader... the dataset shape after filtering vanilla_grad_mask is {sl_metadata.shape}"
+    )
 
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
     shape_size = np.prod(input_shape) * tf.float32.size
@@ -315,9 +330,14 @@ def imagenet_loader_from_metadata(
     slq_dataset = tf.data.Dataset.zip(
         (image_dataset, explanation_dataset, label_dataset)
     )
+
+    logger.info(
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+    )
     _masking_q_fn = functools.partial(
         _masking_q,
         q=q,
+        verbose=verbose,
     )
     slq_dataset = slq_dataset.map(
         _masking_q_fn,
