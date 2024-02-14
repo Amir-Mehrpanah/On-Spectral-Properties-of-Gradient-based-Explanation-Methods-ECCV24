@@ -84,7 +84,7 @@ def preprocess_masks_ndarray(masks, preprocesses):
     return masks
 
 
-def aggregate_grad_mask_generic(data, agg_func, perprocess):
+def aggregate_grad_mask_generic(data, agg_func, perprocess=[]):
     init_val = np.load(data.iloc[0]["grad_mask"])
     init_val = np.zeros_like(init_val)
 
