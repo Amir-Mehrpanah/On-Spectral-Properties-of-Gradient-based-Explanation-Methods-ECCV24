@@ -95,6 +95,8 @@ def compute_with_explanation_prior(
     save_results_fn,
     alpha_mask_name,
     alpha_prior,
+    projection_type,
+    projection_top_k,
     ig_elementwise,
 ):
     project_metadata = load_experiment_metadata(
@@ -108,17 +110,37 @@ def compute_with_explanation_prior(
                 "stream_name",
                 "stream_statistic",
                 "image_index",
+                "projection_type",
+                "projection_top_k",
                 "alpha_mask_value",
             ]
         )
         .sort_index()
     )
     explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", stream_statistic, slice(None), alpha_prior),
+        (
+            "vanilla_grad_mask",
+            stream_statistic,
+            slice(None),
+            projection_type,
+            projection_top_k,
+            alpha_prior,
+        ),
         ["data_path", "image_path"],
     ]
-
-    explanations_temp = explanations_temp.droplevel(["stream_name", "stream_statistic"])
+    
+    expected_shape = len(alpha_prior) * len(project_metadata.index.get_level_values("image_index").unique())
+    assert (
+        explanations_temp.shape[0] == expected_shape
+    ), f"Expected {expected_shape} but got {explanations_temp.shape[0]}, perhaps data index is non-unique"
+    explanations_temp = explanations_temp.droplevel(
+        [
+            "stream_name",
+            "stream_statistic",
+            "projection_type",
+            "projection_top_k",
+        ]
+    )
     explanations_temp = explanations_temp.rename(columns={"data_path": "grad_mask"})
     explanations_temp.sort_index(inplace=True)
     explanations_temp = explanations_temp.reset_index()
@@ -144,21 +166,25 @@ def compute_with_explanation_prior(
     # concat auxilary information
     f0 = project_metadata.index.get_level_values("alpha_mask_value")[0]
     explanations_temp = project_metadata.loc[
-        ("vanilla_grad_mask", stream_statistic, slice(None), f0),
+        (
+            "vanilla_grad_mask",
+            stream_statistic,
+            slice(None),
+            projection_type,
+            projection_top_k,
+            f0,
+        ),
         ["image_path", "label", "baseline_mask_type"],
     ]
-    explanations_temp = explanations_temp.droplevel(
-        ["stream_name", "stream_statistic", "alpha_mask_value"]
-    )
+    explanations_temp = explanations_temp.droplevel("alpha_mask_value")
     explanations_temp.sort_index(inplace=True)
+    explanations_temp = explanations_temp.reset_index().set_index("image_index")
     explanations_mean_freq = pd.concat(
         [explanations_mean_freq, explanations_temp], axis=1
     )
-    explanations_mean_freq = explanations_mean_freq.reset_index()
+    explanations_mean_freq = explanations_mean_freq.reset_index(drop=True)
 
     explanations_mean_freq["alpha_mask_value"] = alpha_mask_name
-    explanations_mean_freq["stream_name"] = "vanilla_grad_mask"
-    explanations_mean_freq["stream_statistic"] = stream_statistic
     explanations_mean_freq["ig_elementwise"] = ig_elementwise
 
     logger.debug(
@@ -175,6 +201,8 @@ def compute_integrated_grad(
     save_raw_data_dir,
     alpha_mask_name,
     alpha_prior,
+    projection_type,
+    projection_top_k,
 ):
     from source.data_manager import (
         beta_integrated_grad,
@@ -224,5 +252,7 @@ def compute_integrated_grad(
         save_results_fn=save_results_fn,
         alpha_mask_name=alpha_mask_name,
         alpha_prior=alpha_prior,
+        projection_type=projection_type,
+        projection_top_k=projection_top_k,
         ig_elementwise=ig_elementwise,
     )

@@ -46,10 +46,10 @@ method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
 dataset_dir = "/proj/azizpour-group/datasets/imagenet"
-baseline_mask_type = "gaussian-0.3"
+baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"
-projection_top_k = 1
+projection_top_k = "1"
 stats_log_level = 1
 demo = False
 
@@ -90,7 +90,7 @@ def parse_args():
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(1)
-        
+
     update_pattern_state()
 
     return args
@@ -114,7 +114,7 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG 
+            job_array = "0"  # DEBUG -990:10
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -165,20 +165,31 @@ def experiment_master(
 
             if args.compute_integrated_grad:
                 job_name = []
-                for k, (alpha_mask_name, alpha_prior) in enumerate(
-                    ig_alpha_priors.items()
-                ):
-                    job_name.append(f"ig_{experiment_name}_{k}")
-                    run_experiment(
-                        experiment_name=job_name[-1],
-                        constraint=constraint,
-                        action=Action.compute_integrated_grad,
-                        logging_level=logging_level,
-                        save_metadata_dir=save_metadata_dir,
-                        save_raw_data_dir=save_raw_data_dir,
-                        alpha_mask_name=alpha_mask_name,
-                        alpha_prior=alpha_prior,
-                    )
+                assert projection_type.count(" ") == projection_top_k.count(" "), (
+                    "projection_type and projection_top_k must have the same number of "
+                    "elements"
+                )
+                proj_iter = zip(
+                    projection_type.split(),
+                    projection_top_k.split(),
+                )
+                for j, (proj_type, proj_top_k) in enumerate(proj_iter):
+                    for k, (alpha_mask_name, alpha_prior) in enumerate(
+                        ig_alpha_priors.items()
+                    ):
+                        job_name.append(f"ig_{experiment_name}_{j}{k}")
+                        run_experiment(
+                            experiment_name=job_name[-1],
+                            constraint=constraint,
+                            action=Action.compute_integrated_grad,
+                            logging_level=logging_level,
+                            save_metadata_dir=save_metadata_dir,
+                            save_raw_data_dir=save_raw_data_dir,
+                            alpha_mask_name=alpha_mask_name,
+                            projection_type=proj_type,
+                            projection_top_k=proj_top_k,
+                            alpha_prior=alpha_prior,
+                        )
                 wait_in_queue(0, job_name)
                 job_name = []
                 job_name.append(f"merge_ig_{experiment_name}")
@@ -203,7 +214,7 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "0,10-90:20,100"  # DEBUG
+                job_array = "10"  # DEBUG -90:20
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))

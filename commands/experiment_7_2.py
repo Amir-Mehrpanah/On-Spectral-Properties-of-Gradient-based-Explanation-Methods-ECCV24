@@ -49,12 +49,11 @@ commands.experiment_7.ig_alpha_priors = {  # DEBUG
 commands.experiment_7.combination_fns = [
     "additive",
     "convex",
-    # "damping",
 ]
 
 commands.experiment_7.baseline_mask_type = "gaussian-0.3"
 commands.experiment_7.projection_type = "prediction label"
-commands.experiment_7.projection_top_k = "1 None"
+commands.experiment_7.projection_top_k = "1 nan"
 commands.experiment_7._args_pattern_state["projection"] = ["p", "dynamic"]
 
 if __name__ == "__main__":

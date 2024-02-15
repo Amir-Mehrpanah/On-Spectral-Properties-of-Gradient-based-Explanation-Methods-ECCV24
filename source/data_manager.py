@@ -1,6 +1,7 @@
 from datetime import datetime
 import functools
 import os
+from typing import Any
 import PIL
 from matplotlib import pyplot as plt
 import numpy as np
@@ -27,6 +28,16 @@ def _bool(x) -> bool:
         return False
     else:
         raise ValueError(f"expected True or False got {x}")
+
+
+class TypeOrNan:
+    def __init__(self, type) -> None:
+        self.type = type
+
+    def __call__(self, x: str) -> Any:
+        if x.lower() == "nan" or x.lower() == "none":
+            return np.nan
+        return self.type(x)
 
 
 def preprocess(x, img_size):

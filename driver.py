@@ -78,6 +78,8 @@ elif driver_args.action == Action.compute_integrated_grad:
         driver_args.save_raw_data_dir,
         alpha_mask_name=action_args.alpha_mask_name,
         alpha_prior=action_args.alpha_prior,
+        projection_type=action_args.projection_type,
+        projection_top_k=action_args.projection_top_k
     )
 elif driver_args.action == Action.compute_accuracy_at_q:
     driver_helpers.compute_accuracy_at_q(

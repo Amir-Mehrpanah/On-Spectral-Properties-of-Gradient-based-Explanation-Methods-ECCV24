@@ -13,7 +13,6 @@ import jax.dlpack
 import jax.numpy as jnp
 import tensorflow as tf
 
-from source.project_manager import load_experiment_metadata
 
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
@@ -21,7 +20,9 @@ from source.data_manager import (
     imagenet_loader_from_metadata,
     query_imagenet,
     query_cifar10,
+    TypeOrNan,
 )
+from source.project_manager import load_experiment_metadata
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
 from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward
 from source.inconsistency_measures import (
@@ -198,11 +199,12 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
     slq_dataloader = imagenet_loader_from_metadata(
         sl_metadata,
         args.q,
+        args.q_direction,
         input_shape,
         args.batch_size,
         args.prefetch_factor,
     )
-    
+
     init_architecture_forward_switch[args.architecture](args)
 
     return argparse.Namespace(
@@ -242,7 +244,17 @@ def _parse_integrated_grad_args(parser):
         default=slice(None),
         nargs="+",
     )
-
+    parser.add_argument(
+        "--projection_type",
+        type=str,
+        required=True,
+        choices=["label", "random", "prediction", "static"],
+    )
+    parser.add_argument(
+        "--projection_top_k",
+        type=TypeOrNan(int),
+        default=None,
+    )
     args, _ = parser.parse_known_args()
     return args
 
@@ -924,7 +936,7 @@ def compute_accuracy_at_q(
 ):
     preds = []
     actual_qs = []
-    total_steps = sl_metadata.shape[0]/slq_dataloader.batch_size
+    total_steps = slq_dataloader.cardinality().numpy()
     for i, batch in enumerate(slq_dataloader):
         masked_image = tf_to_jax(batch["masked_image"])
         logger.debug(f"batch: {i} of {total_steps} time: {datetime.now()}")

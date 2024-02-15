@@ -8,7 +8,7 @@ from source.utils import (
 )
 from source import neighborhoods, explainers, operations
 from source.model_manager import forward_with_projection
-from source.data_manager import minmax_normalize, _bool
+from source.data_manager import minmax_normalize, _bool, TypeOrNan
 import argparse
 import copy
 from functools import partial
@@ -25,17 +25,6 @@ import numpy as np
 sys.path.append(os.getcwd())
 
 logger = logging.getLogger(__name__)
-
-
-class TypeOrNone:
-    def __init__(self, type) -> None:
-        self.type = type
-
-    def __call__(self, x) -> Any:
-        if x == "None":
-            return None
-        return self.type(x)
-
 
 class NoiseInterpolation:
     @staticmethod
@@ -110,9 +99,9 @@ class NoiseInterpolation:
         )
         base_parser.add_argument(
             "--alpha_mask_value",
-            type=TypeOrNone(type=float),
+            type=TypeOrNan(type=float),
             nargs="*",
-            default=[None],
+            default=[np.nan],
         )
         base_parser.add_argument(
             "--projection_type",
@@ -123,20 +112,20 @@ class NoiseInterpolation:
         )
         base_parser.add_argument(
             "--projection_top_k",
-            type=TypeOrNone(int),
+            type=TypeOrNan(int),
             nargs="*",
-            default=[None],
+            default=[np.nan],
         )
         base_parser.add_argument(
             "--projection_index",
-            type=TypeOrNone(int),
+            type=TypeOrNan(int),
             nargs="*",
-            default=[None],
+            default=[np.nan],
         )
         base_parser.add_argument(
             "--projection_distribution",
-            type=TypeOrNone(str),
-            choices=[None, "uniform", "categorical", "delta"],
+            type=TypeOrNan(str),
+            choices=[np.nan, "uniform", "categorical", "delta"],
             default=["delta"],
             nargs="*",
         )
@@ -157,8 +146,8 @@ class NoiseInterpolation:
         )
         base_parser.add_argument(
             "--baseline_mask_value",
-            type=TypeOrNone(float),
-            default=[None],
+            type=TypeOrNan(float),
+            default=[np.nan],
             nargs="*",
         )
         base_parser.add_argument(
@@ -456,17 +445,17 @@ class NoiseInterpolation:
     @staticmethod
     def _process_logics_projection(args_dict):
         if args_dict["projection_type"] == "label":
-            assert args_dict["label"] is not None
+            assert not np.isnan(args_dict["label"])
             assert args_dict["projection_distribution"] == "delta"
-            assert args_dict["projection_index"] is None
+            assert np.isnan(args_dict["projection_index"])
             logger.warning(
                 "projection_type is label, this means that the label will be used as the projection."
                 "this is not a good idea for explainability best practices, because it will not be available at test time.",
             )
         elif args_dict["projection_type"] == "prediction":
-            assert args_dict["projection_distribution"] is not None
+            assert not np.isnan(args_dict["projection_distribution"])
             assert (
-                args_dict["projection_index"] is None
+                np.isnan(args_dict["projection_index"])
             ), "when projection is prediction, projection_index will be inferred from the forward function"
             if args_dict["projection_distribution"] == "delta":
                 assert args_dict["projection_top_k"] > 0
@@ -479,7 +468,7 @@ class NoiseInterpolation:
 
         elif args_dict["projection_type"] == "static":
             assert args_dict["projection_distribution"] == "delta"
-            assert args_dict["projection_top_k"] is None
+            assert np.isnan(args_dict["projection_top_k"])
             assert args_dict["projection_index"] >= 0
         else:
             raise NotImplementedError
@@ -487,20 +476,20 @@ class NoiseInterpolation:
     @staticmethod
     def _process_logics_baseline_mask(args_dict):
         if args_dict["baseline_mask_type"] == "static":
-            assert args_dict["baseline_mask_value"] is not None
+            assert not np.isnan(args_dict["baseline_mask_value"])
             if isinstance(args_dict["baseline_mask_value"], float):
                 assert not args_dict[
                     "normalize_sample"
                 ], "normalization of convex interpolation with static baseline is not expected"
         elif "gaussian" in args_dict["baseline_mask_type"]:
-            assert args_dict["baseline_mask_value"] is None
+            assert np.isnan(args_dict["baseline_mask_value"])
 
     @staticmethod
     def _process_logics_alpha_mask(args_dict):
         if "static" == args_dict["alpha_mask_type"]:
-            assert args_dict["alpha_mask_value"] is not None
+            assert not np.isnan(args_dict["alpha_mask_value"])
         elif "uniform" in args_dict["alpha_mask_type"]:
-            assert args_dict["alpha_mask_value"] is None
+            assert np.isnan(args_dict["alpha_mask_value"])
 
     @staticmethod
     def _process_combination_fn(args_dict):
