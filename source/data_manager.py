@@ -36,6 +36,8 @@ class TypeOrNan:
 
     def __call__(self, x: str) -> Any:
         if x.lower() == "nan" or x.lower() == "none":
+            if self.type == str:
+                return None
             return np.nan
         return self.type(x)
 

@@ -125,7 +125,7 @@ class NoiseInterpolation:
         base_parser.add_argument(
             "--projection_distribution",
             type=TypeOrNan(str),
-            choices=[np.nan, "uniform", "categorical", "delta"],
+            choices=[None, "uniform", "categorical", "delta"],
             default=["delta"],
             nargs="*",
         )
@@ -232,9 +232,8 @@ class NoiseInterpolation:
 
         temp_stats = f"[{len(pretty_kwargs['stats'])} stats of len {len(pretty_kwargs['stats'][0])}]"
         pretty_kwargs["stats"] = temp_stats
-        # pretty_kwargs["label"] = int(pretty_kwargs["label"])
         pretty_kwargs["projection_index"] = [
-            int(v) if v else v for v in pretty_kwargs["projection_index"]
+            int(v) if not np.isnan(v) else v for v in pretty_kwargs["projection_index"]
         ]
         logger.info(
             f"experiment args:\n{debug_nice(pretty_kwargs)}",
@@ -453,7 +452,7 @@ class NoiseInterpolation:
                 "this is not a good idea for explainability best practices, because it will not be available at test time.",
             )
         elif args_dict["projection_type"] == "prediction":
-            assert not np.isnan(args_dict["projection_distribution"])
+            assert args_dict["projection_distribution"] is not None
             assert (
                 np.isnan(args_dict["projection_index"])
             ), "when projection is prediction, projection_index will be inferred from the forward function"
