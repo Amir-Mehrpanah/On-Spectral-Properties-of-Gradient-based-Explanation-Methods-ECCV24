@@ -103,20 +103,16 @@ def compute_with_explanation_prior(
         save_metadata_dir, glob_path="merged_*.csv"
     )
     logger.info(f"Loaded metadata from {save_metadata_dir}")
-    project_metadata = (
-        project_metadata.dropna()
-        .set_index(
-            [
-                "stream_name",
-                "stream_statistic",
-                "image_index",
-                "projection_type",
-                "projection_top_k",
-                "alpha_mask_value",
-            ]
-        )
-        .sort_index()
-    )
+    project_metadata = project_metadata.set_index(
+        [
+            "stream_name",
+            "stream_statistic",
+            "image_index",
+            "projection_type",
+            "projection_top_k",
+            "alpha_mask_value",
+        ]
+    ).sort_index()
     explanations_temp = project_metadata.loc[
         (
             "vanilla_grad_mask",
@@ -128,8 +124,10 @@ def compute_with_explanation_prior(
         ),
         ["data_path", "image_path"],
     ]
-    
-    expected_shape = len(alpha_prior) * len(project_metadata.index.get_level_values("image_index").unique())
+
+    expected_shape = len(alpha_prior) * len(
+        project_metadata.index.get_level_values("image_index").unique()
+    )
     assert (
         explanations_temp.shape[0] == expected_shape
     ), f"Expected {expected_shape} but got {explanations_temp.shape[0]}, perhaps data index is non-unique"
