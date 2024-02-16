@@ -18,7 +18,7 @@ commands.experiment_7.alpha_mask_value = (
 # Method args
 commands.experiment_7.ig_alpha_priors = {  # DEBUG
     "ig_vg_u_x_0": "0.0",
-    "ig_vg_u_x2_0": "0.0",
+    # "ig_vg_u_x2_0": "0.0",
 
     # "ig_sg_u_x_0.1": "0.1",
     # "ig_sg_u_x_0.2": "0.2",
@@ -48,7 +48,7 @@ commands.experiment_7.ig_alpha_priors = {  # DEBUG
 }
 commands.experiment_7.combination_fns = [
     "additive",
-    "convex",
+    # "convex",
 ]
 
 commands.experiment_7.baseline_mask_type = "gaussian-0.3"

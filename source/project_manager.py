@@ -100,7 +100,7 @@ def compute_with_explanation_prior(
     ig_elementwise,
 ):
     project_metadata = load_experiment_metadata(
-        save_metadata_dir, glob_path="merged_*.csv"
+        save_metadata_dir, glob_path="merged_metadata.csv"
     )
     logger.info(f"Loaded metadata from {save_metadata_dir}")
     project_metadata = project_metadata.set_index(
@@ -189,7 +189,10 @@ def compute_with_explanation_prior(
         f"statistics shape after concatenating auxilary data {explanations_mean_freq.shape}"
     )
 
-    save_path = os.path.join(save_metadata_dir, f"{alpha_mask_name}_metadata.csv")
+    save_path = os.path.join(
+        save_metadata_dir,
+        f"{alpha_mask_name}_p{projection_type}{projection_top_k}_metadata.csv",
+    )
     explanations_mean_freq.to_csv(save_path, index=False)
     logger.debug(f"saved {alpha_mask_name}_metadata in {save_path}")
 

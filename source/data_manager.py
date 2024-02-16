@@ -99,6 +99,7 @@ def preprocess_masks_ndarray(masks, preprocesses):
 
 def aggregate_grad_mask_generic(data, agg_func, perprocess=[]):
     init_val = np.load(data.iloc[0]["grad_mask"])
+    init_val = preprocess_masks_ndarray(init_val, preprocesses=perprocess)
     init_val = np.zeros_like(init_val)
 
     for id, row in data.iterrows():
@@ -140,7 +141,7 @@ def save_spectral_lens(
     save_raw_data_dir,
     agg_func=unif_mul_freq,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func)
+    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
@@ -154,12 +155,13 @@ def save_integrated_grad(
     agg_func=integrated_grad,
     ig_elementwise=False,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func)
+    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
 
     if ig_elementwise:
         image = PIL.Image.open(data.iloc[0]["image_path"])
         image = tf.keras.utils.img_to_array(image)
         image = preprocess(image, img_size=224)
+        image = sum_channels(image)
         init_val = init_val * image
 
     rnd = np.random.randint(0, 1000)
@@ -206,7 +208,7 @@ def symmetric_minmax_normalize(x):
 
 
 def sum_channels(x):
-    x = jnp.sum(x, axis=-1, keepdims=True)  # (H, W, C) -> (N, H, 1)
+    x = jnp.sum(x, axis=-1)  # (H, W, C) -> (N, H, 1)
     return x
 
 
