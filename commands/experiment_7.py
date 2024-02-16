@@ -229,7 +229,7 @@ def experiment_master(
                         experiment_name=job_name[-1],
                         constraint=constraint,
                         number_of_gpus=1,
-                        input_shape="224 224 3",
+                        input_shape="224 224 1",
                         glob_path=glob_path,
                         save_temp_base_dir=save_temp_base_dir,
                         save_file_name_prefix=f"{prefix}q_{q_direction}",

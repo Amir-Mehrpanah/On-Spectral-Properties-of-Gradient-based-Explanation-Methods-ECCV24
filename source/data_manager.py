@@ -107,8 +107,8 @@ def aggregate_grad_mask_generic(data, agg_func, perprocess=[]):
         temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
         init_val = agg_func(init_val, temp_grad, row["alpha_mask_value"])
 
-    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W,1)"
-    init_val = np.expand_dims(init_val, axis=0)
+    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W, 1)"
+    # init_val = np.expand_dims(init_val, axis=0)
     return init_val
 
 
@@ -160,8 +160,11 @@ def save_integrated_grad(
     if ig_elementwise:
         image = PIL.Image.open(data.iloc[0]["image_path"])
         image = tf.keras.utils.img_to_array(image)
-        image = preprocess(image, img_size=224)
+        image = preprocess(image, img_size=224).squeeze(0)
         image = sum_channels(image)
+        assert (
+            image.shape == init_val.shape
+        ), "image and grad_mask are expected to be of the same shape"
         init_val = init_val * image
 
     rnd = np.random.randint(0, 1000)
@@ -208,7 +211,7 @@ def symmetric_minmax_normalize(x):
 
 
 def sum_channels(x):
-    x = jnp.sum(x, axis=-1)  # (H, W, C) -> (N, H, 1)
+    x = jnp.sum(x, axis=-1, keepdims=True)  # (H, W, C) -> (N, H, 1)
     return x
 
 
@@ -275,7 +278,7 @@ def npy_header_offset(npy_path):
 
 def _tf_parse_image_fn(image_path, input_shape):
     image = tf.io.read_file(image_path)
-    image = tf.io.decode_image(image, channels=input_shape[-1])
+    image = tf.io.decode_image(image, channels=3)
     image = tf.image.convert_image_dtype(image, tf.float32)
     image = tf.keras.layers.experimental.preprocessing.CenterCrop(
         height=input_shape[-2],
@@ -284,7 +287,24 @@ def _tf_parse_image_fn(image_path, input_shape):
     return image
 
 
-def _masking_q(image, explanation, label, alpha, q, direction, verbose=False):
+def _blur_baseline(image):
+    image = tf.expand_dims(image, axis=0)
+    image = tf.nn.avg_pool2d(
+        image,
+        ksize=100,
+        strides=1,
+        padding="SAME",
+        data_format="NHWC",
+    )
+    image = tf.squeeze(image, axis=0)
+    return image
+
+
+def _black_baseline(image):
+    return tf.zeros_like(image)
+
+
+def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose=False):
     explanation_q = tfp.stats.percentile(
         explanation,
         100 - q,
@@ -298,12 +318,13 @@ def _masking_q(image, explanation, label, alpha, q, direction, verbose=False):
         explanation_q = explanation > explanation_q
 
     explanation_q = tf.cast(explanation_q, tf.float32)
-    masked_image = image * explanation_q
+    masked_image = image * explanation_q + baseline * (1 - explanation_q)
     if verbose:
         return {
             "original_image": image,
             "saliency": explanation,
             "masked_image": masked_image,
+            "baseline": baseline,
             "label": label,
             "alpha_mask_value": alpha,
             "actual_q": tf.reduce_mean(explanation_q),
@@ -321,8 +342,9 @@ def imagenet_loader_from_metadata(
     q,
     direction,
     input_shape,
-    batch_size,
-    prefetch_factor,
+    baseline="blur",
+    batch_size=256,
+    prefetch_factor=2,
     verbose=False,
 ):
     logger.info(
@@ -351,6 +373,16 @@ def imagenet_loader_from_metadata(
         _parse_fn,
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
+    if baseline == "blur":
+        baseline_dataset = image_dataset.map(
+            _blur_baseline,
+            num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        )
+    else:
+        baseline_dataset = image_dataset.map(
+            _black_baseline,
+            num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        )
 
     label_dataset = tf.data.Dataset.from_tensor_slices(sl_metadata["label"].values)
     alpha_dataset = tf.data.Dataset.from_tensor_slices(
@@ -358,7 +390,13 @@ def imagenet_loader_from_metadata(
     )
 
     slq_dataset = tf.data.Dataset.zip(
-        (image_dataset, explanation_dataset, label_dataset, alpha_dataset)
+        (
+            image_dataset,
+            baseline_dataset,
+            explanation_dataset,
+            label_dataset,
+            alpha_dataset,
+        )
     )
 
     logger.info(
