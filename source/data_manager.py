@@ -356,12 +356,13 @@ def imagenet_loader_from_metadata(
     logger.info(
         f"creating dataloader... the dataset shape after filtering vanilla_grad_mask is {sl_metadata.shape}"
     )
-
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
     shape_size = np.prod(input_shape) * tf.float32.size
+    logger.debug(f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}")
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
+    
     explanation_dataset = explanation_dataset.map(
         lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
@@ -374,11 +375,13 @@ def imagenet_loader_from_metadata(
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
     if baseline == "blur":
+        logger.debug("creating blurred image dataloader for baseline")
         baseline_dataset = image_dataset.map(
             _blur_baseline,
             num_parallel_calls=tf.data.experimental.AUTOTUNE,
         )
     else:
+        logger.debug("creating black image dataloader for baseline")
         baseline_dataset = image_dataset.map(
             _black_baseline,
             num_parallel_calls=tf.data.experimental.AUTOTUNE,

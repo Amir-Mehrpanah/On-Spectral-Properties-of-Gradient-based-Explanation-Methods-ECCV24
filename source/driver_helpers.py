@@ -159,7 +159,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
     )
     parser.add_argument(
         "--input_shape",
-        nargs=2,
+        nargs=3,
         type=int,
         default=default_args.input_shape,
     )
