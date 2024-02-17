@@ -15,6 +15,7 @@ conda activate xlab10
 which python
 
 echo SLURM_ARRAY_JOB_ID $SLURM_ARRAY_TASK_ID
+scontrol show job $SLURM_JOB_ID
 echo sbatch script: method args $method_args
 echo sbatch script: array args $array_process
 

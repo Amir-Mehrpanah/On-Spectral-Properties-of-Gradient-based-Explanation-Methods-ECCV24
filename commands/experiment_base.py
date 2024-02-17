@@ -91,11 +91,14 @@ def create_temp_sweeper_file(experiment_name, array_process, sweeper_name):
 
 def handle_sbatch_args(kwargs):
     sweeper_name = "_sweeper.sbatch"
-    array_process = ""
+    number_of_gpus = ""
+    # num_cpus = "--cpus-per-task=1"
+    num_tasks = "--ntasks=16 " 
     job_array = ""
     constraint = ""
+    array_process = ""
     experiment_name_cmd = "debug"
-    number_of_gpus = ""
+
     if "experiment_name" in kwargs:
         experiment_name = kwargs["experiment_name"]
         experiment_name_cmd = f"--job-name={experiment_name} "
@@ -106,6 +109,16 @@ def handle_sbatch_args(kwargs):
         number_of_gpus = f"--gpus={kwargs['number_of_gpus']} "
         logger.debug(f"number of gpus in handling slurm args {number_of_gpus}")
         del kwargs["number_of_gpus"]
+
+    # if "num_cpus" in kwargs:
+    #     num_cpus = f"--cpus-per-task={kwargs['num_cpus']} "
+    #     logger.debug(f"num_cpus: {num_cpus}")
+    #     del kwargs["num_cpus"]
+
+    if "num_tasks" in kwargs:
+        num_tasks = f"--ntasks={kwargs['num_tasks']} "
+        logger.debug(f"num_tasks: {num_tasks}")
+        del kwargs["num_tasks"]
 
     if "job_array" in kwargs:
         job_array = f"--array={kwargs['job_array']} "
@@ -126,13 +139,16 @@ def handle_sbatch_args(kwargs):
         sweeper_name = kwargs["sweeper_name"]
         logger.debug(f"sweeper_name: {sweeper_name}")
         del kwargs["sweeper_name"]
+
     slurm_logs = os.path.join(slurm_logs_base_dir, f"%J_%x_%N.out")
     slurm_errs = os.path.join(slurm_logs_base_dir, f"%J_%x_%N.err")
+
     slurm_args = (
         f"--output={slurm_logs} "
         f"--error={slurm_errs} "
         f"{experiment_name_cmd}"
         f"{number_of_gpus}"
+        f"{num_tasks}"
         f"{job_array}"
         f"{constraint}"
     )

@@ -189,6 +189,12 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         type=str,
         default="*.csv",
     )
+    parser.add_argument(
+        "--baseline_mask_type",
+        type=str,
+        default="blur",
+        choices=["blur", "black"],
+    )
     args, _ = parser.parse_known_args()
 
     input_shape = tuple(args.input_shape)
@@ -200,9 +206,10 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         sl_metadata,
         args.q,
         args.q_direction,
-        input_shape,
-        args.batch_size,
-        args.prefetch_factor,
+        baseline=args.baseline_mask_type,
+        input_shape=input_shape,
+        batch_size=args.batch_size,
+        prefetch_factor=args.prefetch_factor,
     )
 
     init_architecture_forward_switch[args.architecture](args)

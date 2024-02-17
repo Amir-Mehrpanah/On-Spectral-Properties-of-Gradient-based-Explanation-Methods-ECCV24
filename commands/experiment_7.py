@@ -225,6 +225,7 @@ def experiment_master(
                     job_name.append(f"acc{k}_{experiment_name}")
                     run_experiment(
                         job_array=job_array,
+                        num_tasks=32,
                         array_process=array_process,
                         experiment_name=job_name[-1],
                         constraint=constraint,
@@ -238,8 +239,8 @@ def experiment_master(
                         architecture=architecture,
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,
-                        batch_size=256,
-                        prefetch_factor=4,
+                        batch_size=128,
+                        prefetch_factor=8,
                     )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
