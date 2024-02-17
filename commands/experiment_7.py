@@ -49,6 +49,8 @@ dataset_dir = "/proj/azizpour-group/datasets/imagenet"
 baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"
+q_baseline_masks = ["blur"]
+q_directions = ["deletion"]
 projection_top_k = "1"
 stats_log_level = 1
 demo = False
@@ -77,7 +79,6 @@ def parse_args():
     parser.add_argument("--gather_stats", "-g", action="store_true")
     parser.add_argument("--compute_integrated_grad", "-t", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
-    parser.add_argument("--q_insertion_score", "-i", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
     parser.add_argument("--remove_batch_data", "-r", action="store_true")
     parser.add_argument("--force_remove_batch_data", "-f", action="store_true")
@@ -114,7 +115,7 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG 
+            job_array = "0-990:10"  # DEBUG
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -206,7 +207,6 @@ def experiment_master(
                 remove_files(save_metadata_dir)
 
             if args.compute_accuracy_at_q or args.compute_raw_data_accuracy_at_q:
-                q_direction = "insertion" if args.q_insertion_score else "deletion"
                 if args.compute_accuracy_at_q and args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_*metadata.csv"
                 elif args.compute_accuracy_at_q:
@@ -214,34 +214,39 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "10-90:20"  # DEBUG 
+                job_array = "10-90:20"  # DEBUG
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
                 print("files: ", files)
                 for k, file in enumerate(files):
-                    glob_path = os.path.basename(file)
-                    prefix = glob_path.split("_")[1][:2]
-                    job_name.append(f"acc{k}_{experiment_name}")
-                    run_experiment(
-                        job_array=job_array,
-                        num_tasks=32,
-                        array_process=array_process,
-                        experiment_name=job_name[-1],
-                        constraint=constraint,
-                        number_of_gpus=1,
-                        input_shape="224 224 1",
-                        glob_path=glob_path,
-                        save_temp_base_dir=save_temp_base_dir,
-                        save_file_name_prefix=f"{prefix}q_{q_direction}",
-                        action=Action.compute_accuracy_at_q,
-                        q_direction=q_direction,
-                        architecture=architecture,
-                        logging_level=logging_level,
-                        save_metadata_dir=save_metadata_dir,
-                        batch_size=128,
-                        prefetch_factor=8,
-                    )
+                    for q_direction in q_directions:
+                        for q_baseline_mask in q_baseline_masks:
+                            for ig_alpha_prior in ig_alpha_priors:
+                                glob_path = os.path.basename(file)
+                                prefix = glob_path.split("_")[1][:2]
+                                job_name.append(f"acc{k}_{experiment_name}")
+                                run_experiment(
+                                    job_array=job_array,
+                                    num_tasks=16,
+                                    array_process=array_process,
+                                    experiment_name=job_name[-1],
+                                    constraint=constraint,
+                                    number_of_gpus=1,
+                                    input_shape="224 224 1",
+                                    filter_alpha_prior=ig_alpha_prior,
+                                    glob_path=glob_path,
+                                    save_temp_base_dir=save_temp_base_dir,
+                                    save_file_name_prefix=f"{prefix}q_{ig_alpha_prior}_{q_direction}_{q_baseline_mask}",
+                                    action=Action.compute_accuracy_at_q,
+                                    q_direction=q_direction,
+                                    architecture=architecture,
+                                    logging_level=logging_level,
+                                    save_metadata_dir=save_metadata_dir,
+                                    batch_size=32,
+                                    prefetch_factor=16,
+                                    baseline_mask_type=q_baseline_mask,
+                                )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
                 job_name = []
@@ -254,7 +259,7 @@ def experiment_master(
                         experiment_name=job_name[-1],
                         constraint=constraint,
                         action=Action.merge_stats,
-                        glob_path=f"{prefix}q_{q_direction}_*.csv",
+                        glob_path=f"{prefix}q_*.csv",
                         file_name=f"merged_{prefix}q_metadata.csv",
                         logging_level=logging_level,
                         save_metadata_dir=save_metadata_dir,

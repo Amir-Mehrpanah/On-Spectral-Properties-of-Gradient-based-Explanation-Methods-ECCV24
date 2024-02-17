@@ -19,29 +19,25 @@ commands.experiment_7.alpha_mask_value = (
 commands.experiment_7.ig_alpha_priors = {  # DEBUG
     "ig_vg_u_x_0": "0.0",
     "ig_vg_u_x2_0": "0.0",
-
+    # "ig_vg_i_u_x_0": "0.0",
+    # "ig_vg_i_u_x2_0": "0.0",
     "ig_sg_u_x_0.1": "0.1",
     "ig_sg_u_x_0.2": "0.2",
     "ig_sg_u_x_0.5": "0.5",
     "ig_sg_u_x_1.0": "1.0",
-
     "ig_sg_u_x2_0.1": "0.1",
     "ig_sg_u_x2_0.2": "0.2",
     "ig_sg_u_x2_0.5": "0.5",
     "ig_sg_u_x2_1.0": "1.0",
-
     "ig_sg_u_x_0_0.2": "0.0 0.1 0.2",
     "ig_sg_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_sg_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-
     "ig_sg_u_x2_0_0.2": "0.0 0.1 0.2",
     "ig_sg_u_x2_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_sg_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-
     "ig_sg_i_u_x_0_0.2": "0.0 0.1 0.2",
     "ig_sg_i_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_sg_i_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-
     "ig_sg_i_u_x2_0_0.2": "0.0 0.1 0.2",
     "ig_sg_i_u_x2_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_sg_i_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
@@ -54,6 +50,9 @@ commands.experiment_7.combination_fns = [
 commands.experiment_7.baseline_mask_type = "gaussian-0.3"
 commands.experiment_7.projection_type = "prediction label"
 commands.experiment_7.projection_top_k = "1 none"
+commands.experiment_7.q_baseline_masks = ["blur", "black"]
+commands.experiment_7.q_directions = ["deletion", "insertion"]
+
 commands.experiment_7._args_pattern_state["projection"] = ["p", "dynamic"]
 
 if __name__ == "__main__":

@@ -195,11 +195,18 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         default="blur",
         choices=["blur", "black"],
     )
+    parser.add_argument(
+        "--filter_alpha_prior",
+        type=TypeOrNan(str),
+        default=None,
+    )
     args, _ = parser.parse_known_args()
 
     input_shape = tuple(args.input_shape)
     sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
     ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
+    if args.filter_alpha_prior:
+        ids = ids & sl_metadata["alpha_mask_value"].str.contains(args.filter_alpha_prior)
     sl_metadata = sl_metadata[ids]
     sl_metadata = sl_metadata.reset_index(drop=True)
     slq_dataloader = imagenet_loader_from_metadata(
