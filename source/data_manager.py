@@ -343,18 +343,12 @@ def imagenet_loader_from_metadata(
     direction,
     input_shape,
     baseline="blur",
-    batch_size=256,
-    prefetch_factor=2,
+    batch_size=128,
+    prefetch_factor=4,
     verbose=False,
 ):
     logger.info(
-        f"creating dataloader... the dataset shape before filtering is {sl_metadata.shape}"
-    )
-    ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
-    sl_metadata = sl_metadata[ids]
-    sl_metadata = sl_metadata.reset_index(drop=True)
-    logger.info(
-        f"creating dataloader... the dataset shape after filtering vanilla_grad_mask is {sl_metadata.shape}"
+        f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
     )
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
     shape_size = np.prod(input_shape) * tf.float32.size

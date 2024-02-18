@@ -190,7 +190,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         default="*.csv",
     )
     parser.add_argument(
-        "--baseline_mask_type",
+        "--q_baseline_mask",
         type=str,
         default="blur",
         choices=["blur", "black"],
@@ -204,16 +204,20 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
 
     input_shape = tuple(args.input_shape)
     sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
+    logger.debug(f"loaded metadata from {args.save_metadata_dir} with {args.glob_path} of shape {sl_metadata.shape}.")
+    
     ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
     if args.filter_alpha_prior:
-        ids = ids & sl_metadata["alpha_mask_value"].str.contains(args.filter_alpha_prior)
+        ids = ids & (sl_metadata["alpha_mask_value"] == args.filter_alpha_prior)
     sl_metadata = sl_metadata[ids]
     sl_metadata = sl_metadata.reset_index(drop=True)
+    logger.debug(f"filtered metadata to shape {sl_metadata.shape}.")
+
     slq_dataloader = imagenet_loader_from_metadata(
         sl_metadata,
         args.q,
         args.q_direction,
-        baseline=args.baseline_mask_type,
+        baseline=args.q_baseline_mask,
         input_shape=input_shape,
         batch_size=args.batch_size,
         prefetch_factor=args.prefetch_factor,
@@ -228,6 +232,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         save_file_name_prefix=args.save_file_name_prefix,
         q=args.q,
         q_direction=args.q_direction,
+        q_baseline_mask=args.q_baseline_mask,
     )
 
 
@@ -945,6 +950,7 @@ def compute_accuracy_at_q(
     save_file_name_prefix,
     q,
     q_direction,
+    q_baseline_mask,
     forward,
     slq_dataloader,
 ):
@@ -968,6 +974,7 @@ def compute_accuracy_at_q(
     )
     preds["q"] = q
     preds["q_direction"] = q_direction
+    preds["q_baseline_mask"] = q_baseline_mask
 
     logger.debug(f"preds shape: {preds.shape} (q results)")
     logger.debug(

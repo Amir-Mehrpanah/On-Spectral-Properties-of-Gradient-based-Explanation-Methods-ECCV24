@@ -245,7 +245,7 @@ def experiment_master(
                                     save_metadata_dir=save_metadata_dir,
                                     batch_size=32,
                                     prefetch_factor=16,
-                                    baseline_mask_type=q_baseline_mask,
+                                    q_baseline_mask=q_baseline_mask,
                                 )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish

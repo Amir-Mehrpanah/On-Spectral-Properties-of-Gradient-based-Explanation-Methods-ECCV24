@@ -88,6 +88,7 @@ elif driver_args.action == Action.compute_accuracy_at_q:
         action_args.save_file_name_prefix,
         action_args.q,
         action_args.q_direction,
+        action_args.q_baseline_mask,
         action_args.forward,
         action_args.slq_dataloader,
     )
