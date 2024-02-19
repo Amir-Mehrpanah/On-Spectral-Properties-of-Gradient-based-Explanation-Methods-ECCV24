@@ -52,6 +52,7 @@ projection_type = "prediction"
 q_baseline_masks = ["blur"]
 q_directions = ["deletion"]
 projection_top_k = "1"
+q_job_array = "10-90:20"
 stats_log_level = 1
 demo = False
 
@@ -214,7 +215,6 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                job_array = "10-90:20"  # DEBUG
                 array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
@@ -227,7 +227,7 @@ def experiment_master(
                                 prefix = glob_path.split("_")[1][:2]
                                 job_name.append(f"acc{k}_{experiment_name}")
                                 run_experiment(
-                                    job_array=job_array,
+                                    job_array=q_job_array,
                                     num_tasks=16,
                                     array_process=array_process,
                                     experiment_name=job_name[-1],
