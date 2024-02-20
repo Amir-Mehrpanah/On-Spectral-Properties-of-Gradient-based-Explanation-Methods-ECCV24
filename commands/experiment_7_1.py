@@ -18,33 +18,36 @@ commands.experiment_7.alpha_mask_value = (
 # Method args
 commands.experiment_7.ig_alpha_priors = {  # DEBUG
     "ig_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    "ig_u_x2_0_0.8": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8",
-    "ig_u_x2_0_0.6": "0.0 0.1 0.2 0.3 0.4 0.5 0.6",
-    "ig_u_x2_0_0.4": "0.0 0.1 0.2 0.3 0.4",
+    "ig_u_x2_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_u_x2_0_0.2": "0.0 0.1 0.2",
     "ig_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    "ig_u_x_0_0.8": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8",
-    "ig_u_x_0_0.6": "0.0 0.1 0.2 0.3 0.4 0.5 0.6",
-    "ig_u_x_0_0.4": "0.0 0.1 0.2 0.3 0.4",
+    "ig_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_u_x_0_0.2": "0.0 0.1 0.2",
     "ig_u_x2_i_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    "ig_u_x2_i_0_0.8": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8",
-    "ig_u_x2_i_0_0.6": "0.0 0.1 0.2 0.3 0.4 0.5 0.6",
-    "ig_u_x2_i_0_0.4": "0.0 0.1 0.2 0.3 0.4",
+    "ig_u_x2_i_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_u_x2_i_0_0.2": "0.0 0.1 0.2",
     "ig_u_x_i_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
-    "ig_u_x_i_0_0.8": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8",
-    "ig_u_x_i_0_0.6": "0.0 0.1 0.2 0.3 0.4 0.5 0.6",
-    "ig_u_x_i_0_0.4": "0.0 0.1 0.2 0.3 0.4",
+    "ig_u_x_i_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     "ig_u_x_i_0_0.2": "0.0 0.1 0.2",
 }
 commands.experiment_7.combination_fns = [
     "damping",
 ]
-
 commands.experiment_7.batch_size = 2  # DEBUG
 commands.experiment_7.baseline_mask_type = "static"
 commands.experiment_7.baseline_mask_value = "0.0"
+commands.experiment_7.projection_type = "prediction label"
+commands.experiment_7.projection_top_k = "1 none"
+commands.experiment_7._args_pattern_state["projection"] = ["p", "dynamic"]
+commands.experiment_7.q_baseline_masks = [
+    "blur",
+    "black",
+]
+commands.experiment_7.q_directions = [
+    "deletion",
+    "insertion",
+]
+commands.experiment_7.q_job_array = "10-90:20"
 
 if __name__ == "__main__":
     args = commands.experiment_7.parse_args()

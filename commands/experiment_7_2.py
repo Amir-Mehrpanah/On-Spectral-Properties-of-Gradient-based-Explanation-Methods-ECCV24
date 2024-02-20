@@ -58,7 +58,7 @@ commands.experiment_7.q_directions = [
     "deletion",
     # "insertion",
 ]
-commands.experiment_7.q_job_array = "0,100"
+commands.experiment_7.q_job_array = "10-90:20" #"0,100"
 
 commands.experiment_7._args_pattern_state["projection"] = ["p", "dynamic"]
 
