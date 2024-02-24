@@ -41,7 +41,6 @@ logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-3
 batch_size = 128
-normalize_sample = "False"
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
@@ -53,6 +52,7 @@ q_baseline_masks = ["blur"]
 q_directions = ["deletion"]
 projection_top_k = "1"
 q_job_array = "10-90:20"
+gather_stats_job_array = "0-990:10"
 stats_log_level = 1
 demo = False
 
@@ -116,7 +116,6 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            job_array = "0-990:10"  # DEBUG
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
             array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
 
@@ -125,7 +124,7 @@ def experiment_master(
                 run_experiment(
                     experiment_name=job_name,
                     save_temp_base_dir=save_temp_base_dir,
-                    job_array=job_array,
+                    job_array=gather_stats_job_array,
                     array_process=array_process,
                     constraint=constraint,
                     number_of_gpus=1,
@@ -147,7 +146,6 @@ def experiment_master(
                     batch_size=batch_size,
                     args_state=args_state,
                     args_pattern=args_pattern,
-                    normalize_sample=normalize_sample,
                     save_raw_data_dir=save_raw_data_dir,
                     save_metadata_dir=save_metadata_dir,
                     baseline_mask_value=baseline_mask_value,

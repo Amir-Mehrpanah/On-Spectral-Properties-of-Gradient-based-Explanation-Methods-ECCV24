@@ -26,6 +26,7 @@ sys.path.append(os.getcwd())
 
 logger = logging.getLogger(__name__)
 
+
 class NoiseInterpolation:
     @staticmethod
     def sampler(
@@ -36,7 +37,7 @@ class NoiseInterpolation:
         image,
         baseline_mask,
         combination_fn,
-        normalize_sample=True,
+        explainer_fn,
         demo=False,
     ):
         if isinstance(baseline_mask, Callable):
@@ -51,15 +52,20 @@ class NoiseInterpolation:
             target_mask=baseline_mask,
             alpha_mask=alpha_mask,
         )
-        if normalize_sample:
-            combination_mask = minmax_normalize(combination_mask)
+
+        _forward = partial(
+            forward_with_projection,
+            projection=projection,
+            forward=forward,
+        )
+
         (
             vanilla_grad_mask,
-            # results_at_projection,
             log_probs,
-        ) = explainers.vanilla_gradient(
-            forward=forward_with_projection,
-            inputs=(combination_mask, projection, forward),
+        ) = explainer_fn(
+            forward=_forward,
+            inputs=combination_mask,
+            alpha_mask=alpha_mask,
         )
 
         if demo:
@@ -67,9 +73,6 @@ class NoiseInterpolation:
                 Stream(
                     StreamNames.vanilla_grad_mask, Statistics.none
                 ): vanilla_grad_mask,
-                # Stream(
-                #     StreamNames.results_at_projection, Statistics.none
-                # ): results_at_projection,
                 Stream(StreamNames.log_probs, Statistics.none): log_probs,
                 Stream(StreamNames.image, Statistics.none): image,
                 Stream("combination_mask", Statistics.none): combination_mask,
@@ -77,10 +80,10 @@ class NoiseInterpolation:
                 Stream("alpha_mask", Statistics.none): alpha_mask,
                 Stream("baseline_mask", Statistics.none): baseline_mask,
                 Stream("combination_fn", Statistics.none): combination_fn,
+                Stream("explainer_fn", Statistics.none): explainer_fn,
             }
         return {
             StreamNames.vanilla_grad_mask: vanilla_grad_mask,
-            # StreamNames.results_at_projection: results_at_projection,
             StreamNames.log_probs: log_probs,
         }
 
@@ -95,7 +98,16 @@ class NoiseInterpolation:
             type=str,
             required=True,
             nargs="+",
-            choices=["static", "scalar_uniform"],
+            choices=[
+                "static",
+                "scalar_uniform",
+                # "image_onehot-7x7",
+                # "image_onehot-10x10",
+                # "image_onehot-14x14",
+                "image_bernoulli-7x7",
+                "image_bernoulli-10x10",
+                "image_bernoulli-14x14",
+            ],
         )
         base_parser.add_argument(
             "--alpha_mask_value",
@@ -151,12 +163,6 @@ class NoiseInterpolation:
             nargs="*",
         )
         base_parser.add_argument(
-            "--normalize_sample",
-            type=_bool,
-            default=[True],
-            nargs="+",
-        )
-        base_parser.add_argument(
             "--combination_fn",
             type=str,
             required=True,
@@ -165,6 +171,16 @@ class NoiseInterpolation:
                 "convex",
                 "additive",
                 "damping",
+            ],
+        )
+        base_parser.add_argument(
+            "--explainer_fn",
+            type=str,
+            nargs="+",
+            default=["vanilla_grad"],
+            choices=[
+                "vanilla_grad",
+                "finite_difference",
             ],
         )
 
@@ -245,6 +261,7 @@ class NoiseInterpolation:
         args_dict = cls._process_baseline_mask(args_dict)
         args_dict = cls._process_alpha_mask(args_dict)
         args_dict = cls._process_combination_fn(args_dict)
+        args_dict = cls._process_explainer_fn(args_dict)
 
         for arg in cls.sampler_args:
             assert (
@@ -298,8 +315,8 @@ class NoiseInterpolation:
             args_pattern["method"] = "method"
 
         inplace_infer(args_pattern, "baseline_mask", "method")
-        inplace_infer(args_pattern, "normalize_sample", "method")
         inplace_infer(args_pattern, "combination_fn", "method")
+        inplace_infer(args_pattern, "explainer_fn", "method")
         inplace_infer(args_pattern, "projection", "method")
         inplace_infer(args_pattern, "alpha_mask", "method")
         inplace_infer(args_pattern, "image", "method")
@@ -355,8 +372,8 @@ class NoiseInterpolation:
             "alpha_mask_value",
             "baseline_mask_type",
             "baseline_mask_value",
-            "normalize_sample",
             "combination_fn",
+            "explainer_fn",
             "projection_type",
             "projection_distribution",
             "projection_top_k",
@@ -453,8 +470,8 @@ class NoiseInterpolation:
             )
         elif args_dict["projection_type"] == "prediction":
             assert args_dict["projection_distribution"] is not None
-            assert (
-                np.isnan(args_dict["projection_index"])
+            assert np.isnan(
+                args_dict["projection_index"]
             ), "when projection is prediction, projection_index will be inferred from the forward function"
             if args_dict["projection_distribution"] == "delta":
                 assert args_dict["projection_top_k"] > 0
@@ -476,10 +493,6 @@ class NoiseInterpolation:
     def _process_logics_baseline_mask(args_dict):
         if args_dict["baseline_mask_type"] == "static":
             assert not np.isnan(args_dict["baseline_mask_value"])
-            if isinstance(args_dict["baseline_mask_value"], float):
-                assert not args_dict[
-                    "normalize_sample"
-                ], "normalization of convex interpolation with static baseline is not expected"
         elif "gaussian" in args_dict["baseline_mask_type"]:
             assert np.isnan(args_dict["baseline_mask_value"])
 
@@ -503,19 +516,76 @@ class NoiseInterpolation:
         return args_dict
 
     @staticmethod
+    def _process_explainer_fn(args_dict):
+        if args_dict["explainer_fn"] == "vanilla_grad":
+            args_dict["explainer_fn"] = explainers.vanilla_gradient
+        elif args_dict["explainer_fn"] == "finite_difference":
+            args_dict["explainer_fn"] = explainers.finite_difference
+        else:
+            raise NotImplementedError
+        return args_dict
+
+    @staticmethod
     def _process_alpha_mask(args_dict):
         if args_dict["alpha_mask_type"] == "static":
             alpha_mask = args_dict["alpha_mask_value"] * jnp.ones(shape=(1, 1, 1, 1))
-        elif args_dict["alpha_mask_type"] == "scalar_uniform":
+        elif args_dict["alpha_mask_type"] == "scalar_uniform":  # stochastic IG
             alpha_mask = partial(
                 jax.random.uniform,
                 shape=(1, 1, 1, 1),
             )
-        elif args_dict["alpha_mask_type"] == "image_uniform":
-            alpha_mask = partial(
-                jax.random.uniform,
-                shape=args_dict["input_shape"],
-            )
+        elif "image_bernoulli" in args_dict["alpha_mask_type"]:  # RISE
+            assert not np.isnan(
+                args_dict["alpha_mask_value"]
+            ), "alpha_mask_value must be a valid probability for image_bernoulli"
+            H_W_ = args_dict["alpha_mask_type"].split("-")[1]
+            H, W = H_W_.split("x")
+            H, W = int(H), int(W)
+            I_H, I_W = args_dict["input_shape"][1], args_dict["input_shape"][2]
+            assert (
+                H <= I_H
+            ), f"alpha_mask H {H} must be less than or equal to input_shape H {I_H}"
+            assert (
+                W <= I_W
+            ), f"alpha_mask W {W} must be less than or equal to input_shape W {I_W}"
+            C_H, C_W = I_H // H, I_W // W
+
+            def alpha_mask_fn(key):
+                alpha_mask = jax.random.bernoulli(
+                    key=key,
+                    p=args_dict["alpha_mask_value"],
+                    shape=(1, H, W, 1),
+                )
+                # resize to input shape bilinear interpolation
+                alpha_mask = jax.image.resize(
+                    alpha_mask,
+                    shape=(1, (H + 1) * C_H, (W + 1) * C_W, 1),
+                    method="bilinear",
+                )
+                # sample random integer from 0 to C_H and C_W
+                random_H = jax.random.randint(
+                    key=key,
+                    minval=0,
+                    maxval=C_H,
+                    shape=(1,),
+                )
+                random_W = jax.random.randint(
+                    key=key,
+                    minval=0,
+                    maxval=C_W,
+                    shape=(1,),
+                )
+                # crop to input shape
+                alpha_mask = alpha_mask[
+                    :,
+                    random_H[0] : random_H[0] + I_H,
+                    random_W[0] : random_W[0] + I_W,
+                    :,
+                ]
+
+                return alpha_mask
+
+            args_dict["alpha_mask"] = alpha_mask_fn
         else:
             raise NotImplementedError
 

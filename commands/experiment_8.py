@@ -28,7 +28,6 @@ logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-2
 batch_size = 32
-normalize_sample = True
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
@@ -96,7 +95,6 @@ if __name__ == "__main__":
                 batch_size=batch_size,
                 args_state=args_state,
                 args_pattern=args_pattern,
-                normalize_sample=normalize_sample,
                 skip_data=skip_data,
                 save_raw_data_dir=save_raw_data_dir,
                 save_metadata_dir=save_metadata_dir,
