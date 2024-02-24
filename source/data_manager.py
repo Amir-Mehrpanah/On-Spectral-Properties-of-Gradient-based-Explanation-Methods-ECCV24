@@ -313,9 +313,9 @@ def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose
     )
 
     if direction == "deletion":
-        explanation_q = explanation < explanation_q
+        explanation_q = explanation <= explanation_q
     else:
-        explanation_q = explanation > explanation_q
+        explanation_q = explanation >= explanation_q
 
     explanation_q = tf.cast(explanation_q, tf.float32)
     masked_image = image * explanation_q + baseline * (1 - explanation_q)
