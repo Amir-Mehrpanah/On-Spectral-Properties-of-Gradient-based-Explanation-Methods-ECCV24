@@ -210,6 +210,7 @@ def compute_integrated_grad(
         beta_mul_freq,
         save_integrated_grad,
         save_spectral_lens,
+        save_arg_lens,
     )
 
     ig_elementwise = "_i_" in alpha_mask_name
@@ -233,10 +234,14 @@ def compute_integrated_grad(
         save_results_fn = save_spectral_lens
     elif alpha_mask_name.startswith("sl_") and "_b_" in alpha_mask_name:  # beta prior
         save_results_fn = partial(save_spectral_lens, agg_func=beta_mul_freq)
+    elif (
+        alpha_mask_name.startswith("al_") and "_u_" in alpha_mask_name
+    ):  # uniform prior
+        save_results_fn = save_arg_lens
     else:
         raise ValueError(
             f"Unsupported alpha_mask_name {alpha_mask_name} for integrated grad."
-            "Supported are ig_ or sl_ and _u_ for uniform and _b_ beta prior."
+            "Supported are ig_, sl_ or al_ and _u_ for uniform and _b_ beta prior."
             " _x_ for meanx and _x2_ for meanx2. _i_ for elementwise multiplication."
         )
 

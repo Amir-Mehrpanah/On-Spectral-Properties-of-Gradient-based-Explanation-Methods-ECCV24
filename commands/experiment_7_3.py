@@ -1,5 +1,4 @@
-# Experiment 7.3: Smooth Grad with different priors -gvfn 10
-# Experiment 7.2: Integrated gradients + Smooth Grad with different alpha priors
+# Experiment 7.3: RISE and Occlusion
 
 import sys
 import os

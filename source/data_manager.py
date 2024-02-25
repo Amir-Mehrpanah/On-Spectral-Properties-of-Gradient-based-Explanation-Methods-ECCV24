@@ -107,6 +107,9 @@ def aggregate_grad_mask_generic(data, agg_func, perprocess=[]):
         temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
         init_val = agg_func(init_val, temp_grad, row["alpha_mask_value"])
 
+    if isinstance(init_val, dict):
+        init_val = init_val["values"]
+
     assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W, 1)"
     # init_val = np.expand_dims(init_val, axis=0)
     return init_val
@@ -121,7 +124,16 @@ def div_by_sum(grad_mask, grad_sum):
 
 
 def unif_mul_freq(init_val, temp_grad, frequency):
-    return init_val + temp_grad * (frequency ** (3 / 2))
+    return init_val + temp_grad * (frequency ** (5 / 2))
+
+
+def argmax_freq(init_val, temp_grad, frequency):
+    if not isinstance(init_val, dict):
+        init_val = {"values": init_val, "argmax_trace": np.zeros_like(init_val)}
+    ids = init_val["argmax_trace"] < temp_grad
+    init_val["values"][ids] = frequency
+    init_val["argmax_trace"][ids] = temp_grad[ids]
+    return init_val
 
 
 def integrated_grad(init_val, temp_grad, _):
@@ -129,7 +141,7 @@ def integrated_grad(init_val, temp_grad, _):
 
 
 def beta_mul_freq(init_val, temp_grad, frequency, a=2, b=2):
-    return init_val + temp_grad * (frequency ** (3 / 2)) * beta.pdf(frequency, a, b)
+    return init_val + temp_grad * (frequency ** (5 / 2)) * beta.pdf(frequency, a, b)
 
 
 def beta_integrated_grad(init_val, temp_grad, frequency, a=2, b=2):
@@ -145,6 +157,19 @@ def save_spectral_lens(
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
+    np.save(save_path, init_val)
+    return save_path
+
+
+def save_arg_lens(
+        data,
+        save_raw_data_dir,
+        agg_func=argmax_freq,
+):
+    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+    rnd = np.random.randint(0, 1000)
+    path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
+    save_path = os.path.join(save_raw_data_dir, f"AL_{path_prefix}.npy")
     np.save(save_path, init_val)
     return save_path
 
@@ -352,11 +377,13 @@ def imagenet_loader_from_metadata(
     )
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
     shape_size = np.prod(input_shape) * tf.float32.size
-    logger.debug(f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}")
+    logger.debug(
+        f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
+    )
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
-    
+
     explanation_dataset = explanation_dataset.map(
         lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,

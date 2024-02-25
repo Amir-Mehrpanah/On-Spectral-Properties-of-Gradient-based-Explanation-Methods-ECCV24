@@ -52,7 +52,8 @@ q_baseline_masks = ["blur"]
 q_directions = ["deletion"]
 projection_top_k = "1"
 q_job_array = "10-90:20"
-gather_stats_job_array = "0-990:10"
+gather_stats_take_batch_size = 10
+gather_stats_dir_batch_size = 1000
 stats_log_level = 1
 demo = False
 
@@ -63,8 +64,9 @@ _args_pattern_state = {
 }
 
 
-def update_pattern_state():
-    global args_state, args_pattern
+def update_dynamic_args():
+    global args_state, args_pattern, gather_stats_job_array
+    
     args_state = json.dumps(
         {k: v[1] for k, v in _args_pattern_state.items()},
         separators=(";", ":"),  # semi-colon is used to separate args
@@ -73,6 +75,8 @@ def update_pattern_state():
         {k: v[0] for k, v in _args_pattern_state.items()},
         separators=(";", ":"),
     )
+
+    gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 
 
 def parse_args():
@@ -93,7 +97,7 @@ def parse_args():
         parser.print_help()
         sys.exit(1)
 
-    update_pattern_state()
+    update_dynamic_args()
 
     return args
 
@@ -117,7 +121,7 @@ def experiment_master(
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
-            array_process = f'array_process="--image_index $((1000*{batch} + $SLURM_ARRAY_TASK_ID)) 10"'
+            array_process = f'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
 
             if args.gather_stats:
                 job_name = experiment_name
