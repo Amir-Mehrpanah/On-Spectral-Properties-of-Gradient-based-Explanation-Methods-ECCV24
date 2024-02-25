@@ -10,7 +10,7 @@ from commands.experiment_7 import (
 )
 import commands.experiment_7
 
-alphas = [str(x / 100) for x in range(0, 101, 10)]
+alphas = " ".join([str(x / 100) for x in range(0, 101, 10)])
 
 commands.experiment_7.alpha_mask_value = alphas
 

@@ -54,6 +54,7 @@ projection_top_k = "1"
 q_job_array = "10-90:20"
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
+gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 stats_log_level = 1
 demo = False
 
@@ -65,8 +66,8 @@ _args_pattern_state = {
 
 
 def update_dynamic_args():
-    global args_state, args_pattern, gather_stats_job_array
-    
+    global args_state, args_pattern
+
     args_state = json.dumps(
         {k: v[1] for k, v in _args_pattern_state.items()},
         separators=(";", ":"),  # semi-colon is used to separate args
@@ -75,8 +76,6 @@ def update_dynamic_args():
         {k: v[0] for k, v in _args_pattern_state.items()},
         separators=(";", ":"),
     )
-
-    gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 
 
 def parse_args():
