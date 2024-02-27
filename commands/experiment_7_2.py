@@ -17,7 +17,7 @@ commands.experiment_7.alpha_mask_value = (
 
 # Method args
 commands.experiment_7.ig_alpha_priors = {  # DEBUG
-    "ig_vg_u_x_0": "0.0",
+    # "ig_vg_u_x_0": "0.0",
     # "ig_vg_u_x2_0": "0.0",
     # "ig_vg_i_u_x_0": "0.0",
     # "ig_vg_i_u_x2_0": "0.0",
@@ -48,15 +48,15 @@ commands.experiment_7.combination_fns = [
 ]
 
 commands.experiment_7.baseline_mask_type = "gaussian-0.3"
-commands.experiment_7.projection_type = "prediction label"
-commands.experiment_7.projection_top_k = "1 none"
+commands.experiment_7.projection_type = "prediction"
+commands.experiment_7.projection_top_k = "1"
 commands.experiment_7.q_baseline_masks = [
     "blur",
-    "black",
+    # "black",
 ]
 commands.experiment_7.q_directions = [
     "deletion",
-    # "insertion",
+    "insertion",
 ]
 commands.experiment_7.q_job_array = "10-90:20" #"0,100"
 

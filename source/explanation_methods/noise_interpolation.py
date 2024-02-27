@@ -567,25 +567,23 @@ class NoiseInterpolation:
                     key=key,
                     minval=0,
                     maxval=C_H,
-                    shape=(1,),
                 )
                 random_W = jax.random.randint(
                     key=key,
                     minval=0,
-                    maxval=C_W,
-                    shape=(1,),
+                    maxval=C_W
                 )
                 # crop to input shape
                 alpha_mask = alpha_mask[
                     :,
-                    random_H[0] : random_H[0] + I_H,
-                    random_W[0] : random_W[0] + I_W,
+                    random_H : random_H + I_H,
+                    random_W : random_W + I_W,
                     :,
                 ]
 
                 return alpha_mask
 
-            args_dict["alpha_mask"] = alpha_mask_fn
+            alpha_mask = alpha_mask_fn
         else:
             raise NotImplementedError
 
