@@ -12,8 +12,8 @@ import commands.experiment_7
 
 commands.experiment_7.alpha_mask_type = "image_ohcat-7x7 image_bernoulli-7x7"
 commands.experiment_7.alpha_mask_value = "nan 0.1" 
-commands.experiment_7.gather_stats_job_array = "0"  # DEBUG
-commands.experiment_7.gather_stats_take_batch_size = "5"  # DEBUG
+# commands.experiment_7.gather_stats_job_array = "0"  # DEBUG
+# commands.experiment_7.gather_stats_take_batch_size = "10"  # DEBUG
 commands.experiment_7.ig_alpha_priors = {
     "ig_rise_u_x_0.1": "0.1",
     "ig_rise_u_x2_0.1": "0.1",

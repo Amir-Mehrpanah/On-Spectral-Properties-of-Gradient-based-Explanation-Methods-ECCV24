@@ -43,7 +43,7 @@ commands.experiment_7.ig_alpha_priors = {  # DEBUG
 commands.experiment_7.combination_fns = [
     "damping",
 ]
-commands.experiment_7.batch_size = 2  # DEBUG
+commands.experiment_7.gather_stats_batch_size = 2  # DEBUG
 commands.experiment_7.baseline_mask_type = "static"
 commands.experiment_7.baseline_mask_value = "0.0"
 commands.experiment_7.projection_type = "prediction"

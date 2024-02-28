@@ -40,7 +40,7 @@ alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-3
-batch_size = 128
+gather_stats_batch_size = 128
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "imagenet"
@@ -55,6 +55,7 @@ projection_top_k = "1"
 q_job_array = "10-90:20"
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
+gather_stats_max_batches = 8000 // gather_stats_batch_size
 gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 stats_log_level = 1
 demo = False
@@ -148,7 +149,8 @@ def experiment_master(
                     stats_log_level=stats_log_level,
                     demo=demo,
                     dataset_dir=dataset_dir,
-                    batch_size=batch_size,
+                    batch_size=gather_stats_batch_size,
+                    max_batches=gather_stats_max_batches,
                     args_state=args_state,
                     args_pattern=args_pattern,
                     save_raw_data_dir=save_raw_data_dir,

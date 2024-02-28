@@ -22,7 +22,7 @@ commands.experiment_7.combination_fns = [
     "damping",
 ]
 
-commands.experiment_7.batch_size = 128  # DEBUG
+commands.experiment_7.gather_stats_batch_size = 128  # DEBUG
 commands.experiment_7.baseline_mask_type = "gaussian"
 
 if __name__ == "__main__":
