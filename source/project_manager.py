@@ -154,7 +154,7 @@ def compute_with_explanation_prior(
         save_raw_data_dir=save_raw_data_dir,
     )
     logger.debug(
-        f"columns after computing the aggregation function {explanations_mean_freq.name}"
+        f"columns after computing the aggregation function {explanations_mean_freq.shape}"
     )
     explanations_mean_freq.name = "data_path"
 

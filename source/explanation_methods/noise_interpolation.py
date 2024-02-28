@@ -101,9 +101,9 @@ class NoiseInterpolation:
             choices=[
                 "static",
                 "scalar_uniform",
-                # "image_onehot-7x7",
-                # "image_onehot-10x10",
-                # "image_onehot-14x14",
+                "image_ohcat-7x7",
+                "image_ohcat-10x10",
+                "image_ohcat-14x14",
                 "image_bernoulli-7x7",
                 "image_bernoulli-10x10",
                 "image_bernoulli-14x14",
@@ -550,7 +550,7 @@ class NoiseInterpolation:
             ), f"alpha_mask W {W} must be less than or equal to input_shape W {I_W}"
             C_H, C_W = I_H // H, I_W // W
 
-            def alpha_mask_fn(key):
+            def alpha_mask_fn_bern(key):
                 alpha_mask = jax.random.bernoulli(
                     key=key,
                     p=args_dict["alpha_mask_value"],
@@ -562,15 +562,17 @@ class NoiseInterpolation:
                     shape=(1, (H + 1) * C_H, (W + 1) * C_W, 1),
                     method="bilinear",
                 )
+                # split the keys
+                h_key, w_key = jax.random.split(key)
                 # sample random integer from 0 to C_H and C_W
                 random_H = jax.random.randint(
-                    key=key,
+                    key=h_key,
                     minval=0,
                     maxval=C_H,
                     shape=(),
                 )
                 random_W = jax.random.randint(
-                    key=key,
+                    key=w_key,
                     minval=0,
                     maxval=C_W,
                     shape=(),
@@ -584,7 +586,49 @@ class NoiseInterpolation:
 
                 return alpha_mask
 
-            alpha_mask = alpha_mask_fn
+            alpha_mask = alpha_mask_fn_bern
+        elif "image_ohcat" in args_dict["alpha_mask_type"]:
+            assert np.isnan(
+                args_dict["alpha_mask_value"]
+            ), "alpha_mask_value must be nan for image_ohcat"
+            H_W_ = args_dict["alpha_mask_type"].split("-")[1]
+            H, W = H_W_.split("x")
+            H, W = int(H), int(W)
+            I_H, I_W = args_dict["input_shape"][1], args_dict["input_shape"][2]
+            assert (
+                H <= I_H
+            ), f"alpha_mask H {H} must be less than or equal to input_shape H {I_H}"
+            assert (
+                W <= I_W
+            ), f"alpha_mask W {W} must be less than or equal to input_shape W {I_W}"
+
+            def alpha_mask_fn_ohcat(key):
+                alpha_mask = jnp.ones(
+                    shape=(1, H, W, 1),
+                )
+                h_key, w_key = jax.random.split(key)
+                occlusion_h = jax.random.randint(
+                    key=h_key,
+                    minval=0,
+                    maxval=H,
+                    shape=(),
+                )
+                occlusion_w = jax.random.randint(
+                    key=w_key,
+                    minval=0,
+                    maxval=H,
+                    shape=(),
+                )
+                alpha_mask = alpha_mask.at[0, occlusion_h, occlusion_w, 0].set(0)
+                # resize to input shape bilinear interpolation
+                alpha_mask = jax.image.resize(
+                    alpha_mask,
+                    shape=(1, I_H, I_W, 1),
+                    method="bilinear",
+                )
+                return alpha_mask
+
+            alpha_mask = alpha_mask_fn_ohcat
         else:
             raise NotImplementedError
 
