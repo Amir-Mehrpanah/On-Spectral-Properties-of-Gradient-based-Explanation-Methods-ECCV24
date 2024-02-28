@@ -26,6 +26,7 @@ commands.experiment_7._args_pattern_state = {
 commands.experiment_7.baseline_mask_type = "static"
 commands.experiment_7.baseline_mask_value = "0.0"
 commands.experiment_7.projection_type = "prediction"
+commands.experiment_7.explainer_fn = "finite_difference"
 commands.experiment_7.projection_top_k = "1"
 commands.experiment_7.q_baseline_masks = [
     "blur",

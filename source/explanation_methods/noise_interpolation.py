@@ -567,19 +567,20 @@ class NoiseInterpolation:
                     key=key,
                     minval=0,
                     maxval=C_H,
+                    shape=(),
                 )
                 random_W = jax.random.randint(
                     key=key,
                     minval=0,
-                    maxval=C_W
+                    maxval=C_W,
+                    shape=(),
                 )
                 # crop to input shape
-                alpha_mask = alpha_mask[
-                    :,
-                    random_H : random_H + I_H,
-                    random_W : random_W + I_W,
-                    :,
-                ]
+                alpha_mask = jax.lax.dynamic_slice(
+                    alpha_mask,
+                    (0, random_H, random_W, 0),
+                    (1, I_H, I_W, 1),
+                )
 
                 return alpha_mask
 

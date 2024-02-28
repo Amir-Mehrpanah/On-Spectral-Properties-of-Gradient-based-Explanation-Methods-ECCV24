@@ -48,6 +48,7 @@ dataset_dir = "/proj/azizpour-group/datasets/imagenet"
 baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"
+explainer_fn = "vanilla_grad"
 q_baseline_masks = []
 q_directions = []
 projection_top_k = "1"
@@ -138,6 +139,7 @@ def experiment_master(
                     dataset=dataset,
                     min_change=min_change,
                     combination_fn=combination_fn,
+                    explainer_fn=explainer_fn,
                     alpha_mask_value=alpha_mask_value,
                     alpha_mask_type=alpha_mask_type,
                     projection_type=projection_type,
