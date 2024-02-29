@@ -1,5 +1,6 @@
-# Experiment 7.3: RISE and Occlusion
+# Experiment 7.5: Smooth Grad Original paper
 
+import argparse
 import sys
 import os
 
@@ -10,25 +11,23 @@ from commands.experiment_7 import (
 import commands.experiment_7
 
 
-commands.experiment_7.alpha_mask_type = "image_ohcat-7x7 image_bernoulli-7x7"
-commands.experiment_7.alpha_mask_value = "nan 0.1" 
-commands.experiment_7.ig_alpha_priors = {
-    "ig_rise_u_x_0.1": "0.1",
-    "ig_rise_u_x2_0.1": "0.1",
-    "ig_occlusion_u_x_nan": "nan",
-    "ig_occlusion_u_x2_nan": "nan",
-}
+# original smoothgrad paper also alters the baseline_mask_type
+commands.experiment_7.alpha_mask_type = "max-min"
+commands.experiment_7.alpha_mask_value = "none"
+commands.experiment_7._args_pattern_state["alpha_mask"] = [
+    "i",
+    "dynamic",
+]  # same as image so each image gets its own alpha mask value = max-min
+
 # Method args
-commands.experiment_7.combination_fns = [
-    "convex",
-]
-commands.experiment_7.explainer_fn = "finite_difference"
-commands.experiment_7._args_pattern_state = {
-    # "key": ["pattern", "compilation state"],
-    "image": ["i", "dynamic"],
+commands.experiment_7.ig_alpha_priors = {  # DEBUG
+    "ig_sg_u_x_nan": "nan",
+    "ig_sg_u_x2_nan": "nan",
 }
-commands.experiment_7.baseline_mask_type = "static"
-commands.experiment_7.baseline_mask_value = "0.0"
+commands.experiment_7.combination_fns = [
+    "additive",
+]
+commands.experiment_7.baseline_mask_type = "gaussian-0.1"
 commands.experiment_7.projection_type = "prediction"
 commands.experiment_7.projection_top_k = "1"
 commands.experiment_7.q_baseline_masks = [
@@ -38,6 +37,7 @@ commands.experiment_7.q_directions = [
     "deletion",
     "insertion",
 ]
+commands.experiment_7.q_job_array = "10-90:20" #"0,100"
 
 if __name__ == "__main__":
     args = commands.experiment_7.parse_args()

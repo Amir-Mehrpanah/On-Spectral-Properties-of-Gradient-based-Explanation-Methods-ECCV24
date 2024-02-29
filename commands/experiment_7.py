@@ -164,6 +164,8 @@ def experiment_master(
                     experiment_name=job_name,
                     constraint=constraint,
                     action=Action.merge_stats,
+                    glob_path="????_*_????.csv",
+                    file_name="merged_metadata.csv",
                     logging_level=logging_level,
                     save_metadata_dir=save_metadata_dir,
                 )

@@ -865,7 +865,7 @@ def save_gather_stats_data(save_raw_data_dir, skip_data, stats):
     # To avoid this, we add a random number
     # to the path_prefix to reduce the chance of collision.
     rnd = np.random.randint(0, 10000)
-    path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
+    path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f_{rnd:04d}")
 
     get_npy_file_path = lambda key: os.path.join(
         save_raw_data_dir, f"{path_prefix}.{key}.npy"

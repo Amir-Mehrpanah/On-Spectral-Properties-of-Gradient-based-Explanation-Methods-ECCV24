@@ -44,23 +44,18 @@ commands.experiment_7.ig_alpha_priors = {  # DEBUG
 }
 commands.experiment_7.combination_fns = [
     "additive",
-    # "convex",
 ]
-
 commands.experiment_7.baseline_mask_type = "gaussian-0.3"
 commands.experiment_7.projection_type = "prediction"
 commands.experiment_7.projection_top_k = "1"
 commands.experiment_7.q_baseline_masks = [
     "blur",
-    # "black",
 ]
 commands.experiment_7.q_directions = [
     "deletion",
     "insertion",
 ]
 commands.experiment_7.q_job_array = "10-90:20" #"0,100"
-
-commands.experiment_7._args_pattern_state["projection"] = ["p", "dynamic"]
 
 if __name__ == "__main__":
     args = commands.experiment_7.parse_args()

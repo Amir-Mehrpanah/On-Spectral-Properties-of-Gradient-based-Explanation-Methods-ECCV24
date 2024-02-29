@@ -101,12 +101,13 @@ class NoiseInterpolation:
             choices=[
                 "static",
                 "scalar_uniform",
-                "image_ohcat-7x7",
-                "image_ohcat-10x10",
-                "image_ohcat-14x14",
-                "image_bernoulli-7x7",
-                "image_bernoulli-10x10",
-                "image_bernoulli-14x14",
+                "max-min",  # SmoothGrad (original paper)
+                "image_ohcat-7x7",  # Occulsion
+                "image_ohcat-10x10",  # Occulsion
+                "image_ohcat-14x14",  # Occulsion
+                "image_bernoulli-7x7",  # RISE
+                "image_bernoulli-10x10",  # RISE
+                "image_bernoulli-14x14",  # RISE
             ],
         )
         base_parser.add_argument(
@@ -502,6 +503,16 @@ class NoiseInterpolation:
             assert not np.isnan(args_dict["alpha_mask_value"])
         elif "uniform" in args_dict["alpha_mask_type"]:
             assert np.isnan(args_dict["alpha_mask_value"])
+        elif "max-min" in args_dict["alpha_mask_type"]:
+            assert np.isnan(args_dict["alpha_mask_value"])
+        elif "image_bernoulli" in args_dict["alpha_mask_type"]:
+            assert not np.isnan(
+                args_dict["alpha_mask_value"]
+            ), "alpha_mask_value must be a valid probability for image_bernoulli"
+        elif "image_ohcat" in args_dict["alpha_mask_type"]:
+            assert np.isnan(
+                args_dict["alpha_mask_value"]
+            ), "alpha_mask_value must be nan for image_ohcat"
 
     @staticmethod
     def _process_combination_fn(args_dict):
@@ -534,10 +545,10 @@ class NoiseInterpolation:
                 jax.random.uniform,
                 shape=(1, 1, 1, 1),
             )
+        elif "max-min" in args_dict["alpha_mask_type"]:
+            alpha_mask = args_dict["image"].max()-args_dict["image"].min()
+            logger.debug(f"alpha_mask_values set to max-min: {alpha_mask}")
         elif "image_bernoulli" in args_dict["alpha_mask_type"]:  # RISE
-            assert not np.isnan(
-                args_dict["alpha_mask_value"]
-            ), "alpha_mask_value must be a valid probability for image_bernoulli"
             H_W_ = args_dict["alpha_mask_type"].split("-")[1]
             H, W = H_W_.split("x")
             H, W = int(H), int(W)
@@ -588,9 +599,6 @@ class NoiseInterpolation:
 
             alpha_mask = alpha_mask_fn_bern
         elif "image_ohcat" in args_dict["alpha_mask_type"]:
-            assert np.isnan(
-                args_dict["alpha_mask_value"]
-            ), "alpha_mask_value must be nan for image_ohcat"
             H_W_ = args_dict["alpha_mask_type"].split("-")[1]
             H, W = H_W_.split("x")
             H, W = int(H), int(W)
