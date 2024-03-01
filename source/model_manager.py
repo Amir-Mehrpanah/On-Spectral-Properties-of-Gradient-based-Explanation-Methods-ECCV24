@@ -57,7 +57,7 @@ def init_resnet50_food101(args, ckpt_path):
     variables["params"] = state.params
     resnet50_forward = partial(
         state.apply_fn,
-        variables=variables,
+        variables,
         train=False,
         mutable=False,
     )
