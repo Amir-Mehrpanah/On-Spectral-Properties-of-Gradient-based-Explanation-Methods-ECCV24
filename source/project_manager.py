@@ -200,6 +200,9 @@ def compute_with_explanation_prior(
 def compute_integrated_grad(
     save_metadata_dir,
     save_raw_data_dir,
+    input_shape,
+    mean_rgb,
+    std_rgb,
     alpha_mask_name,
     alpha_prior,
     projection_type,
@@ -223,12 +226,18 @@ def compute_integrated_grad(
         save_results_fn = partial(
             save_integrated_grad,
             ig_elementwise=ig_elementwise,
+            mean_rgb=mean_rgb,
+            std_rgb=std_rgb,
+            img_size=input_shape[1],  # N H W C
         )
     elif alpha_mask_name.startswith("ig_") and "_b_" in alpha_mask_name:  # beta prior
         save_results_fn = partial(
             save_integrated_grad,
             agg_func=beta_integrated_grad,
             ig_elementwise=ig_elementwise,
+            mean_rgb=mean_rgb,
+            std_rgb=std_rgb,
+            img_size=input_shape[1],  # N H W C
         )
     elif (
         alpha_mask_name.startswith("sl_") and "_u_" in alpha_mask_name

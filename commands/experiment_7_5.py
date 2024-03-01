@@ -13,7 +13,7 @@ import commands.experiment_7
 
 # original smoothgrad paper also alters the baseline_mask_type
 commands.experiment_7.alpha_mask_type = "max-min"
-commands.experiment_7.alpha_mask_value = "none"
+commands.experiment_7.alpha_mask_value = "nan"
 commands.experiment_7._args_pattern_state["alpha_mask"] = [
     "i",
     "dynamic",

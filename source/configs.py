@@ -44,7 +44,7 @@ class DefaultArgs:
     batch_size = 32
     max_batches = 10000 // batch_size
     action = Action.gather_stats
-    dataset = "imagenet"
+    dataset = "no_default_dataset"
     # args we don't want to be compiled by jax
     args_state = json.dumps(
         {k: v[1] for k, v in _args_pattern_state.items()}, separators=(";", ":")

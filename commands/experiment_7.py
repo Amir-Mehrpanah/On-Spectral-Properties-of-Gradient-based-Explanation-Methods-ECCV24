@@ -1,4 +1,4 @@
-# Experiment 7.2: Integrated gradients squared with Smooth Grad different alpha priors
+# Experiment 7: master experiment for 7_x
 
 
 import json

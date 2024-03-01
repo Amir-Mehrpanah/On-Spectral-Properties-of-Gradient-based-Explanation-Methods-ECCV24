@@ -19,7 +19,7 @@ from source.configs import DefaultArgs
 from source.data_manager import (
     imagenet_loader_from_metadata,
     query_imagenet,
-    query_cifar10,
+    query_food101,
     TypeOrNan,
 )
 from source.project_manager import load_experiment_metadata
@@ -72,8 +72,8 @@ dataset_query_func_switch.register(
     query_imagenet,
 )
 dataset_query_func_switch.register(
-    "cifar10",
-    query_cifar10,
+    "food101",
+    query_food101,
 )
 init_architecture_forward_switch.register(
     "resnet50",
@@ -116,7 +116,7 @@ def base_parser(parser, default_args: DefaultArgs):
             save_metadata_dir=args.save_metadata_dir,
         )
     elif args.action == Action.compute_integrated_grad:
-        action_args = _parse_integrated_grad_args(parser)
+        action_args = _parse_integrated_grad_args(parser, default_args)
         driver_args = argparse.Namespace(
             action=args.action,
             save_metadata_dir=args.save_metadata_dir,
@@ -204,8 +204,10 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
 
     input_shape = tuple(args.input_shape)
     sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
-    logger.debug(f"loaded metadata from {args.save_metadata_dir} with {args.glob_path} of shape {sl_metadata.shape}.")
-    
+    logger.debug(
+        f"loaded metadata from {args.save_metadata_dir} with {args.glob_path} of shape {sl_metadata.shape}."
+    )
+
     ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
     if args.filter_alpha_prior:
         ids = ids & (sl_metadata["alpha_mask_value"] == args.filter_alpha_prior)
@@ -251,7 +253,7 @@ def _merge_stats_args(parser):
     return args
 
 
-def _parse_integrated_grad_args(parser):
+def _parse_integrated_grad_args(parser, default_args):
     parser.add_argument(
         "--alpha_mask_name",
         type=str,
@@ -275,6 +277,25 @@ def _parse_integrated_grad_args(parser):
         type=TypeOrNan(int),
         default=None,
     )
+    parser.add_argument(
+        "--input_shape",
+        type=int,
+        nargs=4,
+        default=default_args.input_shape,
+    )
+    parser.add_argument(
+        "--mean_rgb",
+        nargs=3,
+        type=float,
+        default=np.nan,
+    )
+    parser.add_argument(
+        "--std_rgb",
+        nargs=3,
+        type=float,
+        default=np.nan,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -512,6 +533,18 @@ def _add_gather_stats_base_args(parser, default_args):
         default=default_args.input_shape,
     )
     parser.add_argument(
+        "--mean_rgb",
+        nargs=3,
+        type=float,
+        default=np.nan,
+    )
+    parser.add_argument(
+        "--std_rgb",
+        nargs=3,
+        type=float,
+        default=np.nan,
+    )
+    parser.add_argument(
         "--image_index",
         type=int,
         nargs="+",
@@ -571,6 +604,11 @@ def _process_gather_stats_args(args):
     logger.debug("created the save directories.")
 
     args.input_shape = tuple(args.input_shape)
+    if not np.isnan(args.mean_rgb):
+        assert not np.isnan(args.std_rgb), "mean_rgb and std_rgb must be both provided."
+        args.mean_rgb = jnp.array(args.mean_rgb)
+        args.std_rgb = jnp.array(args.std_rgb)
+
     dataset_query_func_switch[args.dataset](args)
     logger.debug("queried the dataset.")
 

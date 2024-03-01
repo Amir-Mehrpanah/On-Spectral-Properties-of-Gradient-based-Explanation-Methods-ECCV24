@@ -42,13 +42,15 @@ class TypeOrNan:
         return self.type(x)
 
 
-def preprocess(x, img_size):
+def preprocess(x, img_size, mean_rgb=None, std_rgb=None):
     x = tf.keras.layers.experimental.preprocessing.CenterCrop(
         height=img_size,
         width=img_size,
     )(x)
     x = jnp.array(x)
     x = jnp.expand_dims(x, axis=0) / 255.0
+    if mean_rgb is not None:
+        x = (x - mean_rgb) / std_rgb
     return x
 
 
@@ -198,13 +200,21 @@ def save_integrated_grad(
     save_raw_data_dir,
     agg_func=integrated_grad,
     ig_elementwise=False,
+    img_size=None,
+    mean_rgb=None,
+    std_rgb=None,
 ):
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
 
     if ig_elementwise:
         image = PIL.Image.open(data.iloc[0]["image_path"])
         image = tf.keras.utils.img_to_array(image)
-        image = preprocess(image, img_size=224).squeeze(0)
+        image = preprocess(
+            image,
+            img_size=img_size,
+            mean_rgb=mean_rgb,
+            std_rgb=std_rgb,
+        ).squeeze(0)
         image = sum_channels(image)
         assert (
             image.shape == init_val.shape
@@ -292,12 +302,38 @@ def query_imagenet(args):
         assert args.image[-1].shape == args.input_shape
 
 
-def load_images(image_paths: Series, img_size):
-    image_paths = image_paths.apply(PIL.Image.open)
-    image_paths = image_paths.apply(
-        lambda x: preprocess(x, img_size=img_size).squeeze()
+def query_food101(args):
+    args.image = []
+    args.label = []
+    args.image_path = []
+    image_height = args.input_shape[1]  # (N, H, W, C)
+    dataset = tfds.load(
+        "food101",
+        split="validation",
+        shuffle_files=False,
+        data_dir=args.dataset_dir,
+        download=False,
     )
-    return image_paths
+    mean_rgb, std_rgb = args.mean_rgb, args.std_rgb 
+    logger.debug(f"mean_rgb is {mean_rgb}, std_rgb is {std_rgb}")
+    skip = args.image_index[0]
+    take = args.image_index[1]
+    args.image_index = []
+    dataset = dataset.skip(skip)
+    dataset = dataset.take(take)
+    iterator = dataset.as_numpy_iterator()
+    logger.info(f"dataset size is {dataset.cardinality()}")
+    for i, base_stream in enumerate(iterator):
+        base_stream["image"] = preprocess(
+            base_stream["image"], image_height, mean_rgb, std_rgb
+        )
+        args.image.append(base_stream["image"])
+        args.label.append(base_stream["label"])
+        args.image_index.append(i)
+        assert args.image[-1].shape == args.input_shape, (
+            f"image shape is {args.image[-1].shape}, "
+            f"expected input shape is {args.input_shape}"
+        )
 
 
 def npy_header_offset(npy_path):

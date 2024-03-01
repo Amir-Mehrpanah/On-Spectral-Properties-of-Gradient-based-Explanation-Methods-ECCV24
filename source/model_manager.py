@@ -1,8 +1,13 @@
+import os
 import flaxmodels as fm
+from flax.training import train_state
 import jax
 import logging
 import jax.numpy as jnp
+from flax.training import checkpoints
 from functools import partial
+
+import optax
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +21,54 @@ def forward_with_projection(inputs, projection, forward):
 
 
 def init_resnet50_forward(args):
+    ckpt_path = os.path.join(args.save_temp_base_dir, args.dataset)
+    if args.dataset == "imagenet":
+        resnet50_forward = init_resnet50_imagenet(args, ckpt_path)
+    elif args.dataset == "food101":
+        resnet50_forward = init_resnet50_food101(args, ckpt_path)
+    else:
+        raise ValueError(f"Unknown dataset {args.dataset}")
+
+    if hasattr(args, "forward"):
+        assert isinstance(
+            args.forward, list
+        ), f"forward must be a list recieved {type(args.forward)}"
+        args.forward.append(resnet50_forward)
+    else:
+        args.forward = [resnet50_forward]
+
+
+def init_resnet50_food101(args, ckpt_path):
+    model = fm.ResNet50(
+        output=args.output_layer,
+        pretrained=None,
+        num_classes=args.num_classes,
+    )
+    variables = model.init(
+        jax.random.PRNGKey(0), jnp.empty(args.input_shape, dtype=jnp.float32)
+    )
+    tx = optax.sgd(0)
+    state = train_state.TrainState.create(
+        apply_fn=model.apply,
+        params=variables["params"],
+        tx=tx,
+    )
+    state = checkpoints.restore_checkpoint(ckpt_path, state)
+    variables["params"] = state.params
+    resnet50_forward = partial(
+        state.apply_fn,
+        variables=variables,
+        train=False,
+        mutable=False,
+    )
+    return resnet50_forward
+
+
+def init_resnet50_imagenet(args, ckpt_path):
     resnet50 = fm.ResNet50(
         output=args.output_layer,
         pretrained="imagenet",
-        ckpt_dir=args.save_temp_base_dir,
+        ckpt_dir=ckpt_path,
     )
     params = resnet50.init(
         jax.random.PRNGKey(0),
@@ -30,13 +79,8 @@ def init_resnet50_forward(args):
         params,
         train=False,
     )
-    if hasattr(args, "forward"):
-        assert isinstance(
-            args.forward, list
-        ), f"forward must be a list recieved {type(args.forward)}"
-        args.forward.append(resnet50_forward)
-    else:
-        args.forward = [resnet50_forward]
+
+    return resnet50_forward
 
 
 def init_resnet50_randomized_forward(args):
