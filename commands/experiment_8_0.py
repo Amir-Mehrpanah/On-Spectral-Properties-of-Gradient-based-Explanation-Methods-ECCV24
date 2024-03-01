@@ -16,6 +16,7 @@ commands.experiment_8.alpha_mask_value = "0.0"  # DEBUG
 # Method args
 commands.experiment_8.combination_fns = [
     "additive",
+    # "convex",
 ]
 
 commands.experiment_8.gather_stats_batch_size = 128  # DEBUG
