@@ -160,7 +160,6 @@ def run_experiment(**args):
     logger.debug("sumbitting a job")
     cmd = _sweeper_cmd(**args)
     os.system(cmd)
-    # wait_in_queue()
 
 
 def wait_in_queue(thresh=50, jobnames: List[str] = None):

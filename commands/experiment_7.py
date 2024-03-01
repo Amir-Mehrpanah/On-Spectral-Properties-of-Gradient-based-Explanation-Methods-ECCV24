@@ -252,6 +252,7 @@ def experiment_master(
                                     save_metadata_dir=save_metadata_dir,
                                     batch_size=32,
                                     prefetch_factor=16,
+                                    dataset=dataset,
                                     q_baseline_mask=q_baseline_mask,
                                 )
 

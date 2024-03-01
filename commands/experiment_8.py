@@ -43,7 +43,10 @@ gather_stats_batch_size = 128
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "food101"
-dataset_dir = "/proj/azizpour-group/datasets/food101/"
+# "/proj/azizpour-group/datasets/food101/"
+# data is copied to /scratch/local/
+# see array_process
+dataset_dir = "/scratch/local/"
 baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"
@@ -127,7 +130,20 @@ def experiment_master(
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
             # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
-            array_process = f'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
+            array_process = (
+                'if [ ! -d "/scratch/local/data" ]; then\n'
+                'echo "Transferring food101.zip!"\n'
+                "mkdir -p /scratch/local/data\n"
+                "rsync --info=progress2 /proj/azizpour-group/datasets/food101/food101.zip /scratch/local/data/ \n"
+                'echo "Extracting food101.zip!"\n'
+                "unzip /scratch/local/data/food101.zip -d /scratch/local/data/\n"
+                # if the file exists then another job is already transferring the data
+                # so we just echo the message
+                "else\n"
+                'echo "food101.zip already being transferred!"\n'
+                "fi\n"
+                'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
+            )
 
             if args.gather_stats:
                 job_name = experiment_name
@@ -260,6 +276,7 @@ def experiment_master(
                                     save_metadata_dir=save_metadata_dir,
                                     batch_size=32,
                                     prefetch_factor=16,
+                                    dataset=dataset,
                                     q_baseline_mask=q_baseline_mask,
                                 )
 

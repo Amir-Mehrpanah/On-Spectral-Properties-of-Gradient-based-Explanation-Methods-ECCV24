@@ -323,7 +323,7 @@ def query_food101(args):
     dataset = dataset.take(take)
     iterator = dataset.as_numpy_iterator()
     logger.info(f"dataset size is {dataset.cardinality()}")
-    for i, base_stream in enumerate(iterator):
+    for i, base_stream in enumerate(iterator, skip):
         base_stream["image"] = preprocess(
             base_stream["image"],
             image_height,
@@ -419,6 +419,94 @@ def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose
         "label": label,
         "actual_q": tf.reduce_mean(explanation_q),
     }
+
+
+def food101_loader_from_metadata(
+    sl_metadata,
+    q,
+    direction,
+    input_shape,
+    baseline="blur",
+    batch_size=128,
+    prefetch_factor=4,
+    verbose=False,
+    dataset_dir=None,
+):
+    logger.info(
+        f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
+    )
+
+    header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
+    shape_size = np.prod(input_shape) * tf.float32.size
+    logger.debug(
+        f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
+    )
+
+    explanation_dataset = explanation_dataset.map(
+        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+    skip = sl_metadata.image_index.values.min()
+    take = sl_metadata.image_index.values.max() - skip + 1
+    food_dataset = tfds.load(
+        "food101",
+        split="validation",
+        shuffle_files=False,
+        data_dir=dataset_dir,
+        download=False,
+    )
+    food_dataset = food_dataset.skip(skip)
+    food_dataset = food_dataset.take(take)
+    image_dataset = food_dataset.map(
+        lambda s: preprocess(s["image"], input_shape[1]),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+
+    if baseline == "blur":
+        logger.debug("creating blurred image dataloader for baseline")
+        baseline_dataset = image_dataset.map(
+            _blur_baseline,
+            num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        )
+    else:
+        logger.debug("creating black image dataloader for baseline")
+        baseline_dataset = image_dataset.map(
+            _black_baseline,
+            num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        )
+
+    label_dataset = food_dataset.map(
+        lambda s: s["label"],
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+    alpha_dataset = tf.data.Dataset.from_tensor_slices(
+        sl_metadata["alpha_mask_value"].values
+    )
+
+    slq_dataset = tf.data.Dataset.zip(
+        (
+            image_dataset,
+            baseline_dataset,
+            explanation_dataset,
+            label_dataset,
+            alpha_dataset,
+        )
+    )
+
+    logger.info(
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+    )
+    _masking_q_fn = functools.partial(
+        _masking_q,
+        q=q,
+        direction=direction,
+        verbose=verbose,
+    )
+    slq_dataset = slq_dataset.map(
+        _masking_q_fn,
+        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+    )
+    slq_dataset = slq_dataset.batch
 
 
 def imagenet_loader_from_metadata(

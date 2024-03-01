@@ -18,7 +18,9 @@ commands.experiment_8.combination_fns = [
     "additive",
     # "convex",
 ]
-
+commands.experiment_8.ig_alpha_priors = {
+    "none": None,
+}
 commands.experiment_8.gather_stats_batch_size = 128  # DEBUG
 commands.experiment_8.baseline_mask_type = "gaussian"
 commands.experiment_8.gather_stats_job_array = "0"

@@ -17,6 +17,7 @@ import tensorflow as tf
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
 from source.data_manager import (
+    food101_loader_from_metadata,
     imagenet_loader_from_metadata,
     query_imagenet,
     query_food101,
@@ -200,6 +201,12 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         type=TypeOrNan(str),
         default=None,
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=default_args.dataset,
+    )
+
     args, _ = parser.parse_known_args()
 
     input_shape = tuple(args.input_shape)
@@ -212,18 +219,34 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
     if args.filter_alpha_prior:
         ids = ids & (sl_metadata["alpha_mask_value"] == args.filter_alpha_prior)
     sl_metadata = sl_metadata[ids]
+    logger.debug(f"filtered index {sl_metadata.index} columns {sl_metadata.columns}.")
     sl_metadata = sl_metadata.reset_index(drop=True)
     logger.debug(f"filtered metadata to shape {sl_metadata.shape}.")
 
-    slq_dataloader = imagenet_loader_from_metadata(
-        sl_metadata,
-        args.q,
-        args.q_direction,
-        baseline=args.q_baseline_mask,
-        input_shape=input_shape,
-        batch_size=args.batch_size,
-        prefetch_factor=args.prefetch_factor,
-    )
+    if args.dataset == "imagenet":
+        slq_dataloader = imagenet_loader_from_metadata(
+            sl_metadata,
+            args.q,
+            args.q_direction,
+            baseline=args.q_baseline_mask,
+            input_shape=input_shape,
+            batch_size=args.batch_size,
+            prefetch_factor=args.prefetch_factor,
+        )
+    elif args.dataset == "food101":
+        # sort based on image_index
+        sl_metadata = sl_metadata.sort_values("image_index")
+        slq_dataloader = food101_loader_from_metadata(
+            sl_metadata,
+            args.q,
+            args.q_direction,
+            baseline=args.q_baseline_mask,
+            input_shape=input_shape,
+            batch_size=args.batch_size,
+            prefetch_factor=args.prefetch_factor,
+        )
+    else:
+        raise NotImplementedError("other datasets are not implemented")
 
     init_architecture_forward_switch[args.architecture](args)
 
