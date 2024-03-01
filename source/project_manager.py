@@ -209,6 +209,8 @@ def compute_integrated_grad(
         beta_integrated_grad,
         beta_mul_freq,
         save_integrated_grad,
+        max_pixel_freq,
+        max_image_freq,
         save_spectral_lens,
         save_arg_lens,
     )
@@ -238,10 +240,26 @@ def compute_integrated_grad(
         alpha_mask_name.startswith("al_") and "_u_" in alpha_mask_name
     ):  # uniform prior
         save_results_fn = save_arg_lens
+    elif (
+        alpha_mask_name.startswith("op_") and "_u_" in alpha_mask_name
+    ):  # pixelwise optimization
+        save_results_fn = partial(
+            save_integrated_grad,
+            agg_func=max_pixel_freq,
+            ig_elementwise=False,
+        )
+    elif (
+        alpha_mask_name.startswith("og_") and "_u_" in alpha_mask_name
+    ):  # imagewise optimization
+        save_results_fn = partial(
+            save_integrated_grad,
+            agg_func=max_image_freq,
+            ig_elementwise=False,
+        )
     else:
         raise ValueError(
             f"Unsupported alpha_mask_name {alpha_mask_name} for integrated grad."
-            "Supported are ig_, sl_ or al_ and _u_ for uniform and _b_ beta prior."
+            "Supported are ig_, sl_, al_, op_ and og_ and _u_ for uniform and _b_ beta prior."
             " _x_ for meanx and _x2_ for meanx2. _i_ for elementwise multiplication."
         )
 

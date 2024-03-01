@@ -136,6 +136,25 @@ def argmax_freq(init_val, temp_grad, frequency):
     return init_val
 
 
+def max_pixel_freq(init_val, temp_grad, frequency):
+    if not isinstance(init_val, dict):
+        init_val = {"values": init_val, "max_trace": np.zeros_like(init_val)}
+    ids = init_val["max_trace"] < temp_grad * frequency
+    init_val["values"][ids] = temp_grad[ids]
+    init_val["max_trace"][ids] = temp_grad[ids] * frequency
+    return init_val
+
+
+def max_image_freq(init_val, temp_grad, frequency):
+    if not isinstance(init_val, dict):
+        init_val = {"values": init_val, "max_trace": 0}
+    temp = temp_grad.sum() * frequency
+    if init_val["max_trace"] < temp:
+        init_val["max_trace"] = temp
+        init_val["values"] = temp_grad
+    return init_val
+
+
 def integrated_grad(init_val, temp_grad, _):
     return init_val + temp_grad
 
@@ -162,9 +181,9 @@ def save_spectral_lens(
 
 
 def save_arg_lens(
-        data,
-        save_raw_data_dir,
-        agg_func=argmax_freq,
+    data,
+    save_raw_data_dir,
+    agg_func=argmax_freq,
 ):
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
     rnd = np.random.randint(0, 1000)

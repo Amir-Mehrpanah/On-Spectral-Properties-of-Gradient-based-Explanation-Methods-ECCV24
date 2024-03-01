@@ -17,6 +17,8 @@ commands.experiment_7.alpha_mask_value = (
 
 # Method args
 commands.experiment_7.ig_alpha_priors = {  # DEBUG
+    "og_sg_u_x2_nan": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
+    # "op_sg_u_x2_nan": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_vg_u_x_0": "0.0",
     # "ig_vg_u_x2_0": "0.0",
     # "ig_vg_i_u_x_0": "0.0",
