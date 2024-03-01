@@ -604,8 +604,8 @@ def _process_gather_stats_args(args):
     logger.debug("created the save directories.")
 
     args.input_shape = tuple(args.input_shape)
-    if not np.isnan(args.mean_rgb):
-        assert not np.isnan(args.std_rgb), "mean_rgb and std_rgb must be both provided."
+    if not np.isnan(args.mean_rgb).any():
+        assert not np.isnan(args.std_rgb).any(), "mean_rgb and std_rgb must be both provided."
         args.mean_rgb = jnp.array(args.mean_rgb)
         args.std_rgb = jnp.array(args.std_rgb)
 

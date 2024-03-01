@@ -11,9 +11,7 @@ from commands.experiment_8 import (
 import commands.experiment_8
 
 
-commands.experiment_8.alpha_mask_value = (
-    "0.0"  # DEBUG
-)
+commands.experiment_8.alpha_mask_value = "0.0"  # DEBUG
 
 # Method args
 commands.experiment_8.combination_fns = [

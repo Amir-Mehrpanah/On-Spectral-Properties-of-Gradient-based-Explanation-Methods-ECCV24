@@ -314,7 +314,7 @@ def query_food101(args):
         data_dir=args.dataset_dir,
         download=False,
     )
-    mean_rgb, std_rgb = args.mean_rgb, args.std_rgb 
+    mean_rgb, std_rgb = args.mean_rgb, args.std_rgb
     logger.debug(f"mean_rgb is {mean_rgb}, std_rgb is {std_rgb}")
     skip = args.image_index[0]
     take = args.image_index[1]
@@ -325,9 +325,13 @@ def query_food101(args):
     logger.info(f"dataset size is {dataset.cardinality()}")
     for i, base_stream in enumerate(iterator):
         base_stream["image"] = preprocess(
-            base_stream["image"], image_height, mean_rgb, std_rgb
+            base_stream["image"],
+            image_height,
+            mean_rgb,
+            std_rgb,
         )
         args.image.append(base_stream["image"])
+        args.image_path.append("NA")
         args.label.append(base_stream["label"])
         args.image_index.append(i)
         assert args.image[-1].shape == args.input_shape, (

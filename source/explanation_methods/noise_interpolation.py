@@ -287,9 +287,12 @@ class NoiseInterpolation:
             ]
             # assert that shapes are either 1 or the same as the max
             max_value = np.max(temp_len_values)
-            assert all(
-                v == 1 or v == max_value for v in temp_len_values
-            ), f"lists with the same pattern id must have the same length or one {pattern}"
+            for v in temp_len_values:
+                assert v == 1 or v == max_value, (
+                    f"lists with the same pattern id must have the same length\n"
+                    f"key {unique_pattern_value} has length {v} must be either 1 or {max_value}"
+                    f"\npattern:\n {pattern}"
+                )
 
             # broadcast lists with the same pattern id to the max length
             for i, pattern_value in enumerate(pattern_values):
@@ -546,7 +549,7 @@ class NoiseInterpolation:
                 shape=(1, 1, 1, 1),
             )
         elif "max-min" in args_dict["alpha_mask_type"]:
-            alpha_mask = args_dict["image"].max()-args_dict["image"].min()
+            alpha_mask = args_dict["image"].max() - args_dict["image"].min()
             logger.debug(f"alpha_mask_values set to max-min: {alpha_mask}")
         elif "image_bernoulli" in args_dict["alpha_mask_type"]:  # RISE
             H_W_ = args_dict["alpha_mask_type"].split("-")[1]
