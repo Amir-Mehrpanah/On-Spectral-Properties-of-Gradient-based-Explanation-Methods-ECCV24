@@ -374,7 +374,7 @@ def npy_header_offset(npy_path):
         return f.tell()
 
 
-def _tf_parse_image_fn(image_path, input_shape):
+def _tf_parse_image_fn_imagenet(image_path, input_shape):
     image = tf.io.read_file(image_path)
     image = tf.io.decode_image(image, channels=3)
     image = tf.image.convert_image_dtype(image, tf.float32)
@@ -383,6 +383,18 @@ def _tf_parse_image_fn(image_path, input_shape):
         width=input_shape[-3],
     )(image)
     return image
+
+
+def _tf_parse_image_fn_food101(image_label, input_shape, mean_rgb, std_rgb):
+    img_size = input_shape[1]
+    x = tf.keras.layers.experimental.preprocessing.CenterCrop(
+        height=img_size,
+        width=img_size,
+    )(image_label["image"])
+    x = x / 255.0
+    if mean_rgb is not None:
+        x = (x - mean_rgb) / std_rgb
+    return x
 
 
 def _blur_baseline(image):
@@ -435,6 +447,14 @@ def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose
     }
 
 
+class IndexableDataset:
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def __getitem__(self, idx):
+        return self.dataset.skip(idx).take(1).get_single_element()
+
+
 def food101_loader_from_metadata(
     sl_metadata,
     q,
@@ -445,6 +465,8 @@ def food101_loader_from_metadata(
     prefetch_factor=4,
     verbose=False,
     dataset_dir=None,
+    mean_rgb=np.array([0.561, 0.440, 0.312]),
+    std_rgb=np.array([0.252, 0.256, 0.259]),
 ):
     logger.info(
         f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
@@ -470,22 +492,30 @@ def food101_loader_from_metadata(
         data_dir=dataset_dir,
         download=False,
     )
+    indexable_dataset = IndexableDataset(food_dataset)
 
     # choose_from_datasets accrding to the sl_metadata.image_index
-    logger.debug(f"creating image dataloader for food101 dataset according to sl_metadata.image_index {sl_metadata.image_index}")
+    logger.debug(
+        f"creating image dataloader for food101 dataset according to sl_metadata"
+    )
     index_dataset = tf.data.Dataset.from_tensor_slices(
-        sl_metadata["image_index"].values
+        sl_metadata["image_index"].values,
     )
-    food_dataset = tf.data.Dataset.choose_from_datasets(
-        food_dataset,
-        index_dataset,
-    )
+    food_dataset = index_dataset.map(lambda idx: indexable_dataset[idx])
 
+    _tf_parse_image = functools.partial(
+        _tf_parse_image_fn_food101,
+        input_shape=input_shape,
+        mean_rgb=mean_rgb,
+        std_rgb=std_rgb,
+    )
+    logger.debug(f"creating the image dataset.")
     image_dataset = food_dataset.map(
-        lambda s: preprocess(s["image"], input_shape[1]),
+        _tf_parse_image,
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
 
+    logger.debug(f"creating the baseline dataset.")
     if baseline == "blur":
         logger.debug("creating blurred image dataloader for baseline")
         baseline_dataset = image_dataset.map(
@@ -499,14 +529,18 @@ def food101_loader_from_metadata(
             num_parallel_calls=tf.data.experimental.AUTOTUNE,
         )
 
+    logger.debug(f"creating the label dataset.")
     label_dataset = food_dataset.map(
         lambda s: s["label"],
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
+
+    logger.debug(f"creating the alpha dataset.")
     alpha_dataset = tf.data.Dataset.from_tensor_slices(
         sl_metadata["alpha_mask_value"].values
     )
 
+    logger.debug(f"zipping the datasets to creating slq_dataset.")
     slq_dataset = tf.data.Dataset.zip(
         (
             image_dataset,
@@ -530,6 +564,8 @@ def food101_loader_from_metadata(
         _masking_q_fn,
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
+
+    logger.debug(f"batching and prefetching the slq_dataset.")
     slq_dataset = slq_dataset.batch(batch_size)
     slq_dataset = slq_dataset.prefetch(prefetch_factor)
 
@@ -564,7 +600,7 @@ def imagenet_loader_from_metadata(
     )
 
     image_dataset = tf.data.Dataset.from_tensor_slices(sl_metadata["image_path"].values)
-    _parse_fn = functools.partial(_tf_parse_image_fn, input_shape=input_shape)
+    _parse_fn = functools.partial(_tf_parse_image_fn_imagenet, input_shape=input_shape)
     image_dataset = image_dataset.map(
         _parse_fn,
         num_parallel_calls=tf.data.experimental.AUTOTUNE,

@@ -34,6 +34,7 @@ commands.experiment_8.q_directions = [
     # "insertion",
 ]
 commands.experiment_8.q_job_array = "0"
+commands.experiment_8.dataset_dir = "/proj/azizpour-group/datasets/food101/"
 
 if __name__ == "__main__":
     args = commands.experiment_8.parse_args()

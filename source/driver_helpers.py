@@ -300,7 +300,6 @@ def _parse_integrated_grad_args(parser, default_args):
         "--alpha_prior",
         type=float,
         required=True,
-        default=TypeOrNan(float),
         nargs="+",
     )
     parser.add_argument(

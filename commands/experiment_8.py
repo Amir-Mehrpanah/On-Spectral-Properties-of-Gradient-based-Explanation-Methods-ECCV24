@@ -62,6 +62,8 @@ gather_stats_max_batches = 8000 // gather_stats_batch_size
 gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 stats_log_level = 1
 demo = False
+q_batch_size = 64
+q_prefetch_factor = 16
 
 # https://github.com/google-research/google-research/blob/master/interpretability_benchmark/train_resnet.py#L126
 preprocess_mean_rgb = "0.561 0.440 0.312"
@@ -129,23 +131,23 @@ def experiment_master(
             save_raw_data_dir = os.path.join(save_raw_data_base_dir, experiment_name)
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
-            # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
-            array_process = (
-                'if [ ! -d "/scratch/local/data" ]; then\n'
-                'echo "Transferring food101.zip!"\n'
-                "mkdir -p /scratch/local/data\n"
-                "rsync --info=progress2 /proj/azizpour-group/datasets/food101/food101.zip /scratch/local/data/ \n"
-                'echo "Extracting food101.zip!"\n'
-                "unzip /scratch/local/data/food101.zip -d /scratch/local/data/\n"
-                # if the file exists then another job is already transferring the data
-                # so we just echo the message
-                "else\n"
-                'echo "food101.zip already being transferred!"\n'
-                "fi\n"
-                'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
-            )
-
             if args.gather_stats:
+                raise NotImplementedError("move val only")
+                # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
+                array_process = (
+                    'if [ ! -d "/scratch/local/data" ]; then\n'
+                    'echo "Transferring food101.zip!"\n'
+                    "mkdir -p /scratch/local/data\n"
+                    "rsync --info=progress2 /proj/azizpour-group/datasets/food101/food101.zip /scratch/local/data/ \n"
+                    'echo "Extracting food101.zip!"\n'
+                    "unzip /scratch/local/data/food101.zip -d /scratch/local/data/\n"
+                    # if the file exists then another job is already transferring the data
+                    # so we just echo the message
+                    "else\n"
+                    'echo "food101.zip already being transferred!"\n'
+                    "fi\n"
+                    'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
+                )
                 job_name = experiment_name
                 run_experiment(
                     experiment_name=job_name,
@@ -274,9 +276,10 @@ def experiment_master(
                                     architecture=architecture,
                                     logging_level=logging_level,
                                     save_metadata_dir=save_metadata_dir,
-                                    batch_size=32,
-                                    prefetch_factor=16,
+                                    batch_size=q_batch_size,
+                                    prefetch_factor=q_prefetch_factor,
                                     dataset=dataset,
+                                    dataset_dir=dataset_dir,
                                     q_baseline_mask=q_baseline_mask,
                                 )
 
