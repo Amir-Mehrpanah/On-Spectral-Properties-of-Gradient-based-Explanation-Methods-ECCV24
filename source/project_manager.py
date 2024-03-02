@@ -180,11 +180,13 @@ def compute_with_explanation_prior(
     explanations_mean_freq = pd.concat(
         [explanations_mean_freq, explanations_temp], axis=1
     )
-    explanations_mean_freq = explanations_mean_freq.reset_index(drop=True)
+    explanations_mean_freq = explanations_mean_freq.reset_index()
+    explanations_mean_freq.image_index = explanations_mean_freq.image_index.astype(int)
 
     explanations_mean_freq["alpha_mask_value"] = alpha_mask_name
     explanations_mean_freq["ig_elementwise"] = ig_elementwise
 
+    logger.debug(f"explanations_mean_freq.columns {explanations_mean_freq.columns}")
     logger.debug(
         f"statistics shape after concatenating auxilary data {explanations_mean_freq.shape}"
     )

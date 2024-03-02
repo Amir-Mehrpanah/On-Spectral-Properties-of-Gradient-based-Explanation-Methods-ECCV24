@@ -19,6 +19,7 @@ commands.experiment_8.combination_fns = [
     # "convex",
 ]
 commands.experiment_8.ig_alpha_priors = {
+    # "ig_sg_u_x_0": "0.0",
     "none": None,
 }
 commands.experiment_8.gather_stats_batch_size = 128  # DEBUG

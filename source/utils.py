@@ -119,7 +119,7 @@ def pattern_generator(pattern, values):
     e.g.
     >>> pattern = {"a": "i", "c": "j"}
     >>> values = {"a": [1, 2], "c": [3, 4]}
-    >>> list(combine_patterns(pattern, values))
+    >>> list(pattern_generator(pattern, values))
     [
         {"a": 1, "c": 3},
         {"a": 1, "c": 4},

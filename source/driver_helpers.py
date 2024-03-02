@@ -206,8 +206,17 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         type=str,
         default=default_args.dataset,
     )
+    parser.add_argument(
+        "--dataset_dir",
+        type=str,
+        default=None,
+    )
 
     args, _ = parser.parse_known_args()
+
+    assert (args.dataset != "food101") or (
+        args.dataset_dir is not None
+    ), "dataset_dir must be provided for food101 dataset."
 
     input_shape = tuple(args.input_shape)
     sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
@@ -217,7 +226,11 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
 
     ids = sl_metadata["stream_name"] == "vanilla_grad_mask"
     if args.filter_alpha_prior:
+        logger.debug(f"filtering alpha_mask_value to {args.filter_alpha_prior}.")
         ids = ids & (sl_metadata["alpha_mask_value"] == args.filter_alpha_prior)
+    else:
+        logger.debug(f"no filter for alpha_mask_value except vanilla_grad_mask.")
+
     sl_metadata = sl_metadata[ids]
     logger.debug(f"filtered index {sl_metadata.index} columns {sl_metadata.columns}.")
     sl_metadata = sl_metadata.reset_index(drop=True)
@@ -244,6 +257,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             input_shape=input_shape,
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
+            dataset_dir=args.dataset_dir,
         )
     else:
         raise NotImplementedError("other datasets are not implemented")
@@ -628,7 +642,9 @@ def _process_gather_stats_args(args):
 
     args.input_shape = tuple(args.input_shape)
     if not np.isnan(args.mean_rgb).any():
-        assert not np.isnan(args.std_rgb).any(), "mean_rgb and std_rgb must be both provided."
+        assert not np.isnan(
+            args.std_rgb
+        ).any(), "mean_rgb and std_rgb must be both provided."
         args.mean_rgb = jnp.array(args.mean_rgb)
         args.std_rgb = jnp.array(args.std_rgb)
 

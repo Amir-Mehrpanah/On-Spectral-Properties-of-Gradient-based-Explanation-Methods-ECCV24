@@ -302,6 +302,20 @@ def query_imagenet(args):
         assert args.image[-1].shape == args.input_shape
 
 
+def single_query_food101(dataset_dir, skip, input_shape, take=1):
+    preprocess_mean_rgb = np.array([0.561, 0.440, 0.312])
+    preprocess_std_rgb = np.array([0.252, 0.256, 0.259])
+    args = argparse.Namespace(
+        dataset_dir=dataset_dir,
+        input_shape=input_shape,
+        image_index=[skip, take],
+        mean_rgb=preprocess_mean_rgb,
+        std_rgb=preprocess_std_rgb,
+    )
+    query_food101(args)
+    return args.image[0], args.label[0], args.image_path[0]
+
+
 def query_food101(args):
     args.image = []
     args.label = []
@@ -442,12 +456,13 @@ def food101_loader_from_metadata(
         f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
     )
 
+    explanation_dataset = tf.data.FixedLengthRecordDataset(
+        sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
+    )
     explanation_dataset = explanation_dataset.map(
         lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
-    skip = sl_metadata.image_index.values.min()
-    take = sl_metadata.image_index.values.max() - skip + 1
     food_dataset = tfds.load(
         "food101",
         split="validation",
@@ -455,8 +470,17 @@ def food101_loader_from_metadata(
         data_dir=dataset_dir,
         download=False,
     )
-    food_dataset = food_dataset.skip(skip)
-    food_dataset = food_dataset.take(take)
+
+    # choose_from_datasets accrding to the sl_metadata.image_index
+    logger.debug(f"creating image dataloader for food101 dataset according to sl_metadata.image_index {sl_metadata.image_index}")
+    index_dataset = tf.data.Dataset.from_tensor_slices(
+        sl_metadata["image_index"].values
+    )
+    food_dataset = tf.data.Dataset.choose_from_datasets(
+        food_dataset,
+        index_dataset,
+    )
+
     image_dataset = food_dataset.map(
         lambda s: preprocess(s["image"], input_shape[1]),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
@@ -506,7 +530,10 @@ def food101_loader_from_metadata(
         _masking_q_fn,
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
-    slq_dataset = slq_dataset.batch
+    slq_dataset = slq_dataset.batch(batch_size)
+    slq_dataset = slq_dataset.prefetch(prefetch_factor)
+
+    return slq_dataset
 
 
 def imagenet_loader_from_metadata(
@@ -527,10 +554,10 @@ def imagenet_loader_from_metadata(
     logger.debug(
         f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
     )
+
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
-
     explanation_dataset = explanation_dataset.map(
         lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
