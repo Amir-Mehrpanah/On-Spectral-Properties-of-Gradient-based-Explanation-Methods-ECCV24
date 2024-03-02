@@ -211,7 +211,12 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         type=str,
         default=None,
     )
-
+    parser.add_argument(
+        "--num_classes",
+        type=int,
+        default=default_args.num_classes,
+    )
+    
     args, _ = parser.parse_known_args()
 
     assert (args.dataset != "food101") or (

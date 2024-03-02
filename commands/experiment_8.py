@@ -44,9 +44,9 @@ method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "food101"
 # "/proj/azizpour-group/datasets/food101/"
-# data is copied to /scratch/local/
+# data is copied to the node
 # see array_process
-dataset_dir = "/scratch/local/"
+dataset_dir = "/scratch/local/data/proj/azizpour-group/datasets/food101"
 baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"
@@ -75,6 +75,20 @@ _args_pattern_state = {
     "alpha_mask": ["a", "dynamic"],
     "image": ["i", "dynamic"],
 }
+
+move_data_cmds = (
+    'if [ ! -d "/scratch/local/data" ]; then\n'
+    'echo "Transferring food101-val.zip!"\n'
+    "mkdir -p /scratch/local/data\n"
+    "rsync --info=progress2 /proj/azizpour-group/datasets/food101/food101-val.zip /scratch/local/data/ \n"
+    'echo "Extracting food101-val.zip!"\n'
+    "unzip /scratch/local/data/food101-val.zip -d /scratch/local/data/\n"
+    "else\n"
+    'echo "food101-val.zip already being transferred!"\n'
+    'echo "sleeping for 10 seconds"\n'
+    "sleep 10\n"
+    "fi\n"
+)
 
 
 def update_dynamic_args():
@@ -132,21 +146,10 @@ def experiment_master(
             save_metadata_dir = os.path.join(save_metadata_base_dir, experiment_name)
 
             if args.gather_stats:
-                raise NotImplementedError("move val only")
                 # image_index = "skip take" # skip num_elements (a very bad hack) todo clean up
                 array_process = (
-                    'if [ ! -d "/scratch/local/data" ]; then\n'
-                    'echo "Transferring food101.zip!"\n'
-                    "mkdir -p /scratch/local/data\n"
-                    "rsync --info=progress2 /proj/azizpour-group/datasets/food101/food101.zip /scratch/local/data/ \n"
-                    'echo "Extracting food101.zip!"\n'
-                    "unzip /scratch/local/data/food101.zip -d /scratch/local/data/\n"
-                    # if the file exists then another job is already transferring the data
-                    # so we just echo the message
-                    "else\n"
-                    'echo "food101.zip already being transferred!"\n'
-                    "fi\n"
-                    'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
+                    move_data_cmds
+                    + f'array_process="--image_index $(({gather_stats_dir_batch_size}*{batch} + $SLURM_ARRAY_TASK_ID)) {gather_stats_take_batch_size}"'
                 )
                 job_name = experiment_name
                 run_experiment(
@@ -248,7 +251,9 @@ def experiment_master(
                 elif args.compute_raw_data_accuracy_at_q:
                     glob_file_name = "merged_metadata.csv"
 
-                array_process = f'array_process="--q $SLURM_ARRAY_TASK_ID"'
+                array_process = (
+                    move_data_cmds + f'array_process="--q $SLURM_ARRAY_TASK_ID"'
+                )
                 job_name = []
                 files = glob(os.path.join(save_metadata_dir, glob_file_name))
                 print("files: ", files)
@@ -281,6 +286,7 @@ def experiment_master(
                                     dataset=dataset,
                                     dataset_dir=dataset_dir,
                                     q_baseline_mask=q_baseline_mask,
+                                    num_classes=num_classes,
                                 )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
