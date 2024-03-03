@@ -270,9 +270,8 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             sl_metadata,
             args.q,
             args.q_direction,
-            baseline=args.q_baseline_mask,
-            explanation_input_shape=explanation_input_shape,
             input_shape=input_shape,
+            baseline=args.q_baseline_mask,
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
             dataset_dir=args.dataset_dir,
@@ -1036,7 +1035,9 @@ def save_inconsistency(
 
 
 def tf_to_jax(x):
-    return jax.dlpack.from_dlpack(tf.experimental.dlpack.to_dlpack(x))
+    x = jax.dlpack.from_dlpack(tf.experimental.dlpack.to_dlpack(x))
+    x = jax.device_put(x, jax.devices()[0])
+    return x
 
 
 def compute_accuracy_at_q(
@@ -1055,6 +1056,10 @@ def compute_accuracy_at_q(
     for i, batch in enumerate(slq_dataloader):
         logger.debug(f"batch shape: {batch['masked_image'].shape}")
         masked_image = tf_to_jax(batch["masked_image"])
+        logger.debug(
+            f"jax default device: {jax.devices()} "
+            f"masked_image: {masked_image.device_buffer.device()}"
+        )
         logger.debug(f"batch: {i} of {total_steps} time: {datetime.now()}")
         logits = forward(masked_image)
         logits = logits.argmax(axis=1)

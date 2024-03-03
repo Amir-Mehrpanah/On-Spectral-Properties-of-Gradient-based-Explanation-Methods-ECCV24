@@ -302,6 +302,49 @@ def query_imagenet(args):
         assert args.image[-1].shape == args.input_shape
 
 
+class Food101CraftedDecoder(tfds.decode.Decoder):
+    def __init__(self, input_shape, mean_rgb, std_rgb):
+        self._input_shape = input_shape
+        self._mean_rgb = mean_rgb
+        self._std_rgb = std_rgb
+        self.center_crop = tf.keras.layers.experimental.preprocessing.CenterCrop(
+            height=self._input_shape[-2],
+            width=self._input_shape[-3],
+        )
+
+    # just to trick tensorflow to think that this decoder is legit!
+    def decode_example(self, example, feature):
+        raise NotImplementedError
+
+    def decode_example_np(self, example):
+        example = tf.image.decode_jpeg(example)
+        example = self.center_crop(example)
+        example = tf.cast(example, tf.float32)
+        example = example / 255.0
+        example = (example - self._mean_rgb) / self._std_rgb
+        return example
+
+
+# to trick combination generator to think that the length of the dataset is known
+class IndexableWrapper:
+    def __init__(self, dataset, key, skip, take):
+        self._dataset = dataset
+        self._length = take
+        self._key = key
+        self._skip = skip
+
+    def __iter__(self):
+        for i in range(self._skip, self._skip + self._length):
+            yield self._dataset[i][self._key]
+
+    def __getitem__(self, index):
+        assert index < self._length
+        return self._dataset[index][self._key]
+
+    def __len__(self):
+        return self._length
+
+
 def single_query_food101(dataset_dir, skip, input_shape, take=1):
     preprocess_mean_rgb = np.array([0.561, 0.440, 0.312])
     preprocess_std_rgb = np.array([0.252, 0.256, 0.259])
@@ -320,38 +363,27 @@ def query_food101(args):
     args.image = []
     args.label = []
     args.image_path = []
-    image_height = args.input_shape[1]  # (N, H, W, C)
-    dataset = tfds.load(
+    food_dataset = tfds.data_source(
         "food101",
         split="validation",
-        shuffle_files=False,
         data_dir=args.dataset_dir,
         download=False,
+        decoders={
+            "image": Food101CraftedDecoder(
+                args.input_shape,
+                args.mean_rgb,
+                args.std_rgb,
+            )
+        },
     )
-    mean_rgb, std_rgb = args.mean_rgb, args.std_rgb
-    logger.debug(f"mean_rgb is {mean_rgb}, std_rgb is {std_rgb}")
+
     skip = args.image_index[0]
     take = args.image_index[1]
-    args.image_index = []
-    dataset = dataset.skip(skip)
-    dataset = dataset.take(take)
-    iterator = dataset.as_numpy_iterator()
-    logger.info(f"dataset size is {dataset.cardinality()}")
-    for i, base_stream in enumerate(iterator, skip):
-        base_stream["image"] = preprocess(
-            base_stream["image"],
-            image_height,
-            mean_rgb,
-            std_rgb,
-        )
-        args.image.append(base_stream["image"])
-        args.image_path.append("NA")
-        args.label.append(base_stream["label"])
-        args.image_index.append(i)
-        assert args.image[-1].shape == args.input_shape, (
-            f"image shape is {args.image[-1].shape}, "
-            f"expected input shape is {args.input_shape}"
-        )
+
+    args.image = IndexableWrapper(food_dataset, "image", skip, take)
+    args.label = IndexableWrapper(food_dataset, "label", skip, take)
+    args.image_index = range(skip, take + skip)
+    args.image_path = ["NA"] * len(args.image_index)
 
 
 def npy_header_offset(npy_path):
@@ -385,17 +417,6 @@ def _tf_parse_image_fn_imagenet(image_path, input_shape):
     return image
 
 
-def _tf_parse_image_fn_food101(image_label, input_shape, mean_rgb, std_rgb):
-    x = tf.keras.layers.experimental.preprocessing.CenterCrop(
-        height=input_shape[-2],
-        width=input_shape[-3],
-    )(image_label["image"])
-    x = x / 255.0
-    if mean_rgb is not None:
-        x = (x - mean_rgb) / std_rgb
-    return x
-
-
 def _blur_baseline(image):
     image = tf.expand_dims(image, axis=0)
     image = tf.nn.avg_pool2d(
@@ -413,7 +434,7 @@ def _black_baseline(image):
     return tf.zeros_like(image)
 
 
-def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose=False):
+def _masking_q(image, baseline, explanation, label, q, direction, verbose=False):
     explanation_q = tfp.stats.percentile(
         explanation,
         100 - q,
@@ -435,7 +456,6 @@ def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose
             "masked_image": masked_image,
             "baseline": baseline,
             "label": label,
-            "alpha_mask_value": alpha,
             "actual_q": tf.reduce_mean(explanation_q),
         }
 
@@ -446,19 +466,10 @@ def _masking_q(image, baseline, explanation, label, alpha, q, direction, verbose
     }
 
 
-class IndexableDataset:
-    def __init__(self, dataset):
-        self.dataset = dataset
-
-    def __getitem__(self, idx):
-        return self.dataset.skip(idx).take(1).get_single_element()
-
-
 def food101_loader_from_metadata(
     sl_metadata,
     q,
     direction,
-    explanation_input_shape,
     input_shape,
     baseline="blur",
     batch_size=128,
@@ -471,104 +482,63 @@ def food101_loader_from_metadata(
     logger.info(
         f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
     )
-
-    header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
-    shape_size = np.prod(explanation_input_shape) * tf.float32.size
-    logger.debug(
-        f"header offset is {header_offset}, explanation_input_shape is {explanation_input_shape} with size {shape_size}"
-    )
-
-    explanation_dataset = tf.data.FixedLengthRecordDataset(
-        sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
-    )
-    explanation_dataset = explanation_dataset.map(
-        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), explanation_input_shape),
-        num_parallel_calls=tf.data.experimental.AUTOTUNE,
-    )
-    food_dataset = tfds.load(
+    food_dataset = tfds.data_source(
         "food101",
         split="validation",
-        shuffle_files=False,
         data_dir=dataset_dir,
         download=False,
-    )
-    indexable_dataset = IndexableDataset(food_dataset)
-
-    # choose_from_datasets accrding to the sl_metadata.image_index
-    logger.debug(
-        f"creating image dataloader for food101 dataset according to sl_metadata"
-    )
-    index_dataset = tf.data.Dataset.from_tensor_slices(
-        sl_metadata["image_index"].values,
-    )
-    food_dataset = index_dataset.map(lambda idx: indexable_dataset[idx])
-
-    _tf_parse_image = functools.partial(
-        _tf_parse_image_fn_food101,
-        input_shape=input_shape,
-        mean_rgb=mean_rgb,
-        std_rgb=std_rgb,
-    )
-    logger.debug(f"creating the image dataset.")
-    image_dataset = food_dataset.map(
-        _tf_parse_image,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        decoders={
+            "image": Food101CraftedDecoder(
+                input_shape,
+                mean_rgb,
+                std_rgb,
+            )
+        },
     )
 
-    logger.debug(f"creating the baseline dataset.")
-    if baseline == "blur":
-        logger.debug("creating blurred image dataloader for baseline")
-        baseline_dataset = image_dataset.map(
-            _blur_baseline,
-            num_parallel_calls=tf.data.experimental.AUTOTUNE,
-        )
-    else:
-        logger.debug("creating black image dataloader for baseline")
-        baseline_dataset = image_dataset.map(
-            _black_baseline,
-            num_parallel_calls=tf.data.experimental.AUTOTUNE,
-        )
-
-    logger.debug(f"creating the label dataset.")
-    label_dataset = food_dataset.map(
-        lambda s: s["label"],
-        num_parallel_calls=tf.data.experimental.AUTOTUNE,
-    )
-
-    logger.debug(f"creating the alpha dataset.")
-    alpha_dataset = tf.data.Dataset.from_tensor_slices(
-        sl_metadata["alpha_mask_value"].values
-    )
-
-    logger.debug(f"zipping the datasets to creating slq_dataset.")
-    slq_dataset = tf.data.Dataset.zip(
-        (
-            image_dataset,
-            baseline_dataset,
-            explanation_dataset,
-            label_dataset,
-            alpha_dataset,
-        )
-    )
-
-    logger.info(
-        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
-    )
     _masking_q_fn = functools.partial(
         _masking_q,
         q=q,
         direction=direction,
         verbose=verbose,
     )
-    slq_dataset = slq_dataset.map(
-        _masking_q_fn,
-        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+
+    def _food101_generator():
+        for index in sl_metadata["image_index"].values:
+            index = int(index)
+            sample = food_dataset[index]
+            sample["explanation"] = np.load(sl_metadata["data_path"].values[index])
+
+            if sample["explanation"].shape[-1] != 1:
+                sample["explanation"] = sample["explanation"].sum(
+                    axis=-1, keepdims=True
+                )
+
+            if baseline == "blur":
+                sample["baseline"] = _blur_baseline(sample["image"])
+                yield _masking_q_fn(**sample)
+            elif baseline == "black":
+                sample["baseline"] = _black_baseline(sample["image"])
+                yield _masking_q_fn(**sample)
+            else:
+                raise ValueError(f"baseline {baseline} is not supported")
+
+    logger.debug(f"creating the slq_dataset from generators.")
+    slq_dataset = tf.data.Dataset.from_generator(
+        _food101_generator,
+        output_signature={
+            "masked_image": tf.TensorSpec(shape=input_shape, dtype=tf.float32),
+            "label": tf.TensorSpec(shape=(), dtype=tf.int64),
+            "actual_q": tf.TensorSpec(shape=(), dtype=tf.float32),
+        },
     )
 
+    logger.info(
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+    )
     logger.debug(f"batching and prefetching the slq_dataset.")
     slq_dataset = slq_dataset.batch(batch_size)
     slq_dataset = slq_dataset.prefetch(prefetch_factor)
-
     return slq_dataset
 
 

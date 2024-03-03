@@ -46,7 +46,7 @@ dataset = "food101"
 # "/proj/azizpour-group/datasets/food101/"
 # data is copied to the node
 # see array_process
-dataset_dir = "/scratch/local/data/proj/azizpour-group/datasets/food101"
+dataset_dir = "/scratch/local/data/food101"
 baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"
@@ -80,7 +80,7 @@ move_data_cmds = (
     'if [ ! -d "/scratch/local/data" ]; then\n'
     'echo "Transferring food101-val.zip!"\n'
     "mkdir -p /scratch/local/data\n"
-    "rsync --info=progress2 /proj/azizpour-group/datasets/food101/food101-val.zip /scratch/local/data/ \n"
+    "rsync --info=progress2 /proj/azizpour-group/datasets/food101/array_records/food101-val.zip /scratch/local/data/ \n"
     'echo "Extracting food101-val.zip!"\n'
     "unzip /scratch/local/data/food101-val.zip -d /scratch/local/data/\n"
     "else\n"
