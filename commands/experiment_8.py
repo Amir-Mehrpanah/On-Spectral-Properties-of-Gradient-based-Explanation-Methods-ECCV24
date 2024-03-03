@@ -43,10 +43,9 @@ gather_stats_batch_size = 128
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "food101"
-# "/proj/azizpour-group/datasets/food101/"
 # data is copied to the node
 # see array_process
-dataset_dir = "/scratch/local/data/food101"
+dataset_dir = "/scratch/local/data/"
 baseline_mask_type = None
 baseline_mask_value = None
 projection_type = "prediction"

@@ -326,23 +326,33 @@ class Food101CraftedDecoder(tfds.decode.Decoder):
 
 
 # to trick combination generator to think that the length of the dataset is known
-class IndexableWrapper:
-    def __init__(self, dataset, key, skip, take):
+class ShiftedList(list):
+    def __init__(self, dataset, key, skip, take, process=None):
         self._dataset = dataset
         self._length = take
         self._key = key
         self._skip = skip
+        self._process = process
 
     def __iter__(self):
         for i in range(self._skip, self._skip + self._length):
-            yield self._dataset[i][self._key]
+            if self._process is not None:
+                yield self._process(self._dataset[i][self._key])
+            else:
+                yield self._dataset[i][self._key]
 
     def __getitem__(self, index):
         assert index < self._length
-        return self._dataset[index][self._key]
+        if self._process is not None:
+            return self._process(self._dataset[index + self._skip][self._key])
+        else:
+            return self._dataset[index + self._skip][self._key]
 
     def __len__(self):
         return self._length
+
+    def __repr__(self) -> str:
+        return f"shifted list of {self._length} items from {self._skip} to {self._skip + self._length - 1} with process {self._process}"
 
 
 def single_query_food101(dataset_dir, skip, input_shape, take=1):
@@ -379,10 +389,9 @@ def query_food101(args):
 
     skip = args.image_index[0]
     take = args.image_index[1]
-
-    args.image = IndexableWrapper(food_dataset, "image", skip, take)
-    args.label = IndexableWrapper(food_dataset, "label", skip, take)
-    args.image_index = range(skip, take + skip)
+    args.image = ShiftedList(food_dataset, "image", skip, take, jnp.array)
+    args.label = ShiftedList(food_dataset, "label", skip, take, jnp.array)
+    args.image_index = list(range(skip, take + skip))
     args.image_path = ["NA"] * len(args.image_index)
 
 

@@ -123,6 +123,7 @@ def additive_combination(
     """
     return source_mask + alpha_mask * target_mask
 
+
 def damping_combination(
     *,
     source_mask: str,
@@ -142,8 +143,7 @@ def damping_combination(
         zero, the output is the source mask and when alpha is one, the output is
         the target mask. all masks should have the same spatial shape or be scalars.
     """
-    return source_mask*(1-alpha_mask) + target_mask
-
+    return source_mask * (1 - alpha_mask) + target_mask
 
 
 def linear_combination_mask(
