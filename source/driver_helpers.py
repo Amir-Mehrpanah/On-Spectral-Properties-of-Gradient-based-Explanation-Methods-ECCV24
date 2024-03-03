@@ -163,9 +163,9 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
     )
     parser.add_argument(
         "--input_shape",
-        nargs=4,
+        nargs=3,
         type=int,
-        default=default_args.input_shape,
+        required=True,
     )
     parser.add_argument(
         "--output_layer",

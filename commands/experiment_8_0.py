@@ -22,10 +22,8 @@ commands.experiment_8.ig_alpha_priors = {
     # "ig_sg_u_x_0": "0.0",
     "none": None,
 }
-commands.experiment_8.gather_stats_batch_size = 128  # DEBUG
+commands.experiment_8.gather_stats_batch_size = 128
 commands.experiment_8.baseline_mask_type = "gaussian"
-commands.experiment_8.gather_stats_job_array = "0"
-commands.experiment_8.gather_stats_take_batch_size = "1"
 commands.experiment_8.q_baseline_masks = [
     "black",
 ]
