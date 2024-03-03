@@ -90,7 +90,10 @@ def base_parser(parser, default_args: DefaultArgs):
     args = _parse_general_args(parser, default_args)
 
     if args.action == Action.gather_stats:
-        action_args, write_demo = _parse_gather_stats_args(parser, default_args)
+        action_args, write_demo = _parse_gather_stats_args(
+            parser,
+            default_args,
+        )
         driver_args = argparse.Namespace(
             action=args.action,
             write_demo=write_demo,
@@ -159,8 +162,14 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         choices=default_args.architectures,
     )
     parser.add_argument(
-        "--input_shape",
+        "--explanation_input_shape",
         nargs=3,
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--input_shape",
+        nargs=4,
         type=int,
         default=default_args.input_shape,
     )
@@ -216,14 +225,16 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         type=int,
         default=default_args.num_classes,
     )
-    
+
     args, _ = parser.parse_known_args()
 
     assert (args.dataset != "food101") or (
         args.dataset_dir is not None
     ), "dataset_dir must be provided for food101 dataset."
 
+    explanation_input_shape = tuple(args.explanation_input_shape)
     input_shape = tuple(args.input_shape)
+
     sl_metadata = load_experiment_metadata(args.save_metadata_dir, args.glob_path)
     logger.debug(
         f"loaded metadata from {args.save_metadata_dir} with {args.glob_path} of shape {sl_metadata.shape}."
@@ -247,6 +258,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             args.q,
             args.q_direction,
             baseline=args.q_baseline_mask,
+            explanation_input_shape=explanation_input_shape,
             input_shape=input_shape,
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
@@ -259,6 +271,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             args.q,
             args.q_direction,
             baseline=args.q_baseline_mask,
+            explanation_input_shape=explanation_input_shape,
             input_shape=input_shape,
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
@@ -1038,8 +1051,9 @@ def compute_accuracy_at_q(
 ):
     preds = []
     actual_qs = []
-    total_steps = slq_dataloader.cardinality().numpy()
+    total_steps = sl_metadata.shape[0]
     for i, batch in enumerate(slq_dataloader):
+        logger.debug(f"batch shape: {batch['masked_image'].shape}")
         masked_image = tf_to_jax(batch["masked_image"])
         logger.debug(f"batch: {i} of {total_steps} time: {datetime.now()}")
         logits = forward(masked_image)

@@ -22,9 +22,12 @@ def forward_with_projection(inputs, projection, forward):
 
 def init_resnet50_forward(args):
     ckpt_path = os.path.join(args.save_temp_base_dir, args.dataset)
+    logger.debug(f"loading model from: {ckpt_path}")
     if args.dataset == "imagenet":
+        logger.debug(f"loading imagenet model with input shape: {args.input_shape}")
         resnet50_forward = init_resnet50_imagenet(args, ckpt_path)
     elif args.dataset == "food101":
+        logger.debug(f"loading food101 model with input shape: {args.input_shape}")
         resnet50_forward = init_resnet50_food101(args, ckpt_path)
     else:
         raise ValueError(f"Unknown dataset {args.dataset}")
@@ -45,7 +48,8 @@ def init_resnet50_food101(args, ckpt_path):
         num_classes=args.num_classes,
     )
     variables = model.init(
-        jax.random.PRNGKey(0), jnp.empty(args.input_shape, dtype=jnp.float32)
+        jax.random.PRNGKey(0),
+        jnp.empty(args.input_shape, dtype=jnp.float32),
     )
     tx = optax.sgd(0)
     state = train_state.TrainState.create(
@@ -56,7 +60,7 @@ def init_resnet50_food101(args, ckpt_path):
     state = checkpoints.restore_checkpoint(ckpt_path, state)
     variables["params"] = state.params
     resnet50_forward = partial(
-        state.apply_fn,
+        model.apply,
         variables,
         train=False,
         mutable=False,

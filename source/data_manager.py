@@ -386,10 +386,9 @@ def _tf_parse_image_fn_imagenet(image_path, input_shape):
 
 
 def _tf_parse_image_fn_food101(image_label, input_shape, mean_rgb, std_rgb):
-    img_size = input_shape[1]
     x = tf.keras.layers.experimental.preprocessing.CenterCrop(
-        height=img_size,
-        width=img_size,
+        height=input_shape[-2],
+        width=input_shape[-3],
     )(image_label["image"])
     x = x / 255.0
     if mean_rgb is not None:
@@ -459,6 +458,7 @@ def food101_loader_from_metadata(
     sl_metadata,
     q,
     direction,
+    explanation_input_shape,
     input_shape,
     baseline="blur",
     batch_size=128,
@@ -473,16 +473,16 @@ def food101_loader_from_metadata(
     )
 
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
-    shape_size = np.prod(input_shape) * tf.float32.size
+    shape_size = np.prod(explanation_input_shape) * tf.float32.size
     logger.debug(
-        f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
+        f"header offset is {header_offset}, explanation_input_shape is {explanation_input_shape} with size {shape_size}"
     )
 
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
     explanation_dataset = explanation_dataset.map(
-        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
+        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), explanation_input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
     food_dataset = tfds.load(
@@ -576,6 +576,7 @@ def imagenet_loader_from_metadata(
     sl_metadata,
     q,
     direction,
+    explanation_input_shape,
     input_shape,
     baseline="blur",
     batch_size=128,
@@ -586,16 +587,16 @@ def imagenet_loader_from_metadata(
         f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
     )
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
-    shape_size = np.prod(input_shape) * tf.float32.size
+    shape_size = np.prod(explanation_input_shape) * tf.float32.size
     logger.debug(
-        f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
+        f"header offset is {header_offset}, explanation_input_shape is {explanation_input_shape} with size {shape_size}"
     )
 
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
     explanation_dataset = explanation_dataset.map(
-        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
+        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), explanation_input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
 
