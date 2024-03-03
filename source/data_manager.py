@@ -555,7 +555,6 @@ def imagenet_loader_from_metadata(
     sl_metadata,
     q,
     direction,
-    explanation_input_shape,
     input_shape,
     baseline="blur",
     batch_size=128,
@@ -566,16 +565,16 @@ def imagenet_loader_from_metadata(
         f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
     )
     header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
-    shape_size = np.prod(explanation_input_shape) * tf.float32.size
+    shape_size = np.prod(input_shape) * tf.float32.size
     logger.debug(
-        f"header offset is {header_offset}, explanation_input_shape is {explanation_input_shape} with size {shape_size}"
+        f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
     )
 
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
     explanation_dataset = explanation_dataset.map(
-        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), explanation_input_shape),
+        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
 
