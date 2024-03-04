@@ -76,17 +76,11 @@ _args_pattern_state = {
 }
 
 move_data_cmds = (
-    'if [ ! -d "/scratch/local/data" ]; then\n'
     'echo "Transferring food101-val.zip!"\n'
     "mkdir -p /scratch/local/data\n"
     "rsync --info=progress2 /proj/azizpour-group/datasets/food101/array_records/food101-val.zip /scratch/local/data/ \n"
     'echo "Extracting food101-val.zip!"\n'
     "unzip /scratch/local/data/food101-val.zip -d /scratch/local/data/\n"
-    "else\n"
-    'echo "food101-val.zip already being transferred!"\n'
-    'echo "sleeping for 10 seconds"\n'
-    "sleep 10\n"
-    "fi\n"
 )
 
 

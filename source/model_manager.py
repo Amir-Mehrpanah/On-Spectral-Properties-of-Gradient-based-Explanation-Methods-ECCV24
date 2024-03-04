@@ -60,7 +60,7 @@ def init_resnet50_food101(args, ckpt_path):
     state = checkpoints.restore_checkpoint(ckpt_path, state)
     variables["params"] = state.params
     resnet50_forward = partial(
-        model.apply,
+        state.apply_fn,
         variables,
         train=False,
         mutable=False,
