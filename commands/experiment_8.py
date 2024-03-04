@@ -60,7 +60,7 @@ gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 8000 // gather_stats_batch_size
 stats_log_level = 1
 demo = False
-q_batch_size = 64
+q_batch_size = 128
 gather_stats_input_shape = "1 256 256 3"
 q_prefetch_factor = 16
 
