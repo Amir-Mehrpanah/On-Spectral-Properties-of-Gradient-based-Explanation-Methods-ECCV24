@@ -1,4 +1,5 @@
 import os
+from typing import Any
 import flaxmodels as fm
 from flax.training import train_state
 import jax
@@ -41,6 +42,9 @@ def init_resnet50_forward(args):
         args.forward = [resnet50_forward]
 
 
+class TrainState(train_state.TrainState):
+    batch_stats: Any
+    epoch: int
 def init_resnet50_food101(args, ckpt_path):
     model = fm.ResNet50(
         output=args.output_layer,
@@ -49,16 +53,23 @@ def init_resnet50_food101(args, ckpt_path):
     )
     variables = model.init(
         jax.random.PRNGKey(0),
-        jnp.empty(args.input_shape, dtype=jnp.float32),
+        jnp.ones(args.input_shape),
     )
     tx = optax.sgd(0)
-    state = train_state.TrainState.create(
+    state = TrainState.create(
         apply_fn=model.apply,
         params=variables["params"],
         tx=tx,
+        batch_stats=variables["batch_stats"],
+        epoch=0,
     )
+    
     state = checkpoints.restore_checkpoint(ckpt_path, state)
-    variables["params"] = state.params
+    
+    variables = {
+        "params": state.params,
+        "batch_stats": state.batch_stats,
+    }
     resnet50_forward = partial(
         state.apply_fn,
         variables,

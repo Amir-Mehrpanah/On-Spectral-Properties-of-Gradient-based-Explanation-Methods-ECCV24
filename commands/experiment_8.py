@@ -58,10 +58,10 @@ num_classes = 101
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 8000 // gather_stats_batch_size
-gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 stats_log_level = 1
 demo = False
 q_batch_size = 64
+gather_stats_input_shape = "1 256 256 3"
 q_prefetch_factor = 16
 
 # https://github.com/google-research/google-research/blob/master/interpretability_benchmark/train_resnet.py#L126
@@ -85,7 +85,7 @@ move_data_cmds = (
 
 
 def update_dynamic_args():
-    global args_state, args_pattern
+    global args_state, args_pattern, gather_stats_job_array
 
     args_state = json.dumps(
         {k: v[1] for k, v in _args_pattern_state.items()},
@@ -96,6 +96,7 @@ def update_dynamic_args():
         separators=(";", ":"),
     )
 
+    gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -178,6 +179,7 @@ def experiment_master(
                     save_raw_data_dir=save_raw_data_dir,
                     save_metadata_dir=save_metadata_dir,
                     baseline_mask_value=baseline_mask_value,
+                    input_shape=gather_stats_input_shape,
                 )
 
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
@@ -220,6 +222,7 @@ def experiment_master(
                             projection_type=proj_type,
                             projection_top_k=proj_top_k,
                             alpha_prior=alpha_prior,
+                            input_shape=gather_stats_input_shape,
                         )
                 wait_in_queue(0, job_name)
                 job_name = []
@@ -264,7 +267,7 @@ def experiment_master(
                                     experiment_name=job_name[-1],
                                     constraint=constraint,
                                     number_of_gpus=1,
-                                    input_shape="224 224 3",
+                                    input_shape="256 256 3",
                                     filter_alpha_prior=ig_alpha_prior,
                                     glob_path=glob_path,
                                     save_temp_base_dir=save_temp_base_dir,
