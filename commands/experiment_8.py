@@ -71,7 +71,7 @@ preprocess_std_rgb = "0.252 0.256 0.259"
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
-    "alpha_mask": ["a", "dynamic"],
+    "alpha_mask": ["j", "dynamic"],
     "image": ["i", "dynamic"],
 }
 

@@ -45,6 +45,8 @@ def init_resnet50_forward(args):
 class TrainState(train_state.TrainState):
     batch_stats: Any
     epoch: int
+
+
 def init_resnet50_food101(args, ckpt_path):
     model = fm.ResNet50(
         output=args.output_layer,
@@ -63,9 +65,9 @@ def init_resnet50_food101(args, ckpt_path):
         batch_stats=variables["batch_stats"],
         epoch=0,
     )
-    
+
     state = checkpoints.restore_checkpoint(ckpt_path, state)
-    
+
     variables = {
         "params": state.params,
         "batch_stats": state.batch_stats,
