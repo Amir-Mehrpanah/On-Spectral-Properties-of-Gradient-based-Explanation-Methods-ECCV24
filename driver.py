@@ -77,8 +77,6 @@ elif driver_args.action == Action.compute_integrated_grad:
         driver_args.save_metadata_dir,
         driver_args.save_raw_data_dir,
         input_shape=action_args.input_shape,
-        mean_rgb=action_args.mean_rgb,
-        std_rgb=action_args.std_rgb,
         alpha_mask_name=action_args.alpha_mask_name,
         alpha_prior=action_args.alpha_prior,
         projection_type=action_args.projection_type,

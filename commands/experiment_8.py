@@ -62,6 +62,7 @@ stats_log_level = 1
 demo = False
 q_batch_size = 128
 gather_stats_input_shape = "1 256 256 3"
+q_input_shape = "256 256 3"
 q_prefetch_factor = 16
 
 # https://github.com/google-research/google-research/blob/master/interpretability_benchmark/train_resnet.py#L126
@@ -212,11 +213,18 @@ def experiment_master(
                     projection_type.split(),
                     projection_top_k.split(),
                 )
-                for j, (proj_type, proj_top_k) in enumerate(proj_iter):
-                    for k, (alpha_mask_name, alpha_prior) in enumerate(
-                        ig_alpha_priors.items()
-                    ):
-                        job_name.append(f"ig_{experiment_name}_{j}{k}")
+                for proj_type, proj_top_k in proj_iter:
+                    for alpha_mask_name, alpha_prior in ig_alpha_priors.items():
+                        # move the data in case of input multiplication
+                        if "_i_" in alpha_mask_name:
+                            array_process = move_data_cmds
+                        else:
+                            array_process = ""
+
+                        job_name.append(
+                            f"ig_{experiment_name}_{proj_type}_{alpha_mask_name}"
+                        )
+
                         run_experiment(
                             experiment_name=job_name[-1],
                             constraint=constraint,
@@ -228,11 +236,12 @@ def experiment_master(
                             projection_type=proj_type,
                             projection_top_k=proj_top_k,
                             alpha_prior=alpha_prior,
-                            input_shape=gather_stats_input_shape,
+                            input_shape=gather_stats_input_shape,  # batch is ignored by the data source
                             dataset=dataset,
                             mean_rgb=preprocess_mean_rgb,
                             std_rgb=preprocess_std_rgb,
                             dataset_dir=dataset_dir,
+                            array_process=array_process,
                         )
                 wait_in_queue(0, job_name)
                 job_name = []
@@ -279,7 +288,7 @@ def experiment_master(
                                     experiment_name=job_name[-1],
                                     constraint=constraint,
                                     number_of_gpus=1,
-                                    input_shape="256 256 3",
+                                    input_shape=q_input_shape,
                                     filter_alpha_prior=ig_alpha_prior,
                                     glob_path=glob_path,
                                     save_temp_base_dir=save_temp_base_dir,

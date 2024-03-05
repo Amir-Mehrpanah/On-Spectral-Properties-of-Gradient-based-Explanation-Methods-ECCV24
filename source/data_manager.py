@@ -14,7 +14,8 @@ import jax.numpy as jnp
 import logging
 
 from tensorflow_datasets.core.utils import gcs_utils
-from utils import Statistics
+
+from source.utils import Statistics
 
 gcs_utils._is_gcs_disabled = True
 
@@ -210,8 +211,8 @@ def save_integrated_grad(
         init_val = -init_val  # see the derivations in the paper
 
     if ig_elementwise:
-        if data.iloc[0]["image_path"] != "NA":
-            image = PIL.Image.open()
+        if random_access_dataset is None:
+            image = PIL.Image.open(data.iloc[0]["image_path"])
             image = tf.keras.utils.img_to_array(image)
             image = preprocess(
                 image,
@@ -219,7 +220,8 @@ def save_integrated_grad(
             ).squeeze(0)
         else:
             image_index = data.iloc[0]["image_index"]
-            image = random_access_dataset[image_index]
+            image = jnp.array(random_access_dataset[int(image_index)]["image"])
+            
         image = sum_channels(image)
         assert (
             image.shape == init_val.shape
