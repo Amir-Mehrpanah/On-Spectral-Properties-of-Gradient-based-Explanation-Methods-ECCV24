@@ -208,6 +208,7 @@ def save_integrated_grad(
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
 
     if stream_statistic == Statistics.meanx:
+        # logger.debug("stream_statistic is meanx using the negative of the rankings")
         init_val = -init_val  # see the derivations in the paper
 
     if ig_elementwise:
@@ -615,7 +616,6 @@ def imagenet_loader_from_metadata(
             baseline_dataset,
             explanation_dataset,
             label_dataset,
-            alpha_dataset,
         )
     )
 

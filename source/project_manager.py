@@ -228,6 +228,7 @@ def compute_integrated_grad(
             save_integrated_grad,
             ig_elementwise=ig_elementwise,
             img_size=input_shape[1],  # N H W C
+            stream_statistic=stream_statistic,
             random_access_dataset=random_access_dataset,
         )
     elif alpha_mask_name.startswith("ig_") and "_b_" in alpha_mask_name:  # beta prior
@@ -236,6 +237,7 @@ def compute_integrated_grad(
             agg_func=beta_integrated_grad,
             ig_elementwise=ig_elementwise,
             img_size=input_shape[1],  # N H W C
+            stream_statistic=stream_statistic,
             random_access_dataset=random_access_dataset,
         )
     elif (

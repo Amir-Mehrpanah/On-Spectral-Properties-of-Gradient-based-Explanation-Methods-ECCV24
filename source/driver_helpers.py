@@ -354,7 +354,8 @@ def _parse_integrated_grad_args(parser, default_args):
     )
     args, _ = parser.parse_known_args()
 
-    if args.dataset == "food101":
+    args.random_access_dataset = None
+    if args.dataset == "food101" and "_i_" in args.alpha_mask_name:
         assert (
             (args.dataset_dir is not None)
             and (args.mean_rgb is not None)

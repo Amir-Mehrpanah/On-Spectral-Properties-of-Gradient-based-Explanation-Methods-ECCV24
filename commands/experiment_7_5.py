@@ -22,7 +22,7 @@ commands.experiment_7._args_pattern_state["alpha_mask"] = [
 # Method args
 commands.experiment_7.ig_alpha_priors = {  # DEBUG
     "ig_sg_u_x_nan": "nan",
-    "ig_sg_u_x2_nan": "nan",
+    # "ig_sg_u_x2_nan": "nan",
 }
 commands.experiment_7.combination_fns = [
     "additive",
