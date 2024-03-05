@@ -228,8 +228,6 @@ def compute_integrated_grad(
         save_results_fn = partial(
             save_integrated_grad,
             ig_elementwise=ig_elementwise,
-            mean_rgb=mean_rgb,
-            std_rgb=std_rgb,
             img_size=input_shape[1],  # N H W C
         )
     elif alpha_mask_name.startswith("ig_") and "_b_" in alpha_mask_name:  # beta prior
@@ -237,8 +235,6 @@ def compute_integrated_grad(
             save_integrated_grad,
             agg_func=beta_integrated_grad,
             ig_elementwise=ig_elementwise,
-            mean_rgb=mean_rgb,
-            std_rgb=std_rgb,
             img_size=input_shape[1],  # N H W C
         )
     elif (

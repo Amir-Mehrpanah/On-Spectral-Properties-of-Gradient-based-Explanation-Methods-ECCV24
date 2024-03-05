@@ -98,6 +98,7 @@ def update_dynamic_args():
 
     gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
@@ -116,6 +117,11 @@ def parse_args():
         parser.print_help()
         sys.exit(1)
 
+    args.num_batches = (
+        args.start_batches + 1
+        if args.num_batches <= args.start_batches
+        else args.num_batches
+    )
     update_dynamic_args()
 
     return args
@@ -259,7 +265,9 @@ def experiment_master(
                             for ig_alpha_prior in ig_alpha_priors:
                                 glob_path = os.path.basename(file)
                                 prefix = glob_path.split("_")[1][:2]
-                                job_name.append(f"acc{k}_{experiment_name}")
+                                job_name.append(
+                                    f"acc{k}_{q_direction}_{q_baseline_mask}_{ig_alpha_prior}_{experiment_name}"
+                                )
                                 run_experiment(
                                     job_array=q_job_array,
                                     num_tasks=16,

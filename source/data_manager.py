@@ -7,7 +7,6 @@ from matplotlib import pyplot as plt
 import numpy as np
 from scipy.stats import beta
 import argparse
-from pandas import Series
 import tensorflow as tf
 import tensorflow_probability as tfp
 import tensorflow_datasets as tfds
@@ -201,20 +200,19 @@ def save_integrated_grad(
     agg_func=integrated_grad,
     ig_elementwise=False,
     img_size=None,
-    mean_rgb=None,
-    std_rgb=None,
 ):
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
 
     if ig_elementwise:
-        image = PIL.Image.open(data.iloc[0]["image_path"])
-        image = tf.keras.utils.img_to_array(image)
-        image = preprocess(
-            image,
-            img_size=img_size,
-            mean_rgb=mean_rgb,
-            std_rgb=std_rgb,
-        ).squeeze(0)
+        if data.iloc[0]["image_path"] != "NA":
+            image = PIL.Image.open()
+            image = tf.keras.utils.img_to_array(image)
+            image = preprocess(
+                image,
+                img_size=img_size,
+            ).squeeze(0)
+        else:
+            image = np.ones_like(init_val)
         image = sum_channels(image)
         assert (
             image.shape == init_val.shape
@@ -513,9 +511,9 @@ def food101_loader_from_metadata(
     )
 
     def _food101_generator():
-        for index in sl_metadata["image_index"].values:
-            index = int(index)
-            sample = food_dataset[index]
+        for index, image_index in enumerate(sl_metadata["image_index"].values):
+            image_index = int(image_index)
+            sample = food_dataset[image_index]
             sample["explanation"] = np.load(sl_metadata["data_path"].values[index])
 
             if sample["explanation"].shape[-1] != 1:
