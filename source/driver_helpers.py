@@ -12,11 +12,13 @@ import jax
 import jax.dlpack
 import jax.numpy as jnp
 import tensorflow as tf
+import tensorflow_datasets as tfds
 
 
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
 from source.data_manager import (
+    Food101CraftedDecoder,
     food101_loader_from_metadata,
     imagenet_loader_from_metadata,
     query_imagenet,
@@ -329,19 +331,50 @@ def _parse_integrated_grad_args(parser, default_args):
         default=default_args.input_shape,
     )
     parser.add_argument(
-        "--mean_rgb",
-        nargs=3,
-        type=float,
+        "--dataset",
+        type=str,
         default=None,
     )
     parser.add_argument(
-        "--std_rgb",
-        nargs=3,
-        type=float,
+        "--dataset_dir",
+        type=str,
         default=None,
     )
-
+    parser.add_argument(
+        "--mean_rgb",
+        type=float,
+        default=None,
+        nargs=3,
+    )
+    parser.add_argument(
+        "--std_rgb",
+        type=float,
+        default=None,
+        nargs=3,
+    )
     args, _ = parser.parse_known_args()
+
+    if args.dataset == "food101":
+        assert (
+            (args.dataset_dir is not None)
+            and (args.mean_rgb is not None)
+            and (args.std_rgb is not None)
+        ), "dataset_dir, mean_rgb and std_rgb must be provided for food101 dataset."
+        del args.dataset
+        food_dataset = tfds.data_source(
+            "food101",
+            split="validation",
+            data_dir=args.dataset_dir,
+            download=False,
+            decoders={
+                "image": Food101CraftedDecoder(
+                    args.input_shape,
+                    args.mean_rgb,
+                    args.std_rgb,
+                )
+            },
+        )
+        args.random_access_dataset = food_dataset
     return args
 
 

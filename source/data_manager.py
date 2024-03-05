@@ -14,6 +14,7 @@ import jax.numpy as jnp
 import logging
 
 from tensorflow_datasets.core.utils import gcs_utils
+from utils import Statistics
 
 gcs_utils._is_gcs_disabled = True
 
@@ -200,8 +201,13 @@ def save_integrated_grad(
     agg_func=integrated_grad,
     ig_elementwise=False,
     img_size=None,
+    random_access_dataset=None,
+    stream_statistic=None,
 ):
     init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+
+    if stream_statistic == Statistics.meanx:
+        init_val = -init_val  # see the derivations in the paper
 
     if ig_elementwise:
         if data.iloc[0]["image_path"] != "NA":
@@ -212,7 +218,8 @@ def save_integrated_grad(
                 img_size=img_size,
             ).squeeze(0)
         else:
-            image = np.ones_like(init_val)
+            image_index = data.iloc[0]["image_index"]
+            image = random_access_dataset[image_index]
         image = sum_channels(image)
         assert (
             image.shape == init_val.shape

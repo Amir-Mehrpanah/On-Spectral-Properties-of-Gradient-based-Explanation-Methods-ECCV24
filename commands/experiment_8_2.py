@@ -17,7 +17,7 @@ commands.experiment_8.alpha_mask_value = (
 
 # Method args
 commands.experiment_8.ig_alpha_priors = {  # DEBUG
-    # "og_sg_u_x2_nan": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0", #
+    "og_sg_u_x2_nan": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0", #
     # "op_sg_u_x2_nan": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_vg_u_x_0": "0.0",
     # "ig_vg_u_x2_0": "0.0",
@@ -27,17 +27,17 @@ commands.experiment_8.ig_alpha_priors = {  # DEBUG
     # "ig_sg_u_x_0.2": "0.2",
     # "ig_sg_u_x_0.5": "0.5",
     # "ig_sg_u_x_1.0": "1.0",
-    "ig_sg_u_x2_0.1": "0.1",
-    "ig_sg_u_x2_0.2": "0.3",
-    "ig_sg_u_x2_0.5": "0.5",
-    "ig_sg_u_x2_0.7": "0.7",
-    "ig_sg_u_x2_1.0": "1.0",
+    # "ig_sg_u_x2_0.1": "0.1",
+    # "ig_sg_u_x2_0.2": "0.3",
+    # "ig_sg_u_x2_0.5": "0.5",
+    # "ig_sg_u_x2_0.7": "0.7",
+    # "ig_sg_u_x2_1.0": "1.0",
     # "ig_sg_u_x_0_0.2": "0.0 0.1 0.2",
     # "ig_sg_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_sg_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_sg_u_x2_0_0.2": "0.0 0.1 0.2",
     # "ig_sg_u_x2_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
+    "ig_sg_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_sg_i_u_x_0_0.2": "0.0 0.1 0.2",
     # "ig_sg_i_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_sg_i_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
@@ -46,7 +46,7 @@ commands.experiment_8.ig_alpha_priors = {  # DEBUG
     # "ig_sg_i_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
 }
 commands.experiment_8.combination_fns = [
-    "additive",
+    # "additive",
     "convex",
 ]
 commands.experiment_8.baseline_mask_type = "gaussian-0.4"

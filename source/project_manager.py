@@ -203,12 +203,11 @@ def compute_integrated_grad(
     save_metadata_dir,
     save_raw_data_dir,
     input_shape,
-    mean_rgb,
-    std_rgb,
     alpha_mask_name,
     alpha_prior,
     projection_type,
     projection_top_k,
+    random_access_dataset,
 ):
     from source.data_manager import (
         beta_integrated_grad,
@@ -229,6 +228,7 @@ def compute_integrated_grad(
             save_integrated_grad,
             ig_elementwise=ig_elementwise,
             img_size=input_shape[1],  # N H W C
+            random_access_dataset=random_access_dataset,
         )
     elif alpha_mask_name.startswith("ig_") and "_b_" in alpha_mask_name:  # beta prior
         save_results_fn = partial(
@@ -236,6 +236,7 @@ def compute_integrated_grad(
             agg_func=beta_integrated_grad,
             ig_elementwise=ig_elementwise,
             img_size=input_shape[1],  # N H W C
+            random_access_dataset=random_access_dataset,
         )
     elif (
         alpha_mask_name.startswith("sl_") and "_u_" in alpha_mask_name

@@ -25,4 +25,4 @@ def finite_difference(
     **kwargs,
 ):
     results_at_projection, log_prob = forward(inputs)
-    return -alpha_mask * results_at_projection, log_prob
+    return alpha_mask * results_at_projection, log_prob

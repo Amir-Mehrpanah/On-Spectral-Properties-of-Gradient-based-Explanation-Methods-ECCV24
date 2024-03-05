@@ -229,6 +229,10 @@ def experiment_master(
                             projection_top_k=proj_top_k,
                             alpha_prior=alpha_prior,
                             input_shape=gather_stats_input_shape,
+                            dataset=dataset,
+                            mean_rgb=preprocess_mean_rgb,
+                            std_rgb=preprocess_std_rgb,
+                            dataset_dir=dataset_dir,
                         )
                 wait_in_queue(0, job_name)
                 job_name = []

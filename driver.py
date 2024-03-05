@@ -83,6 +83,7 @@ elif driver_args.action == Action.compute_integrated_grad:
         alpha_prior=action_args.alpha_prior,
         projection_type=action_args.projection_type,
         projection_top_k=action_args.projection_top_k,
+        random_access_dataset=action_args.random_access_dataset,
     )
 elif driver_args.action == Action.compute_accuracy_at_q:
     driver_helpers.compute_accuracy_at_q(
