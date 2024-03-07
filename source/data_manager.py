@@ -55,7 +55,7 @@ def preprocess(x, img_size, mean_rgb=None, std_rgb=None):
     return x
 
 
-def save_axis(names, fig, axes, save_output_dir):
+def save_axis(names, fig, axes, save_output_dir, dpi=300):
     plt.draw()
     for ax, name in zip(axes.flatten(), names):
         extent = (
@@ -65,7 +65,12 @@ def save_axis(names, fig, axes, save_output_dir):
         )
 
         path = os.path.join(save_output_dir, f"{name}.pdf")
-        fig.savefig(path, bbox_inches=extent, transparent=True)
+        fig.savefig(
+            path,
+            bbox_inches=extent,
+            transparent=True,
+            dpi=dpi,
+        )
 
 
 # move to visualization.py
@@ -222,7 +227,7 @@ def save_integrated_grad(
         else:
             image_index = data.iloc[0]["image_index"]
             image = jnp.array(random_access_dataset[int(image_index)]["image"])
-            
+
         image = sum_channels(image)
         assert (
             image.shape == init_val.shape
