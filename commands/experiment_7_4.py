@@ -61,7 +61,7 @@ commands.experiment_7.projection_type = "prediction"
 commands.experiment_7.projection_top_k = "1"
 commands.experiment_7.gather_stats_dir_batch_size = 100
 commands.experiment_7.gather_stats_take_batch_size = 1
-commands.experiment_7.gather_stats_job_array = "4,25"
+commands.experiment_7.gather_stats_job_array = "7,8,10,13,26"
 commands.experiment_7.q_baseline_masks = [
 ]
 commands.experiment_7.q_directions = [
