@@ -315,6 +315,24 @@ def query_imagenet(args):
         assert args.image[-1].shape == args.input_shape
 
 
+class CBIS_DDSM_CraftedDecoder(tfds.decode.Decoder):
+    def __init__(self, input_shape, mean_rgb, std_rgb):
+        self._input_shape = input_shape
+        self._mean_rgb = mean_rgb
+        self._std_rgb = std_rgb
+
+    # just to trick tensorflow to think that this decoder is legit!
+    def decode_example(self, example, feature):
+        raise NotImplementedError
+
+    def decode_example_np(self, example):
+        example = tf.image.decode_jpeg(example)
+        example = tf.cast(example, tf.float32)
+        example = example / 255.0
+        example = (example - self._mean_rgb) / self._std_rgb
+        return example
+
+
 class Food101CraftedDecoder(tfds.decode.Decoder):
     def __init__(self, input_shape, mean_rgb, std_rgb):
         self._input_shape = input_shape
@@ -408,6 +426,46 @@ def query_food101(args):
     args.image_path = ["NA"] * len(args.image_index)
 
 
+def single_query_curated_breast_imaging_ddsm(dataset_dir, skip, input_shape, take=1):
+    preprocess_mean_rgb = np.array([0.359])
+    preprocess_std_rgb = np.array([1.0])
+    args = argparse.Namespace(
+        dataset_dir=dataset_dir,
+        input_shape=input_shape,
+        image_index=[skip, take],
+        mean_rgb=preprocess_mean_rgb,
+        std_rgb=preprocess_std_rgb,
+    )
+    query_curated_breast_imaging_ddsm(args)
+    return args.image[0], args.label[0], args.image_path[0]
+
+
+def query_curated_breast_imaging_ddsm(args):
+    args.image = []
+    args.label = []
+    args.image_path = []
+    cbis_ddsm_dataset = tfds.data_source(
+        "curated_breast_imaging_ddsm",
+        split="test",
+        data_dir=args.dataset_dir,
+        download=False,
+        decoders={
+            "image": CBIS_DDSM_CraftedDecoder(
+                args.input_shape,
+                args.mean_rgb,
+                args.std_rgb,
+            )
+        },
+    )
+
+    skip = args.image_index[0]
+    take = args.image_index[1]
+    args.image = ShiftedList(cbis_ddsm_dataset, "image", skip, take, jnp.array)
+    args.label = ShiftedList(cbis_ddsm_dataset, "label", skip, take, jnp.array)
+    args.image_path = ShiftedList(cbis_ddsm_dataset, "id", skip, take)
+    args.image_index = list(range(skip, take + skip))
+
+
 def npy_header_offset(npy_path):
     with open(str(npy_path), "rb") as f:
         if f.read(6) != b"\x93NUMPY":
@@ -486,6 +544,82 @@ def _masking_q(image, baseline, explanation, label, q, direction, verbose=False)
         "label": label,
         "actual_q": tf.reduce_mean(explanation_q),
     }
+
+
+def cbis_ddsm_loader_from_metadata(
+    sl_metadata,
+    q,
+    direction,
+    input_shape,
+    baseline="blur",
+    batch_size=128,
+    prefetch_factor=4,
+    verbose=False,
+    dataset_dir=None,
+    mean_rgb=np.array([0.359]),
+    std_rgb=np.array([1.0]),
+):
+    logger.info(
+        f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
+    )
+    cbis_ddsm_dataset = tfds.data_source(
+        "curated_breast_imaging_ddsm",
+        split="test",
+        data_dir=dataset_dir,
+        download=False,
+        decoders={
+            "image": CBIS_DDSM_CraftedDecoder(
+                input_shape,
+                mean_rgb,
+                std_rgb,
+            )
+        },
+    )
+
+    _masking_q_fn = functools.partial(
+        _masking_q,
+        q=q,
+        direction=direction,
+        verbose=verbose,
+    )
+
+    def _cbis_ddsm_generator():
+        for index, image_index in enumerate(sl_metadata["image_index"].values):
+            image_index = int(image_index)
+            sample = cbis_ddsm_dataset[image_index]
+            sample["explanation"] = np.load(sl_metadata["data_path"].values[index])
+
+            if sample["explanation"].shape[-1] != 1:
+                sample["explanation"] = sample["explanation"].sum(
+                    axis=-1, keepdims=True
+                )
+
+            if baseline == "blur":
+                sample["baseline"] = _blur_baseline(sample["image"])
+                yield _masking_q_fn(**sample)
+            elif baseline == "black":
+                sample["baseline"] = _black_baseline(sample["image"])
+                yield _masking_q_fn(**sample)
+            else:
+                raise ValueError(f"baseline {baseline} is not supported")
+
+    logger.debug(f"creating the slq_dataset from generators.")
+    slq_dataset = tf.data.Dataset.from_generator(
+        _cbis_ddsm_generator,
+        output_signature={
+            "masked_image": tf.TensorSpec(shape=input_shape, dtype=tf.float32),
+            "label": tf.TensorSpec(shape=(), dtype=tf.int64),
+            "actual_q": tf.TensorSpec(shape=(), dtype=tf.float32),
+        },
+    )
+
+    logger.info(
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+    )
+    logger.debug(f"batching and prefetching the slq_dataset.")
+    slq_dataset = slq_dataset.batch(batch_size)
+    slq_dataset = slq_dataset.prefetch(prefetch_factor)
+    return slq_dataset
 
 
 def food101_loader_from_metadata(
@@ -611,9 +745,6 @@ def imagenet_loader_from_metadata(
         )
 
     label_dataset = tf.data.Dataset.from_tensor_slices(sl_metadata["label"].values)
-    alpha_dataset = tf.data.Dataset.from_tensor_slices(
-        sl_metadata["alpha_mask_value"].values
-    )
 
     slq_dataset = tf.data.Dataset.zip(
         (

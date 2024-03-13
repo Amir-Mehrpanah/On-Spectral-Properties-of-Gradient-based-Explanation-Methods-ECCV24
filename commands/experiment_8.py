@@ -42,7 +42,7 @@ min_change = 5e-3
 gather_stats_batch_size = 128
 method = "noise_interpolation"
 architecture = "resnet50"
-dataset = "food101"
+dataset = "curated_breast_imaging_ddsm" #"food101"
 # data is copied to the node
 # see array_process
 dataset_dir = "/scratch/local/data/"
@@ -54,21 +54,30 @@ q_baseline_masks = []
 q_directions = []
 projection_top_k = "1"
 q_job_array = "10-90:20"
-num_classes = 101
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 8000 // gather_stats_batch_size
 stats_log_level = 1
 demo = False
 q_batch_size = 128
-gather_stats_input_shape = "1 256 256 3"
-q_input_shape = "256 256 3"
+# food101
+# num_classes = 101
+# gather_stats_input_shape = "1 256 256 3"
+# q_input_shape = "256 256 3"
+
+num_classes = 5
+gather_stats_input_shape = "1 224 224 1"
+q_input_shape = "224 224 1"
 q_prefetch_factor = 16
 
+# food101
 # https://github.com/google-research/google-research/blob/master/interpretability_benchmark/train_resnet.py#L126
-preprocess_mean_rgb = "0.561 0.440 0.312"
-preprocess_std_rgb = "0.252 0.256 0.259"
+# preprocess_mean_rgb = "0.561 0.440 0.312"
+# preprocess_std_rgb = "0.252 0.256 0.259"
 
+# cbis-ddsm
+preprocess_mean_rgb = "0.359"
+preprocess_std_rgb = "1.0"
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
@@ -76,12 +85,22 @@ _args_pattern_state = {
     "image": ["i", "dynamic"],
 }
 
+# food101
+# move_data_cmds = (
+#     'echo "Transferring food101-val.zip!"\n'
+#     "mkdir -p /scratch/local/data\n"
+#     "rsync --info=progress2 /proj/azizpour-group/datasets/food101/array_records/food101-val.zip /scratch/local/data/ \n"
+#     'echo "Extracting food101-val.zip!"\n'
+#     "unzip /scratch/local/data/food101-val.zip -d /scratch/local/data/\n"
+# )
+
+# cbis-ddsm
 move_data_cmds = (
-    'echo "Transferring food101-val.zip!"\n'
+    'echo "Transferring cbis-ddsm-validation.zip!"\n'
     "mkdir -p /scratch/local/data\n"
-    "rsync --info=progress2 /proj/azizpour-group/datasets/food101/array_records/food101-val.zip /scratch/local/data/ \n"
-    'echo "Extracting food101-val.zip!"\n'
-    "unzip /scratch/local/data/food101-val.zip -d /scratch/local/data/\n"
+    "rsync --info=progress2 /proj/azizpour-group/datasets/CBIS-DDSM/cbis-ddsm-validation.zip /scratch/local/data/ \n"
+    'echo "Extracting cbis-ddsm-validation.zip!"\n'
+    "unzip /scratch/local/data/cbis-ddsm-validation.zip -d /scratch/local/data/\n"
 )
 
 

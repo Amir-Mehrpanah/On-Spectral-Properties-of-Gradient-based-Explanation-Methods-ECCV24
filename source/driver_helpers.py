@@ -18,9 +18,12 @@ import tensorflow_datasets as tfds
 sys.path.append(os.getcwd())
 from source.configs import DefaultArgs
 from source.data_manager import (
+    CBIS_DDSM_CraftedDecoder,
     Food101CraftedDecoder,
+    curated_breast_imaging_ddsm_loader_from_metadata,
     food101_loader_from_metadata,
     imagenet_loader_from_metadata,
+    query_curated_breast_imaging_ddsm,
     query_imagenet,
     query_food101,
     TypeOrNan,
@@ -77,6 +80,10 @@ dataset_query_func_switch.register(
 dataset_query_func_switch.register(
     "food101",
     query_food101,
+)
+dataset_query_func_switch.register(
+    "curated_breast_imaging_ddsm",
+    query_curated_breast_imaging_ddsm,
 )
 init_architecture_forward_switch.register(
     "resnet50",
@@ -224,9 +231,9 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
 
     args, _ = parser.parse_known_args()
 
-    assert (args.dataset != "food101") or (
+    assert (args.dataset == "imagenet") or (
         args.dataset_dir is not None
-    ), "dataset_dir must be provided for food101 dataset."
+    ), "dataset_dir must be provided for datasets other than imagenet."
 
     input_shape = tuple(args.input_shape)
 
@@ -261,6 +268,18 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         # sort based on image_index
         sl_metadata = sl_metadata.sort_values("image_index")
         slq_dataloader = food101_loader_from_metadata(
+            sl_metadata,
+            args.q,
+            args.q_direction,
+            input_shape=input_shape,
+            baseline=args.q_baseline_mask,
+            batch_size=args.batch_size,
+            prefetch_factor=args.prefetch_factor,
+            dataset_dir=args.dataset_dir,
+        )
+    elif args.dataset == "curated_breast_imaging_ddsm":
+        sl_metadata = sl_metadata.sort_values("image_index")
+        slq_dataloader = curated_breast_imaging_ddsm_loader_from_metadata(
             sl_metadata,
             args.q,
             args.q_direction,
@@ -355,27 +374,51 @@ def _parse_integrated_grad_args(parser, default_args):
     args, _ = parser.parse_known_args()
 
     args.random_access_dataset = None
-    if args.dataset == "food101" and "_i_" in args.alpha_mask_name:
-        assert (
-            (args.dataset_dir is not None)
-            and (args.mean_rgb is not None)
-            and (args.std_rgb is not None)
-        ), "dataset_dir, mean_rgb and std_rgb must be provided for food101 dataset."
-        del args.dataset
-        food_dataset = tfds.data_source(
-            "food101",
-            split="validation",
-            data_dir=args.dataset_dir,
-            download=False,
-            decoders={
-                "image": Food101CraftedDecoder(
-                    args.input_shape,
-                    args.mean_rgb,
-                    args.std_rgb,
-                )
-            },
-        )
-        args.random_access_dataset = food_dataset
+    if "_i_" in args.alpha_mask_name:
+        if args.dataset == "food101":
+            assert (
+                (args.dataset_dir is not None)
+                and (args.mean_rgb is not None)
+                and (args.std_rgb is not None)
+            ), "dataset_dir, mean_rgb and std_rgb must be provided for food101 dataset."
+            del args.dataset
+            
+            food_dataset = tfds.data_source(
+                "food101",
+                split="validation",
+                data_dir=args.dataset_dir,
+                download=False,
+                decoders={
+                    "image": Food101CraftedDecoder(
+                        args.input_shape,
+                        args.mean_rgb,
+                        args.std_rgb,
+                    )
+                },
+            )
+            args.random_access_dataset = food_dataset
+        elif args.dataset == "curated_breast_imaging_ddsm":
+            assert (
+                (args.dataset_dir is not None)
+                and (args.mean_rgb is not None)
+                and (args.std_rgb is not None)
+            ), "dataset_dir, mean_rgb and std_rgb must be provided for curated_breast_imaging_ddsm dataset."
+            del args.dataset
+            
+            cbis_dataset = tfds.data_source(
+                "curated_breast_imaging_ddsm",
+                split="test",
+                data_dir=args.dataset_dir,
+                download=False,
+                decoders={
+                    "image": CBIS_DDSM_CraftedDecoder(
+                        args.input_shape,
+                        args.mean_rgb,
+                        args.std_rgb,
+                    )
+                },
+            )
+            args.random_access_dataset = cbis_dataset
     return args
 
 

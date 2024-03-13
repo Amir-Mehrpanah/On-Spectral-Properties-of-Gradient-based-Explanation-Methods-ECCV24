@@ -27,9 +27,11 @@ def init_resnet50_forward(args):
     if args.dataset == "imagenet":
         logger.debug(f"loading imagenet model with input shape: {args.input_shape}")
         resnet50_forward = init_resnet50_imagenet(args, ckpt_path)
-    elif args.dataset == "food101":
-        logger.debug(f"loading food101 model with input shape: {args.input_shape}")
-        resnet50_forward = init_resnet50_food101(args, ckpt_path)
+    elif args.dataset == "food101" or args.dataset == "curated_breast_imaging_ddsm":
+        logger.debug(
+            f"loading {args.dataset} model with input shape: {args.input_shape}"
+        )
+        resnet50_forward = init_resnet50_non_imagenet(args, ckpt_path)
     else:
         raise ValueError(f"Unknown dataset {args.dataset}")
 
@@ -47,7 +49,7 @@ class TrainState(train_state.TrainState):
     epoch: int
 
 
-def init_resnet50_food101(args, ckpt_path):
+def init_resnet50_non_imagenet(args, ckpt_path):
     model = fm.ResNet50(
         output=args.output_layer,
         pretrained=None,
