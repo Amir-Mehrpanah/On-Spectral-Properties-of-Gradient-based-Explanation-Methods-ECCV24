@@ -43,8 +43,7 @@ gather_stats_batch_size = 128
 method = "noise_interpolation"
 architecture = "resnet50"
 dataset = "curated_breast_imaging_ddsm" #"food101"
-# data is copied to the node
-# see array_process
+# data is copied to the node see array_process
 dataset_dir = "/scratch/local/data/"
 baseline_mask_type = None
 baseline_mask_value = None

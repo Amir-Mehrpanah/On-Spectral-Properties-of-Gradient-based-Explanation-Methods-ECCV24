@@ -54,6 +54,7 @@ def init_resnet50_non_imagenet(args, ckpt_path):
         output=args.output_layer,
         pretrained=None,
         num_classes=args.num_classes,
+        normalize=False,
     )
     variables = model.init(
         jax.random.PRNGKey(0),
