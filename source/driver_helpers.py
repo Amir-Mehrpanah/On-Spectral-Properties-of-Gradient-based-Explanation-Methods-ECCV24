@@ -407,7 +407,7 @@ def _parse_integrated_grad_args(parser, default_args):
             
             cbis_dataset = tfds.data_source(
                 "curated_breast_imaging_ddsm",
-                split="test",
+                split="validation",
                 data_dir=args.dataset_dir,
                 download=False,
                 decoders={

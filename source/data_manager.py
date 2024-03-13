@@ -446,7 +446,7 @@ def query_curated_breast_imaging_ddsm(args):
     args.image_path = []
     cbis_ddsm_dataset = tfds.data_source(
         "curated_breast_imaging_ddsm",
-        split="test",
+        split="validation",
         data_dir=args.dataset_dir,
         download=False,
         decoders={
@@ -564,7 +564,7 @@ def curated_breast_imaging_ddsm_loader_from_metadata(
     )
     cbis_ddsm_dataset = tfds.data_source(
         "curated_breast_imaging_ddsm",
-        split="test",
+        split="validation",
         data_dir=dataset_dir,
         download=False,
         decoders={
