@@ -546,7 +546,7 @@ def _masking_q(image, baseline, explanation, label, q, direction, verbose=False)
     }
 
 
-def cbis_ddsm_loader_from_metadata(
+def curated_breast_imaging_ddsm_loader_from_metadata(
     sl_metadata,
     q,
     direction,
