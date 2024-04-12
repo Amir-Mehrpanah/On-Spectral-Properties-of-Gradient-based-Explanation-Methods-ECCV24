@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --time 12:00:00
+#SBATCH --time 00:30:00
 
 date
 echo cwd: $PWD

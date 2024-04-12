@@ -56,6 +56,7 @@ q_job_array = "10-90:20"
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 8000 // gather_stats_batch_size
+gather_stats_job_array = None
 stats_log_level = 1
 demo = False
 q_batch_size = 128
@@ -64,6 +65,7 @@ q_batch_size = 128
 # gather_stats_input_shape = "1 256 256 3"
 # q_input_shape = "256 256 3"
 
+# cbis-ddsm
 num_classes = 5
 gather_stats_input_shape = "1 224 224 1"
 q_input_shape = "224 224 1"
@@ -115,7 +117,8 @@ def update_dynamic_args():
         separators=(";", ":"),
     )
 
-    gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
+    if gather_stats_job_array is None:
+        gather_stats_job_array = f"0-{gather_stats_dir_batch_size-gather_stats_take_batch_size}:{gather_stats_take_batch_size}"
 
 
 def parse_args():

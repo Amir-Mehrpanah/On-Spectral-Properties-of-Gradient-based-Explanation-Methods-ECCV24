@@ -693,6 +693,9 @@ class NoiseInterpolation:
                 """
                 generates a delta distribution on the top k'th prediction.
                 """
+                logger.debug(
+                    f"projection_distribution is delta image shape is: {args_dict['image'].shape}"
+                )
                 (
                     temp_projection_index,
                     temp_projection,

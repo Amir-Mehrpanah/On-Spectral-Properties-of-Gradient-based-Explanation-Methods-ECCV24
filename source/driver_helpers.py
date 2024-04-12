@@ -363,13 +363,13 @@ def _parse_integrated_grad_args(parser, default_args):
         "--mean_rgb",
         type=float,
         default=None,
-        nargs=3,
+        nargs=1,
     )
     parser.add_argument(
         "--std_rgb",
         type=float,
         default=None,
-        nargs=3,
+        nargs=1,
     )
     args, _ = parser.parse_known_args()
 
@@ -656,13 +656,13 @@ def _add_gather_stats_base_args(parser, default_args):
     )
     parser.add_argument(
         "--mean_rgb",
-        nargs=3,
+        nargs=1,
         type=float,
         default=np.nan,
     )
     parser.add_argument(
         "--std_rgb",
-        nargs=3,
+        nargs=1,
         type=float,
         default=np.nan,
     )

@@ -328,6 +328,8 @@ class CBIS_DDSM_CraftedDecoder(tfds.decode.Decoder):
     def decode_example_np(self, example):
         example = tf.image.decode_jpeg(example)
         example = tf.cast(example, tf.float32)
+        if len(self._input_shape) == 4:  # (N, H, W, C)
+            example = tf.expand_dims(example, axis=0)
         example = example / 255.0
         example = (example - self._mean_rgb) / self._std_rgb
         return example
