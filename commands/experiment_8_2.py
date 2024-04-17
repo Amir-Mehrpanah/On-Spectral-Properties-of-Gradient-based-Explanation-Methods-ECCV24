@@ -1,4 +1,4 @@
-# Experiment 7.2: Integrated gradients + Smooth Grad with different alpha priors
+# Experiment 8.2: Integrated gradients + Smooth Grad with different alpha priors
 
 import argparse
 import sys

@@ -1,4 +1,4 @@
-# Experiment 8: Food101
+# Experiment 8: Food101, CBIS-DDSM
 
 import json
 import logging

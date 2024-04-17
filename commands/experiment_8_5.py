@@ -1,4 +1,4 @@
-# Experiment 7.5: Smooth Grad Original paper
+# Experiment 8.5: Smooth Grad Original paper
 
 import argparse
 import sys

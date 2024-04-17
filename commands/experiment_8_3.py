@@ -1,4 +1,4 @@
-# Experiment 7.3: RISE and Occlusion
+# Experiment 8.3: RISE and Occlusion
 
 import sys
 import os

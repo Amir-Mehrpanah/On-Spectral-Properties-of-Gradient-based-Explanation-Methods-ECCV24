@@ -10,7 +10,7 @@ from commands.experiment_8 import (
 import commands.experiment_8
 
 
-commands.experiment_8.alpha_mask_value = "0.0 0.005 0.010 0.015 0.020 0.025 0.030 0.035 0.040"  # DEBUG
+commands.experiment_8.alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  # DEBUG
 
 # Method args
 commands.experiment_8.combination_fns = [
@@ -23,7 +23,7 @@ commands.experiment_8.ig_alpha_priors = {
     # "none": None,
 }
 
-commands.experiment_8.baseline_mask_type = "gaussian"
+commands.experiment_8.baseline_mask_type = "gaussian-0.035"
 # commands.experiment_8.baseline_mask_value = "0.0"
 commands.experiment_8.q_baseline_masks = []
 commands.experiment_8.q_directions = [

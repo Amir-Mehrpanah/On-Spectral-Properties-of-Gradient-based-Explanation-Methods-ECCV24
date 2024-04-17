@@ -164,3 +164,4 @@ cython_debug/
 commands/temp/*
 outputs.tar
 outputs.tar.gz
+source/train/*/runs

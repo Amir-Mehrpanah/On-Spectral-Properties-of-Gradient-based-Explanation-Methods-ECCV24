@@ -149,6 +149,8 @@ class NoiseInterpolation:
             choices=[
                 "static",
                 "gaussian",
+                "gaussian-0.035",
+                "gaussian-0.05",
                 "gaussian-0.1",
                 "gaussian-0.2",
                 "gaussian-0.3",
