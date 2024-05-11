@@ -23,7 +23,7 @@ commands.experiment_8.ig_alpha_priors = {
     # "none": None,
 }
 
-commands.experiment_8.baseline_mask_type = "gaussian-0.035"
+commands.experiment_8.baseline_mask_type = "gaussian-1.0"
 # commands.experiment_8.baseline_mask_value = "0.0"
 commands.experiment_8.q_baseline_masks = []
 commands.experiment_8.q_directions = [

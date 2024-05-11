@@ -43,8 +43,8 @@ class TypeOrNan:
         return self.type(x)
 
 
-def preprocess(x, img_size, mean_rgb=None, std_rgb=None):
-    x = tf.keras.layers.experimental.preprocessing.CenterCrop(
+def preprocess(x, img_size, mean_rgb=None, std_rgb=None):  
+    x = tf.keras.layers.CenterCrop(
         height=img_size,
         width=img_size,
     )(x)
@@ -105,20 +105,30 @@ def preprocess_masks_ndarray(masks, preprocesses):
     return masks
 
 
-def aggregate_grad_mask_generic(data, agg_func, perprocess=[]):
+def aggregate_grad_mask_generic(data, agg_func, preprocess=[]):
     init_val = np.load(data.iloc[0]["grad_mask"])
-    init_val = preprocess_masks_ndarray(init_val, preprocesses=perprocess)
+    if init_val.ndim == 2:
+        preprocess = [functools.partial(np.expand_dims, axis=-1)] + preprocess
+    init_val = preprocess_masks_ndarray(init_val, preprocesses=preprocess)
     init_val = np.zeros_like(init_val)
+    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H, W, 1)"
 
     for id, row in data.iterrows():
         temp_grad = np.load(row["grad_mask"])
-        temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=perprocess)
+        temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=preprocess)
         init_val = agg_func(init_val, temp_grad, row["alpha_mask_value"])
+        
+        if isinstance(init_val, dict):
+            assert (
+                init_val["values"].ndim == 3
+            ), f"{init_val.shape} must be 3d (H, W, 1)"
+        else:
+            assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H, W, 1)"
 
     if isinstance(init_val, dict):
         init_val = init_val["values"]
 
-    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H,W, 1)"
+    assert init_val.ndim == 3, f"{init_val.shape} must be 3d (H, W, 1)"
     # init_val = np.expand_dims(init_val, axis=0)
     return init_val
 
@@ -180,7 +190,7 @@ def save_spectral_lens(
     save_raw_data_dir,
     agg_func=unif_mul_freq,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+    init_val = aggregate_grad_mask_generic(data, agg_func, preprocess=[sum_channels])
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"SL_{path_prefix}.npy")
@@ -193,7 +203,7 @@ def save_arg_lens(
     save_raw_data_dir,
     agg_func=argmax_freq,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+    init_val = aggregate_grad_mask_generic(data, agg_func, preprocess=[sum_channels])
     rnd = np.random.randint(0, 1000)
     path_prefix = datetime.now().strftime(f"%m%d_%H%M%S%f-{rnd}")
     save_path = os.path.join(save_raw_data_dir, f"AL_{path_prefix}.npy")
@@ -210,7 +220,7 @@ def save_integrated_grad(
     random_access_dataset=None,
     stream_statistic=None,
 ):
-    init_val = aggregate_grad_mask_generic(data, agg_func, perprocess=[sum_channels])
+    init_val = aggregate_grad_mask_generic(data, agg_func, preprocess=[sum_channels])
 
     if stream_statistic == Statistics.meanx:
         # logger.debug("stream_statistic is meanx using the negative of the rankings")
@@ -227,11 +237,13 @@ def save_integrated_grad(
         else:
             image_index = data.iloc[0]["image_index"]
             image = jnp.array(random_access_dataset[int(image_index)]["image"])
+            if image.ndim == 4:
+                image = image.squeeze(0)
 
         image = sum_channels(image)
         assert (
             image.shape == init_val.shape
-        ), "image and grad_mask are expected to be of the same shape"
+        ), f"image and grad_mask are expected to be of the same shape {image.shape} != {init_val.shape}"
         init_val = init_val * image
 
     rnd = np.random.randint(0, 1000)
@@ -295,7 +307,8 @@ def query_imagenet(args):
     args.label = []
     args.image_path = []
     image_height = args.input_shape[1]  # (N, H, W, C)
-    dataset = tfds.folder_dataset.ImageFolder(root_dir=args.dataset_dir)
+    imagenet_dir = os.path.join(args.dataset_dir, "imagenet")
+    dataset = tfds.folder_dataset.ImageFolder(root_dir=imagenet_dir)
     dataset = dataset.as_dataset(split="val", shuffle_files=False)
     skip = args.image_index[0]
     take = args.image_index[1]
@@ -340,7 +353,7 @@ class Food101CraftedDecoder(tfds.decode.Decoder):
         self._input_shape = input_shape
         self._mean_rgb = mean_rgb
         self._std_rgb = std_rgb
-        self.center_crop = tf.keras.layers.experimental.preprocessing.CenterCrop(
+        self.center_crop = tf.keras.layers.CenterCrop(
             height=self._input_shape[-2],
             width=self._input_shape[-3],
         )
@@ -492,7 +505,7 @@ def _tf_parse_image_fn_imagenet(image_path, input_shape):
     image = tf.io.read_file(image_path)
     image = tf.io.decode_image(image, channels=3)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = tf.keras.layers.experimental.preprocessing.CenterCrop(
+    image = tf.keras.layers.CenterCrop(
         height=input_shape[-2],
         width=input_shape[-3],
     )(image)
@@ -589,6 +602,7 @@ def curated_breast_imaging_ddsm_loader_from_metadata(
         for index, image_index in enumerate(sl_metadata["image_index"].values):
             image_index = int(image_index)
             sample = cbis_ddsm_dataset[image_index]
+            del sample["id"]
             sample["explanation"] = np.load(sl_metadata["data_path"].values[index])
 
             if sample["explanation"].shape[-1] != 1:

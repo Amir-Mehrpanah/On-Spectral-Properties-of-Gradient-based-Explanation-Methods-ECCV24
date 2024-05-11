@@ -14,9 +14,9 @@ commands.experiment_8.alpha_mask_type = "image_ohcat-7x7 image_bernoulli-7x7"
 commands.experiment_8.alpha_mask_value = "nan 0.1" 
 commands.experiment_8.ig_alpha_priors = {
     "ig_rise_u_x_0.1": "0.1",
-    "ig_rise_u_x2_0.1": "0.1",
+    # "ig_rise_u_x2_0.1": "0.1",
     "ig_occlusion_u_x_nan": "nan",
-    "ig_occlusion_u_x2_nan": "nan",
+    # "ig_occlusion_u_x2_nan": "nan",
 }
 # Method args
 commands.experiment_8.combination_fns = [

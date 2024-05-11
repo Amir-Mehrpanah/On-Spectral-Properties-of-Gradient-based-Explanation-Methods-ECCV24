@@ -41,8 +41,8 @@ set_logging_level(logging_level)
 min_change = 5e-3
 gather_stats_batch_size = 128
 method = "noise_interpolation"
-architecture = "resnet50"
-dataset = "curated_breast_imaging_ddsm" #"food101"
+architecture = "vit_b_16_224"  # "resnet50"
+dataset = "imagenet"  # "curated_breast_imaging_ddsm" #"food101"
 # data is copied to the node see array_process
 dataset_dir = "/scratch/local/data/"
 baseline_mask_type = None
@@ -60,16 +60,27 @@ gather_stats_job_array = None
 stats_log_level = 1
 demo = False
 q_batch_size = 128
+
+# imagenet
+num_classes = 1000
+gather_stats_input_shape = "1 224 224 3"
+q_input_shape = "224 224 3"
+q_prefetch_factor = 16
+
 # food101
 # num_classes = 101
 # gather_stats_input_shape = "1 256 256 3"
 # q_input_shape = "256 256 3"
 
 # cbis-ddsm
-num_classes = 5
-gather_stats_input_shape = "1 224 224 1"
-q_input_shape = "224 224 1"
-q_prefetch_factor = 16
+# num_classes = 5
+# gather_stats_input_shape = "1 224 224 1"
+# q_input_shape = "224 224 1"
+# q_prefetch_factor = 16
+
+# imagenet
+# preprocess_mean_rgb must be commented out
+# preprocess_std_rgb must be commented out
 
 # food101
 # https://github.com/google-research/google-research/blob/master/interpretability_benchmark/train_resnet.py#L126
@@ -77,14 +88,25 @@ q_prefetch_factor = 16
 # preprocess_std_rgb = "0.252 0.256 0.259"
 
 # cbis-ddsm
-preprocess_mean_rgb = "0.359"
-preprocess_std_rgb = "1.0"
+# preprocess_mean_rgb = "0.359"
+# preprocess_std_rgb = "1.0"
 
 _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
     "alpha_mask": ["j", "dynamic"],
     "image": ["i", "dynamic"],
 }
+
+# imagenet
+move_data_cmds = (
+    'echo "Transferring imagenet_val.zip!"\n'
+    "mkdir -p /scratch/local/data\n"
+    "rsync --info=progress2 /proj/azizpour-group/datasets/imagenet/imagenet_val.zip /scratch/local/data/ \n"
+    'echo time: $(date +"%T")  "Extracting imagenet_val.zip!"\n'
+    "unzip -q /scratch/local/data/imagenet_val.zip -d /scratch/local/data/\n"
+    'echo time: $(date +"%T")  "Extraction finished!"\n'
+)
+
 
 # food101
 # move_data_cmds = (
@@ -96,13 +118,13 @@ _args_pattern_state = {
 # )
 
 # cbis-ddsm
-move_data_cmds = (
-    'echo "Transferring cbis-ddsm-validation.zip!"\n'
-    "mkdir -p /scratch/local/data\n"
-    "rsync --info=progress2 /proj/azizpour-group/datasets/CBIS-DDSM/cbis-ddsm-validation.zip /scratch/local/data/ \n"
-    'echo "Extracting cbis-ddsm-validation.zip!"\n'
-    "unzip /scratch/local/data/cbis-ddsm-validation.zip -d /scratch/local/data/\n"
-)
+# move_data_cmds = (
+#     'echo "Transferring cbis-ddsm-validation.zip!"\n'
+#     "mkdir -p /scratch/local/data\n"
+#     "rsync --info=progress2 /proj/azizpour-group/datasets/CBIS-DDSM/cbis-ddsm-validation.zip /scratch/local/data/ \n"
+#     'echo "Extracting cbis-ddsm-validation.zip!"\n'
+#     "unzip /scratch/local/data/cbis-ddsm-validation.zip -d /scratch/local/data/\n"
+# )
 
 
 def update_dynamic_args():
@@ -201,8 +223,8 @@ def experiment_master(
                     batch_size=gather_stats_batch_size,
                     max_batches=gather_stats_max_batches,
                     args_state=args_state,
-                    mean_rgb=preprocess_mean_rgb,
-                    std_rgb=preprocess_std_rgb,
+                    # mean_rgb=preprocess_mean_rgb,
+                    # std_rgb=preprocess_std_rgb,
                     args_pattern=args_pattern,
                     save_raw_data_dir=save_raw_data_dir,
                     save_metadata_dir=save_metadata_dir,
@@ -259,8 +281,8 @@ def experiment_master(
                             alpha_prior=alpha_prior,
                             input_shape=gather_stats_input_shape,  # batch is ignored by the data source
                             dataset=dataset,
-                            mean_rgb=preprocess_mean_rgb,
-                            std_rgb=preprocess_std_rgb,
+                            # mean_rgb=preprocess_mean_rgb,
+                            # std_rgb=preprocess_std_rgb,
                             dataset_dir=dataset_dir,
                             array_process=array_process,
                         )

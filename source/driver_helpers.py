@@ -30,7 +30,7 @@ from source.data_manager import (
 )
 from source.project_manager import load_experiment_metadata
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
-from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward
+from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward, init_vit_forward
 from source.inconsistency_measures import (
     _measure_inconsistency_cosine_distance,
     _measure_inconsistency_DSSIM,
@@ -93,7 +93,10 @@ init_architecture_forward_switch.register(
     "resnet50-randomized",
     init_resnet50_randomized_forward,
 )
-
+init_architecture_forward_switch.register(
+    "vit_b_16_224",
+    init_vit_forward,
+)
 
 def base_parser(parser, default_args: DefaultArgs):
     args = _parse_general_args(parser, default_args)
