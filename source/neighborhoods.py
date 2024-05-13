@@ -12,7 +12,7 @@ def uniform_mask(
     name: str,
     stream=Dict[str, jax.Array],
     shape: Tuple,
-    key: jax.random.KeyArray,
+    key,
 ) -> Dict[str, jax.Array]:
     """
     args:
@@ -40,7 +40,7 @@ def bernoulli_mask(
     stream=Dict[str, jax.Array],
     shape: Tuple,
     p: Union[float, np.ndarray],
-    key: jax.random.KeyArray,
+    key,
 ) -> Dict[str, jax.Array]:
     """
     args:
@@ -72,7 +72,7 @@ def onehot_categorical_mask(
     stream=Dict[str, jax.Array],
     shape: Tuple,
     p: Union[float, np.ndarray] = None,
-    key: jax.random.KeyArray,
+    key,
 ) -> Dict[str, jax.Array]:
     """
     args:

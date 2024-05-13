@@ -10,7 +10,9 @@ from commands.experiment_8 import (
 import commands.experiment_8
 
 
-commands.experiment_8.alpha_mask_value = "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  # DEBUG
+commands.experiment_8.alpha_mask_value = (
+    "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9"  # DEBUG  
+)
 
 # Method args
 commands.experiment_8.combination_fns = [
@@ -31,6 +33,7 @@ commands.experiment_8.q_directions = [
     # "insertion",
 ]
 # commands.experiment_8.q_job_array = "0"
+# commands.experiment_8.gather_stats_job_array = "0"
 
 if __name__ == "__main__":
     args = commands.experiment_8.parse_args()

@@ -43,11 +43,24 @@ class TypeOrNan:
         return self.type(x)
 
 
-def preprocess(x, img_size, mean_rgb=None, std_rgb=None):  
-    x = tf.keras.layers.CenterCrop(
-        height=img_size,
-        width=img_size,
-    )(x)
+# from https://stackoverflow.com/questions/54865717
+# mocking tf.keras.layers.CenterCrop
+def crop_square_center(img, target_shape):
+    assert target_shape[-3] == target_shape[-2], "target shape is not square"
+    assert len(target_shape) == 3, "target_shape is not 3D"
+
+    shapes = tf.shape(img)
+    h, w = shapes[-3], shapes[-2]
+    small = tf.minimum(h, w)
+    target_small = tf.minimum(target_shape[-3], target_shape[-2])
+    small = tf.minimum(small, target_small)
+    img = tf.image.resize_with_crop_or_pad(img, small, small)
+    img = tf.image.resize(img, [target_shape[-3], target_shape[-2]])
+    return img
+
+
+def preprocess(x, img_size, mean_rgb=None, std_rgb=None):
+    x = crop_square_center(x, (img_size, img_size, 3))
     x = jnp.array(x)
     x = jnp.expand_dims(x, axis=0) / 255.0
     if mean_rgb is not None:
@@ -117,7 +130,7 @@ def aggregate_grad_mask_generic(data, agg_func, preprocess=[]):
         temp_grad = np.load(row["grad_mask"])
         temp_grad = preprocess_masks_ndarray(temp_grad, preprocesses=preprocess)
         init_val = agg_func(init_val, temp_grad, row["alpha_mask_value"])
-        
+
         if isinstance(init_val, dict):
             assert (
                 init_val["values"].ndim == 3
@@ -482,6 +495,9 @@ def query_curated_breast_imaging_ddsm(args):
 
 
 def npy_header_offset(npy_path):
+    npy_content = np.load(npy_path)
+    npy_shape = npy_content.shape
+    shape_size = np.prod(npy_shape) * tf.float32.size
     with open(str(npy_path), "rb") as f:
         if f.read(6) != b"\x93NUMPY":
             raise ValueError("Invalid NPY file.")
@@ -498,17 +514,19 @@ def npy_header_offset(npy_path):
         header = f.read(header_len)
         if not header.endswith(b"\n"):
             raise ValueError("Invalid NPY file.")
-        return f.tell()
+
+        header_offset = f.tell()
+        logger.debug(
+            f"header offset is {header_offset}, npy_shape is {npy_shape} with size {shape_size}"
+        )
+        return header_offset, shape_size, npy_shape
 
 
 def _tf_parse_image_fn_imagenet(image_path, input_shape):
     image = tf.io.read_file(image_path)
     image = tf.io.decode_image(image, channels=3)
     image = tf.image.convert_image_dtype(image, tf.float32)
-    image = tf.keras.layers.CenterCrop(
-        height=input_shape[-2],
-        width=input_shape[-3],
-    )(image)
+    image = crop_square_center(image, input_shape)
     return image
 
 
@@ -727,17 +745,15 @@ def imagenet_loader_from_metadata(
     logger.info(
         f"creating dataloader... the dataset shape for loader is {sl_metadata.shape}"
     )
-    header_offset = npy_header_offset(sl_metadata["data_path"].values[0])
-    shape_size = np.prod(input_shape) * tf.float32.size
-    logger.debug(
-        f"header offset is {header_offset}, input_shape is {input_shape} with size {shape_size}"
+    header_offset, shape_size, explanation_shape = npy_header_offset(
+        sl_metadata["data_path"].values[0]
     )
 
     explanation_dataset = tf.data.FixedLengthRecordDataset(
         sl_metadata["data_path"].values, shape_size, header_bytes=header_offset
     )
     explanation_dataset = explanation_dataset.map(
-        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), input_shape),
+        lambda s: tf.reshape(tf.io.decode_raw(s, tf.float32), explanation_shape),
         num_parallel_calls=tf.data.experimental.AUTOTUNE,
     )
 

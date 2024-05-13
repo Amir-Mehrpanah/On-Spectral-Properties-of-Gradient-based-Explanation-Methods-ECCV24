@@ -301,6 +301,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         slq_dataloader=slq_dataloader,
         sl_metadata=sl_metadata,
         forward=args.forward[0],
+        params=args.params[0],
         save_file_name_prefix=args.save_file_name_prefix,
         q=args.q,
         q_direction=args.q_direction,
@@ -1120,6 +1121,7 @@ def compute_accuracy_at_q(
     q_direction,
     q_baseline_mask,
     forward,
+    params,
     slq_dataloader,
 ):
     preds = []
@@ -1132,8 +1134,8 @@ def compute_accuracy_at_q(
             f"jax default device: {jax.devices()} "
             f"masked_image: {masked_image.device_buffer.device()}"
         )
-        logger.debug(f"batch: {i} of {total_steps} time: {datetime.now()}")
-        logits = forward(masked_image)
+        logger.debug(f"batch: {i} of {total_steps}//batch_size time: {datetime.now()}")
+        logits = forward(params,masked_image)
         logits = logits.argmax(axis=1)
         preds.append(logits == batch["label"])
         actual_qs.append(batch["actual_q"])

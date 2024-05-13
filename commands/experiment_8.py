@@ -39,7 +39,7 @@ alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
 min_change = 5e-3
-gather_stats_batch_size = 128
+gather_stats_batch_size = 16
 method = "noise_interpolation"
 architecture = "vit_b_16_224"  # "resnet50"
 dataset = "imagenet"  # "curated_breast_imaging_ddsm" #"food101"
@@ -54,8 +54,8 @@ q_directions = []
 projection_top_k = "1"
 q_job_array = "10-90:20"
 gather_stats_take_batch_size = 10
-gather_stats_dir_batch_size = 1000
-gather_stats_max_batches = 8000 // gather_stats_batch_size
+gather_stats_dir_batch_size = 500
+gather_stats_max_batches = 256 // gather_stats_batch_size
 gather_stats_job_array = None
 stats_log_level = 1
 demo = False
@@ -95,6 +95,7 @@ _args_pattern_state = {
     # "key": ["pattern", "compilation state"],
     "alpha_mask": ["j", "dynamic"],
     "image": ["i", "dynamic"],
+    "params": ["p", "dynamic"],
 }
 
 # imagenet

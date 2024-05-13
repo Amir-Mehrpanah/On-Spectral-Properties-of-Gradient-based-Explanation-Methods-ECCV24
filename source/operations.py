@@ -36,8 +36,8 @@ def onehot_categorical(key, *, num_classes, indices):
     return static_projection(num_classes=num_classes, index=sparse)
 
 
-def topk_static_projection(*, forward, image, k):
-    log_probs = forward(image)
+def topk_static_projection(*, forward, params, image, k):
+    log_probs = forward(params, image)
     k_max = jnp.argpartition(log_probs.squeeze(), -k)[-k]
     return k_max, static_projection(num_classes=log_probs.shape[1], index=k_max)
 
@@ -172,11 +172,13 @@ def linear_combination_mask(
 
 def gather_stats(sampler, dynamic_kwargs, meta_kwargs):
     start = time.time()
+    logger.debug("initializing the loop.")
     (
         loop_initials,
         concrete_stopping_condition,
         concrete_sample_and_update,
     ) = init_loop(sampler, dynamic_kwargs, meta_kwargs)
+    logger.debug("starting the loop.")
     stats = jax.lax.while_loop(
         cond_fun=concrete_stopping_condition,
         body_fun=concrete_sample_and_update,
@@ -263,10 +265,11 @@ def sample_and_update_stats(
 
     key = jax.random.PRNGKey(seed + batch_index)
     batch_keys = jax.random.split(key, num=batch_size)
-
+    logger.debug("sampling the batch.")
     sampled_batch = sampler(
         batch_keys, *stats[Stream("dynamic_args", "none")]
     )  # lookup
+    logger.debug("updating the stats.")
     stats = concrete_update_stats(sampled_batch, stats, batch_index)
     stats[batch_index_key] = batch_index
     return stats

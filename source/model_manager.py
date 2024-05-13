@@ -24,10 +24,11 @@ from outputs.temp.imagenet.vit.source.vision_transformer.vit_jax.configs import 
 logger = logging.getLogger(__name__)
 
 
-def forward_with_projection(inputs, projection, forward):
+def forward_with_projection(inputs, params, projection, forward):
     assert inputs.ndim == 4, "inputs should be a batch of images"
     assert inputs.shape[0] == 1, "batch size must match"
-    log_prob = forward(inputs)
+    logger.debug(f"forward with projection")
+    log_prob = forward(params, inputs)
     results_at_projection = (log_prob @ projection).squeeze()
     return results_at_projection, log_prob
 
@@ -164,7 +165,7 @@ def init_vit_forward(args):
     logger.debug(f"loading model from: {ckpt_path}")
     if args.dataset == "imagenet":
         logger.debug(f"loading vit for imagenet with input shape: {args.input_shape}")
-        vit_forward = init_vit_forward_imagenet(args, ckpt_path)
+        vit_forward, params = init_vit_forward_imagenet(args, ckpt_path)
     else:
         raise ValueError(f"Unknown dataset {args.dataset}")
 
@@ -173,8 +174,10 @@ def init_vit_forward(args):
             args.forward, list
         ), f"forward must be a list recieved {type(args.forward)}"
         args.forward.append(vit_forward)
+        args.params.append(params)
     else:
         args.forward = [vit_forward]
+        args.params = [params]
 
 
 def init_vit_forward_imagenet(args, ckpt_path):
@@ -190,8 +193,7 @@ def init_vit_forward_imagenet(args, ckpt_path):
 
     vit_b16_forward = partial(
         vit_b16.apply,
-        dict(params=params),
         train=False,
     )
 
-    return vit_b16_forward
+    return vit_b16_forward, dict(params=params)

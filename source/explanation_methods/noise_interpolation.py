@@ -31,6 +31,7 @@ class NoiseInterpolation:
     @staticmethod
     def sampler(
         key,
+        params,
         forward,
         projection,
         alpha_mask,
@@ -64,6 +65,7 @@ class NoiseInterpolation:
             log_probs,
         ) = explainer_fn(
             forward=_forward,
+            params=params,
             inputs=combination_mask,
             alpha_mask=alpha_mask,
         )
@@ -242,7 +244,9 @@ class NoiseInterpolation:
                 combined_static_kwargs,
                 vmap_axis,
             )
-
+            logger.debug(f"combined_static_keys are {combined_static_kwargs.keys()}")
+            logger.debug(f"combined_dynamic_keys are {combined_dynamic_kwargs.keys()}")
+            logger.debug(f"vmap axis is {vmap_axis}")
             yield sampler, combined_static_kwargs, combined_dynamic_kwargs, combined_meta_kwargs
 
     @classmethod
@@ -331,6 +335,7 @@ class NoiseInterpolation:
         inplace_infer(args_pattern, "forward", "method")
         inplace_infer(args_pattern, "label", "image")
         inplace_infer(args_pattern, "input_shape", "forward")
+        inplace_infer(args_pattern, "params", "forward")
         inplace_infer(args_pattern, "num_classes", "forward")
         inplace_infer(args_pattern, "architecture", "forward")
         inplace_infer(args_pattern, "output_layer", "forward")
@@ -360,7 +365,7 @@ class NoiseInterpolation:
         sampler = AbstractFunction(cls.sampler)(**static_kwargs).concretize()
         if vamp_axis is not None:
             sampler = jax.vmap(sampler, in_axes=vamp_axis)
-        jax.jit(sampler)
+        # jax.jit(sampler) # long compilation for ViT?
         return sampler
 
     @classmethod
@@ -389,6 +394,7 @@ class NoiseInterpolation:
             "label",
             "image",
             "forward",
+            "params",
             "architecture",
             "method",
             "output_layer",
@@ -704,6 +710,7 @@ class NoiseInterpolation:
                 ) = operations.topk_static_projection(
                     image=args_dict["image"],
                     forward=args_dict["forward"],
+                    params=args_dict["params"],
                     k=args_dict["projection_top_k"],
                 )
             elif args_dict["projection_distribution"] == "uniform":

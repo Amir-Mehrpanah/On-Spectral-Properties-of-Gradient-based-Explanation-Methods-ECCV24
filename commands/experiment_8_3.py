@@ -11,7 +11,7 @@ import commands.experiment_8
 
 
 commands.experiment_8.alpha_mask_type = "image_ohcat-7x7 image_bernoulli-7x7"
-commands.experiment_8.alpha_mask_value = "nan 0.1" 
+commands.experiment_8.alpha_mask_value = "nan 0.1"
 commands.experiment_8.ig_alpha_priors = {
     "ig_rise_u_x_0.1": "0.1",
     # "ig_rise_u_x2_0.1": "0.1",
@@ -22,6 +22,9 @@ commands.experiment_8.ig_alpha_priors = {
 commands.experiment_8.combination_fns = [
     "convex",
 ]
+commands.experiment_8.gather_stats_max_batches = (
+    8000 // commands.experiment_8.gather_stats_batch_size
+)
 commands.experiment_8.explainer_fn = "finite_difference"
 commands.experiment_8._args_pattern_state = {
     # "key": ["pattern", "compilation state"],

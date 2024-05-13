@@ -37,7 +37,7 @@ commands.experiment_8.ig_alpha_priors = {  # DEBUG
     # "ig_sg_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_sg_u_x2_0_0.2": "0.0 0.1 0.2",
     # "ig_sg_u_x2_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
-    # "ig_sg_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
+    "ig_sg_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_sg_i_u_x_0_0.2": "0.0 0.1 0.2",
     # "ig_sg_i_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_sg_i_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
@@ -49,7 +49,7 @@ commands.experiment_8.combination_fns = [
     # "additive",
     "convex",
 ]
-commands.experiment_8.baseline_mask_type = "gaussian-0.1"
+commands.experiment_8.baseline_mask_type = "gaussian-0.5"
 commands.experiment_8.projection_type = "prediction"
 commands.experiment_8.projection_top_k = "1"
 commands.experiment_8.q_baseline_masks = [

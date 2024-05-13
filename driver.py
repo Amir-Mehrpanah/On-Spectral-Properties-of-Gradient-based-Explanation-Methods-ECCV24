@@ -23,6 +23,8 @@ if driver_args.action == Action.gather_stats:
     iterator = enumerate(action_args.samplers_and_kwargs)
     for sindex, (sampler, static_kwargs, dynamic_kwargs, meta_kwargs) in iterator:
         logger.info(f"task {sindex}/{action_args.num_samplers} started.")
+        logger.debug(f"static_kwargs: {static_kwargs.keys()}")
+        logger.debug(f"static_kwargs: {dynamic_kwargs.keys()}")
         stats, stats_metadata = gather_stats(sampler, dynamic_kwargs, meta_kwargs)
         logger.info(
             f"task {sindex}/{action_args.num_samplers} "
@@ -92,6 +94,7 @@ elif driver_args.action == Action.compute_accuracy_at_q:
         action_args.q_direction,
         action_args.q_baseline_mask,
         action_args.forward,
+        action_args.params,
         action_args.slq_dataloader,
     )
 else:
