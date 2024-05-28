@@ -30,7 +30,11 @@ from source.data_manager import (
 )
 from source.project_manager import load_experiment_metadata
 from source.explanation_methods.noise_interpolation import NoiseInterpolation
-from source.model_manager import init_resnet50_forward, init_resnet50_randomized_forward, init_vit_forward
+from source.model_manager import (
+    init_resnet50_forward,
+    init_resnet50_randomized_forward,
+    init_vit_forward,
+)
 from source.inconsistency_measures import (
     _measure_inconsistency_cosine_distance,
     _measure_inconsistency_DSSIM,
@@ -97,6 +101,7 @@ init_architecture_forward_switch.register(
     "vit_b_16_224",
     init_vit_forward,
 )
+
 
 def base_parser(parser, default_args: DefaultArgs):
     args = _parse_general_args(parser, default_args)
@@ -266,6 +271,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             input_shape=input_shape,
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
+            smoothing_kernel_shape=args.smoothing_kernel_shape,
         )
     elif args.dataset == "food101":
         # sort based on image_index
@@ -279,6 +285,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
             dataset_dir=args.dataset_dir,
+            smoothing_kernel_shape=args.smoothing_kernel_shape,
         )
     elif args.dataset == "curated_breast_imaging_ddsm":
         sl_metadata = sl_metadata.sort_values("image_index")
@@ -291,6 +298,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
             batch_size=args.batch_size,
             prefetch_factor=args.prefetch_factor,
             dataset_dir=args.dataset_dir,
+            smoothing_kernel_shape=args.smoothing_kernel_shape,
         )
     else:
         raise NotImplementedError("other datasets are not implemented")
@@ -386,7 +394,7 @@ def _parse_integrated_grad_args(parser, default_args):
                 and (args.std_rgb is not None)
             ), "dataset_dir, mean_rgb and std_rgb must be provided for food101 dataset."
             del args.dataset
-            
+
             food_dataset = tfds.data_source(
                 "food101",
                 split="validation",
@@ -408,7 +416,7 @@ def _parse_integrated_grad_args(parser, default_args):
                 and (args.std_rgb is not None)
             ), "dataset_dir, mean_rgb and std_rgb must be provided for curated_breast_imaging_ddsm dataset."
             del args.dataset
-            
+
             cbis_dataset = tfds.data_source(
                 "curated_breast_imaging_ddsm",
                 split="validation",
@@ -1135,7 +1143,7 @@ def compute_accuracy_at_q(
             f"masked_image: {masked_image.device_buffer.device()}"
         )
         logger.debug(f"batch: {i} of {total_steps}//batch_size time: {datetime.now()}")
-        logits = forward(params,masked_image)
+        logits = forward(params, masked_image)
         logits = logits.argmax(axis=1)
         preds.append(logits == batch["label"])
         actual_qs.append(batch["actual_q"])

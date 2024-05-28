@@ -547,7 +547,9 @@ def _black_baseline(image):
     return tf.zeros_like(image)
 
 
-def _masking_q(image, baseline, explanation, label, q, direction, verbose=False):
+def _masking_q(
+    image, baseline, explanation, label, q, smoothing_kernel, direction, verbose=False
+):
     explanation_q = tfp.stats.percentile(
         explanation,
         100 - q,
@@ -561,7 +563,20 @@ def _masking_q(image, baseline, explanation, label, q, direction, verbose=False)
         explanation_q = explanation >= explanation_q
 
     explanation_q = tf.cast(explanation_q, tf.float32)
-    masked_image = image * explanation_q + baseline * (1 - explanation_q)
+    explanation_smoothed_q = tf.nn.erosion2d(
+        tf.expand_dims(explanation_q, axis=0),
+        smoothing_kernel,
+        strides=[1, 1, 1, 1],
+        padding="SAME",
+        data_format="NHWC",
+        dilations=[1, 1, 1, 1],
+    )
+    explanation_smoothed_q = (explanation_smoothed_q+1)/2
+    explanation_smoothed_q = tf.squeeze(explanation_smoothed_q, axis=0)
+
+    masked_image = image * explanation_smoothed_q + baseline * (
+        1 - explanation_smoothed_q
+    )
     if verbose:
         return {
             "original_image": image,
@@ -569,7 +584,9 @@ def _masking_q(image, baseline, explanation, label, q, direction, verbose=False)
             "masked_image": masked_image,
             "baseline": baseline,
             "label": label,
-            "actual_q": tf.reduce_mean(explanation_q),
+            "explanation_smoothed_q": explanation_smoothed_q,
+            "explanation_q": explanation_q,
+            "actual_q": tf.reduce_mean(explanation_smoothed_q),
         }
 
     return {
@@ -589,6 +606,7 @@ def curated_breast_imaging_ddsm_loader_from_metadata(
     prefetch_factor=4,
     verbose=False,
     dataset_dir=None,
+    smoothing_kernel_shape=(1, 1),
     mean_rgb=np.array([0.359]),
     std_rgb=np.array([1.0]),
 ):
@@ -608,10 +626,11 @@ def curated_breast_imaging_ddsm_loader_from_metadata(
             )
         },
     )
-
+    smoothing_kernel = tf.ones((*smoothing_kernel_shape, 1), dtype=tf.float32)
     _masking_q_fn = functools.partial(
         _masking_q,
         q=q,
+        smoothing_kernel=smoothing_kernel,
         direction=direction,
         verbose=verbose,
     )
@@ -666,6 +685,7 @@ def food101_loader_from_metadata(
     prefetch_factor=4,
     verbose=False,
     dataset_dir=None,
+    smoothing_kernel_shape=(1, 1),
     mean_rgb=np.array([0.561, 0.440, 0.312]),
     std_rgb=np.array([0.252, 0.256, 0.259]),
 ):
@@ -685,10 +705,11 @@ def food101_loader_from_metadata(
             )
         },
     )
-
+    smoothing_kernel = tf.ones((*smoothing_kernel_shape, 1), dtype=tf.float32)
     _masking_q_fn = functools.partial(
         _masking_q,
         q=q,
+        smoothing_kernel=smoothing_kernel,
         direction=direction,
         verbose=verbose,
     )
@@ -740,6 +761,7 @@ def imagenet_loader_from_metadata(
     baseline="blur",
     batch_size=128,
     prefetch_factor=4,
+    smoothing_kernel_shape=(1, 1),
     verbose=False,
 ):
     logger.info(
@@ -790,9 +812,11 @@ def imagenet_loader_from_metadata(
     logger.info(
         f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
     )
+    smoothing_kernel = tf.ones((*smoothing_kernel_shape, 1), dtype=tf.float32)
     _masking_q_fn = functools.partial(
         _masking_q,
         q=q,
+        smoothing_kernel=smoothing_kernel,
         direction=direction,
         verbose=verbose,
     )

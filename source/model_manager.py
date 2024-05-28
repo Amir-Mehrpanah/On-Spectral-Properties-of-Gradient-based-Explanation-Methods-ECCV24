@@ -38,12 +38,12 @@ def init_resnet50_forward(args):
     logger.debug(f"loading model from: {ckpt_path}")
     if args.dataset == "imagenet":
         logger.debug(f"loading imagenet model with input shape: {args.input_shape}")
-        resnet50_forward = init_resnet50_imagenet(args, ckpt_path)
+        resnet50_forward, params = init_resnet50_imagenet(args, ckpt_path)
     elif args.dataset == "food101" or args.dataset == "curated_breast_imaging_ddsm":
         logger.debug(
             f"loading {args.dataset} model with input shape: {args.input_shape}"
         )
-        resnet50_forward = init_resnet50_non_imagenet(args, ckpt_path)
+        resnet50_forward, params = init_resnet50_non_imagenet(args, ckpt_path)
     else:
         raise ValueError(f"Unknown dataset {args.dataset}")
 
@@ -52,8 +52,10 @@ def init_resnet50_forward(args):
             args.forward, list
         ), f"forward must be a list recieved {type(args.forward)}"
         args.forward.append(resnet50_forward)
+        args.params.append(params)
     else:
         args.forward = [resnet50_forward]
+        args.params = [params]
 
 
 class TrainState(train_state.TrainState):
@@ -89,11 +91,10 @@ def init_resnet50_non_imagenet(args, ckpt_path):
     }
     resnet50_forward = partial(
         state.apply_fn,
-        variables,
         train=False,
         mutable=False,
     )
-    return resnet50_forward
+    return resnet50_forward, variables
 
 
 def init_resnet50_imagenet(args, ckpt_path):
@@ -108,11 +109,10 @@ def init_resnet50_imagenet(args, ckpt_path):
     )
     resnet50_forward = partial(
         resnet50.apply,
-        params,
         train=False,
     )
 
-    return resnet50_forward
+    return resnet50_forward, params
 
 
 def init_resnet50_randomized_forward(args):
@@ -147,7 +147,6 @@ def init_resnet50_randomized_forward(args):
     logger.info(f"Randomized layer: {args.layer_randomization}")
     resnet50_forward = partial(
         resnet50.apply,
-        params,
         train=False,
     )
     if hasattr(args, "forward"):
@@ -155,8 +154,10 @@ def init_resnet50_randomized_forward(args):
             args.forward, list
         ), f"forward must be a list recieved {type(args.forward)}"
         args.forward.append(resnet50_forward)
+        args.params.append(params)
     else:
         args.forward = [resnet50_forward]
+        args.params = [params]
 
 
 def init_vit_forward(args):
