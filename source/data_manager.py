@@ -571,7 +571,7 @@ def _masking_q(
         data_format="NHWC",
         dilations=[1, 1, 1, 1],
     )
-    explanation_smoothed_q = (explanation_smoothed_q+1)/2
+    explanation_smoothed_q = (explanation_smoothed_q+1)
     explanation_smoothed_q = tf.squeeze(explanation_smoothed_q, axis=0)
 
     masked_image = image * explanation_smoothed_q + baseline * (
@@ -586,6 +586,7 @@ def _masking_q(
             "label": label,
             "explanation_smoothed_q": explanation_smoothed_q,
             "explanation_q": explanation_q,
+            "theoretical_q": (100 - q)/100,
             "actual_q": tf.reduce_mean(explanation_smoothed_q),
         }
 
@@ -667,7 +668,9 @@ def curated_breast_imaging_ddsm_loader_from_metadata(
     )
 
     logger.info(
-        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, "
+        f"prefetch_factor is {prefetch_factor}, verbose is {verbose}, "
+        f"smoothing_kernel_shape is {smoothing_kernel_shape}"
     )
     logger.debug(f"batching and prefetching the slq_dataset.")
     slq_dataset = slq_dataset.batch(batch_size)
@@ -745,7 +748,9 @@ def food101_loader_from_metadata(
     )
 
     logger.info(
-        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, "
+        f"prefetch_factor is {prefetch_factor}, verbose is {verbose}, "
+        f"smoothing_kernel_shape is {smoothing_kernel_shape}"
     )
     logger.debug(f"batching and prefetching the slq_dataset.")
     slq_dataset = slq_dataset.batch(batch_size)
@@ -810,7 +815,9 @@ def imagenet_loader_from_metadata(
     )
 
     logger.info(
-        f"dataloader value of q is set to {q}, batch_size is {batch_size}, prefetch_factor is {prefetch_factor}, verbose is {verbose}"
+        f"dataloader value of q is set to {q}, batch_size is {batch_size}, "
+        f"prefetch_factor is {prefetch_factor}, verbose is {verbose}, "
+        f"smoothing_kernel_shape is {smoothing_kernel_shape}"
     )
     smoothing_kernel = tf.ones((*smoothing_kernel_shape, 1), dtype=tf.float32)
     _masking_q_fn = functools.partial(

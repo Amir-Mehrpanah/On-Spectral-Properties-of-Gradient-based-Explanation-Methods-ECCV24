@@ -49,7 +49,10 @@ commands.experiment_8.combination_fns = [
     # "additive",
     "convex",
 ]
-commands.experiment_8.baseline_mask_type = "gaussian-0.5"
+
+# "gaussian-0.5" for vit on imagenet
+# "gaussian-0.3" for resnet50 on imagenet
+commands.experiment_8.baseline_mask_type = "gaussian-0.3"
 commands.experiment_8.projection_type = "prediction"
 commands.experiment_8.projection_top_k = "1"
 commands.experiment_8.q_baseline_masks = [

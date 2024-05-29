@@ -26,10 +26,10 @@ commands.experiment_8.ig_alpha_priors = {  # DEBUG
     # "ig_u_x2_0.2": "0.2",
     # "ig_u_x2_0.5": "0.5",
     # "ig_u_x2_1.0": "1.0",
-    "ig_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",  # static key for q=0,100
+    "ig_u_x2_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
     # "ig_u_x2_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_u_x2_0_0.2": "0.0 0.1 0.2",
-    "ig_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",  # k is a typo! should be removed
+    "ig_u_x_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0", 
     # "ig_u_x_0_0.5": "0.0 0.1 0.2 0.3 0.4 0.5",
     # "ig_u_x_0_0.2": "0.0 0.1 0.2",
     "ig_u_x2_i_0_1.0": "0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0",
@@ -54,7 +54,7 @@ commands.experiment_8.q_directions = [
     "deletion",
     "insertion",
 ]
-commands.experiment_8.q_job_array = "10-90:20"  # "0,100"
+commands.experiment_8.q_job_array = "10-90:20"
 
 if __name__ == "__main__":
     args = commands.experiment_8.parse_args()

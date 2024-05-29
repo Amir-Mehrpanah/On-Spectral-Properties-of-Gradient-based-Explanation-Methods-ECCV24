@@ -41,7 +41,7 @@ set_logging_level(logging_level)
 min_change = 5e-3
 gather_stats_batch_size = 16
 method = "noise_interpolation"
-architecture = "vit_b_16_224"  # "resnet50"
+architecture = "resnet50"  #  "vit_b_16_224"
 dataset = "imagenet"  # "curated_breast_imaging_ddsm" #"food101"
 # data is copied to the node see array_process
 dataset_dir = "/scratch/local/data/"
@@ -52,15 +52,15 @@ explainer_fn = "vanilla_grad"
 q_baseline_masks = []
 q_directions = []
 projection_top_k = "1"
-q_job_array = "10-90:20"
+q_job_array = "5-95:5"
 gather_stats_take_batch_size = 10
-gather_stats_dir_batch_size = 500
+gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 256 // gather_stats_batch_size
 gather_stats_job_array = None
 stats_log_level = 1
 demo = False
 q_batch_size = 128
-
+smoothing_kernel_shape = "1 1"
 # imagenet
 num_classes = 1000
 gather_stats_input_shape = "1 224 224 3"
@@ -79,8 +79,8 @@ q_prefetch_factor = 16
 # q_prefetch_factor = 16
 
 # imagenet
-# preprocess_mean_rgb must be commented out
-# preprocess_std_rgb must be commented out
+# preprocess_mean_rgb must be commented out in master_experiment
+# preprocess_std_rgb must be commented out in master_experiment
 
 # food101
 # https://github.com/google-research/google-research/blob/master/interpretability_benchmark/train_resnet.py#L126
@@ -224,8 +224,8 @@ def experiment_master(
                     batch_size=gather_stats_batch_size,
                     max_batches=gather_stats_max_batches,
                     args_state=args_state,
-                    # mean_rgb=preprocess_mean_rgb,
-                    # std_rgb=preprocess_std_rgb,
+                    # mean_rgb=preprocess_mean_rgb, # comment on imagenet
+                    # std_rgb=preprocess_std_rgb, # comment on imagenet
                     args_pattern=args_pattern,
                     save_raw_data_dir=save_raw_data_dir,
                     save_metadata_dir=save_metadata_dir,
@@ -342,6 +342,7 @@ def experiment_master(
                                     architecture=architecture,
                                     logging_level=logging_level,
                                     save_metadata_dir=save_metadata_dir,
+                                    smoothing_kernel_shape=smoothing_kernel_shape,
                                     batch_size=q_batch_size,
                                     prefetch_factor=q_prefetch_factor,
                                     dataset=dataset,

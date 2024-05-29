@@ -217,6 +217,12 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         choices=["blur", "black"],
     )
     parser.add_argument(
+        "--smoothing_kernel_shape",
+        type=int,
+        nargs=2,
+        default=default_args.smoothing_kernel_shape,
+    )
+    parser.add_argument(
         "--filter_alpha_prior",
         type=TypeOrNan(str),
         default=None,
