@@ -54,7 +54,6 @@ commands.experiment_8.q_directions = [
     "deletion",
     "insertion",
 ]
-commands.experiment_8.q_job_array = "10-90:20"
 
 if __name__ == "__main__":
     args = commands.experiment_8.parse_args()

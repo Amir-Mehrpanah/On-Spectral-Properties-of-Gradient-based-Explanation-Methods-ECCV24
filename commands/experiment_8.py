@@ -1,4 +1,4 @@
-# Experiment 8: Food101, CBIS-DDSM
+# Experiment 8: Food101, CBIS-DDSM, Imagenet
 
 import json
 import logging
@@ -52,7 +52,7 @@ explainer_fn = "vanilla_grad"
 q_baseline_masks = []
 q_directions = []
 projection_top_k = "1"
-q_job_array = "5-95:5"
+q_job_array = "10-90:20"
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 256 // gather_stats_batch_size

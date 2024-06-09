@@ -320,6 +320,7 @@ def _parse_compute_accuracy_at_q_args(parser, default_args):
         q=args.q,
         q_direction=args.q_direction,
         q_baseline_mask=args.q_baseline_mask,
+        smoothing_kernel_shape=args.smoothing_kernel_shape,
     )
 
 
@@ -1134,6 +1135,7 @@ def compute_accuracy_at_q(
     q,
     q_direction,
     q_baseline_mask,
+    erosion_kernel_shape,
     forward,
     params,
     slq_dataloader,
@@ -1164,6 +1166,7 @@ def compute_accuracy_at_q(
     preds["q"] = q
     preds["q_direction"] = q_direction
     preds["q_baseline_mask"] = q_baseline_mask
+    preds["erosion_kernel_shape"] = str(erosion_kernel_shape)
 
     logger.debug(f"preds shape: {preds.shape} (q results)")
     logger.debug(

@@ -557,12 +557,9 @@ def _masking_q(
         keepdims=True,
     )
 
-    if direction == "deletion":
-        explanation_q = explanation <= explanation_q
-    else:
-        explanation_q = explanation >= explanation_q
-
+    explanation_q = explanation <= explanation_q
     explanation_q = tf.cast(explanation_q, tf.float32)
+
     explanation_smoothed_q = tf.nn.erosion2d(
         tf.expand_dims(explanation_q, axis=0),
         smoothing_kernel,
@@ -571,8 +568,13 @@ def _masking_q(
         data_format="NHWC",
         dilations=[1, 1, 1, 1],
     )
-    explanation_smoothed_q = (explanation_smoothed_q+1)
+
+    explanation_smoothed_q = explanation_smoothed_q + 1
     explanation_smoothed_q = tf.squeeze(explanation_smoothed_q, axis=0)
+    
+    actual_q = 1 - tf.reduce_mean(explanation_smoothed_q)
+    if direction == "insertion":
+        explanation_smoothed_q = 1 - explanation_smoothed_q
 
     masked_image = image * explanation_smoothed_q + baseline * (
         1 - explanation_smoothed_q
@@ -586,14 +588,13 @@ def _masking_q(
             "label": label,
             "explanation_smoothed_q": explanation_smoothed_q,
             "explanation_q": explanation_q,
-            "theoretical_q": (100 - q)/100,
-            "actual_q": tf.reduce_mean(explanation_smoothed_q),
+            "actual_q": actual_q,
         }
 
     return {
         "masked_image": masked_image,
         "label": label,
-        "actual_q": tf.reduce_mean(explanation_q),
+        "actual_q": actual_q,
     }
 
 
@@ -867,3 +868,70 @@ def query_cifar10(args):
             f"image shape is {args.image[-1].shape}, "
             f"expected input shape is {args.input_shape}"
         )
+
+
+def fill_na(
+    merged_data_acc,
+    static_data_acc,
+    static_key,
+    static_combination,
+    static_direction,
+    path_to_acc_data,
+):
+    alphas = merged_data_acc.index.get_level_values("alpha_mask_value").unique()
+    for alpha in alphas:
+        q_directions = (
+            merged_data_acc.loc[alpha].index.get_level_values("q_direction").unique()
+        )
+        for q_direction in q_directions:
+            q_baseline_masks = (
+                merged_data_acc.loc[alpha, q_direction]
+                .index.get_level_values("q_baseline_mask")
+                .unique()
+            )
+            for q_baseline_mask in q_baseline_masks:
+                combinations = (
+                    merged_data_acc.loc[alpha, q_direction, q_baseline_mask]
+                    .index.get_level_values("combination")
+                    .unique()
+                )
+                for combination in combinations:
+                    # select the key that is computed for 0 and 100
+                    temp = static_data_acc.loc[
+                        (
+                            static_key,
+                            static_direction,
+                            q_baseline_mask,
+                            static_combination,
+                        ),
+                        [0, 100],
+                    ]
+
+                    # check if there are any nan values in the selected key
+                    assert (
+                        temp.isna().sum().sum() == 0
+                    ), f"alpha: {alpha}, q_direction: {q_direction}, q_baseline_mask: {q_baseline_mask}, combination: {combination}"
+
+                    # check if the index of the selected key is the same as the index of the merged_data_acc
+                    index2 = temp.index
+                    index1 = merged_data_acc.loc[
+                        (alpha, q_direction, q_baseline_mask, combination), [0, 100]
+                    ].index
+                    assert (
+                        index1.shape == index2.shape
+                    ), f"shape mismatch {index1.shape}!={index2.shape} at alpha: {alpha}, q_direction: {q_direction}, q_baseline_mask: {q_baseline_mask}, combination: {combination}"
+                    assert (
+                        index1 != index2
+                    ).sum() == 0, f"alpha: {alpha}, q_direction: {q_direction}, q_baseline_mask: {q_baseline_mask}, combination: {combination}"
+
+                    # if the q_direction is insertion, we need to swap the columns
+                    if q_direction == "insertion":
+                        temp = temp.rename(columns={0: 100, 100: 0})
+                        temp = temp[[0, 100]]
+
+                    # replace the values in the merged_data_acc with the selected key
+                    merged_data_acc.loc[
+                        (alpha, q_direction, q_baseline_mask, combination), [0, 100]
+                    ] = temp.values
+
+    merged_data_acc.to_csv(path_to_acc_data)
