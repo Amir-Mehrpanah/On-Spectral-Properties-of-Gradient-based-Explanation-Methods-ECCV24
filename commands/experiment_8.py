@@ -38,7 +38,7 @@ combination_fns = []
 alpha_mask_type = "static"
 logging_level = logging.DEBUG
 set_logging_level(logging_level)
-min_change = 5e-3
+min_change = 1e-3
 gather_stats_batch_size = 16
 method = "noise_interpolation"
 architecture = "resnet50"  #  "vit_b_16_224"
@@ -52,7 +52,7 @@ explainer_fn = "vanilla_grad"
 q_baseline_masks = []
 q_directions = []
 projection_top_k = "1"
-q_job_array = "10-90:20"
+q_job_array = "5-95:5"
 gather_stats_take_batch_size = 10
 gather_stats_dir_batch_size = 1000
 gather_stats_max_batches = 256 // gather_stats_batch_size
@@ -60,7 +60,9 @@ gather_stats_job_array = None
 stats_log_level = 1
 demo = False
 q_batch_size = 128
+inconsistency_batch_size = 16
 smoothing_kernel_shape = "1 1"
+inconsistency_measure = "cosine_distance"
 # imagenet
 num_classes = 1000
 gather_stats_input_shape = "1 224 224 3"
@@ -147,6 +149,7 @@ def update_dynamic_args():
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--gather_stats", "-g", action="store_true")
+    parser.add_argument("--compute_inconsistency", "-i", action="store_true")
     parser.add_argument("--compute_integrated_grad", "-t", action="store_true")
     parser.add_argument("--compute_accuracy_at_q", "-q", action="store_true")
     parser.add_argument("--compute_entropy", "-e", action="store_true")
@@ -370,6 +373,19 @@ def experiment_master(
                 wait_in_queue(0, jobnames=job_name)  # wait for all jobs to finish
                 remove_files(save_metadata_dir)
 
+            if args.compute_inconsistency:
+                job_name = f"inconsistency_{experiment_name}"
+                run_experiment(
+                    experiment_name=job_name,
+                    constraint=constraint,
+                    action=Action.compute_inconsistency,
+                    save_metadata_dir=save_metadata_dir,
+                    batch_size=inconsistency_batch_size,
+                    inconsistency_measure=inconsistency_measure,
+                    logging_level=logging_level,
+                )
+                wait_in_queue(0, jobnames=job_name)
+
             if args.compute_entropy:
                 job_name = f"entropy_{experiment_name}"
                 run_experiment(
@@ -377,6 +393,7 @@ def experiment_master(
                     constraint=constraint,
                     action=Action.compute_entropy,
                     save_metadata_dir=save_metadata_dir,
+                    logging_level=logging_level,
                 )
                 wait_in_queue(0, jobnames=job_name)
 

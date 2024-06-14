@@ -6,34 +6,33 @@ import os
 
 import logging
 
-from source.utils import Statistics, StreamNames
+from source.utils import Statistics
 
 logger = logging.getLogger(__name__)
 
 
 def load_experiment_metadata(save_metadata_dir, glob_path: str = "*.csv"):
-    glob_path = os.path.join(save_metadata_dir, glob_path)
-    metadata_paths = glob(glob_path)
-    metadata_paths_merged = [path for path in metadata_paths if "merged" in path]
-    assert (
-        len(metadata_paths_merged) == 1
-    ), f"Could not find any metadata files in {glob_path} found {metadata_paths_merged}"
-
-    metadata_path = metadata_paths_merged[0]
-    return pd.read_csv(metadata_path, index_col=False)
+    return load_experiment_generic(save_metadata_dir, "metadata", glob_path)
 
 
 def load_experiment_inconsistency(save_metadata_dir, glob_path: str = "*.csv"):
+    return load_experiment_generic(save_metadata_dir, "inconsistency", glob_path)
+
+
+def load_experiment_entropy(save_metadata_dir, glob_path: str = "*.csv"):
+    return load_experiment_generic(save_metadata_dir, "predictive_entropy", glob_path)
+
+
+def load_experiment_generic(save_metadata_dir, filter_name, glob_path: str = "*.csv"):
     glob_path = os.path.join(save_metadata_dir, glob_path)
     metadata_paths = glob(glob_path)
-    metadata_paths_inconsistency = [
-        path for path in metadata_paths if "inconsistency" in path
-    ]
-    assert (
-        len(metadata_paths_inconsistency) == 1
-    ), f"Could not find any metadata files in {glob_path} found {metadata_paths_inconsistency}"
+    metadata_paths = [path for path in metadata_paths if filter_name in path]
 
-    metadata_path = metadata_paths_inconsistency[0]
+    assert (
+        len(metadata_paths) == 1
+    ), f"Could not find any metadata files in {glob_path} found {metadata_paths}"
+
+    metadata_path = metadata_paths[0]
     return pd.read_csv(metadata_path, index_col=False)
 
 
@@ -44,17 +43,24 @@ def compute_entropy(save_metadata_dir):
     metadata = metadata.set_index(
         [
             "stream_name",
+            "image_index",
+            "label",
+            "projection_index",
             "alpha_mask_value",
         ]
     )
+    logger.debug(
+        f"Loaded metadata from {save_metadata_dir} with shape {metadata.shape} with columns {metadata.columns}"
+    )
     metadata = metadata.loc["log_probs", "data_path"]
+    logger.debug(f"shape after filter {metadata.shape}")
     metadata = metadata.apply(lambda x: np.load(x))
     metadata = metadata.apply(lambda x: -(x * np.exp(x)).sum())
-    metadata = metadata.groupby("alpha_mask_value").mean()
     metadata.name = "predictive_entropy"
     filename = os.path.join(save_metadata_dir, "predictive_entropy.csv")
     metadata = metadata.reset_index()
     metadata.to_csv(filename, index=False)
+    logger.info(f"Saved predictive entropy to {filename}")
 
 
 def merge_experiment_metadata(

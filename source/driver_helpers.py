@@ -836,6 +836,9 @@ def _make_loader(
     pivot_column: str,
     prefetch_factor: int,
 ):
+    logger.debug(
+        f"making loader from metadata {save_metadata_dir} with {pivot_indices} and {pivot_column}."
+    )
     input_shape, merged_metadata_tuple = safely_load_metadata(
         save_metadata_dir,
         pivot_indices,
@@ -850,6 +853,7 @@ def _make_loader(
     )
 
     index_keys = get_index_keys(merged_metadata_tuple)
+    logger.debug(f"sample_keys: {sample_keys} index_keys: {index_keys}")
     merged_metadata_tuple = make_iterator(merged_metadata_tuple)
 
     def _generator():

@@ -11,9 +11,9 @@ import commands.experiment_8
 
 
 commands.experiment_8.alpha_mask_type = "image_ohcat-7x7 image_bernoulli-7x7"
-commands.experiment_8.alpha_mask_value = "nan 0.1"
+commands.experiment_8.alpha_mask_value = "nan 0.5"
 commands.experiment_8.ig_alpha_priors = {
-    "ig_rise_u_x_0.1": "0.1",
+    "ig_rise_u_x_0.5": "0.5",
     # "ig_rise_u_x2_0.1": "0.1",
     "ig_occlusion_u_x_nan": "nan",
     # "ig_occlusion_u_x2_nan": "nan",
@@ -29,9 +29,10 @@ commands.experiment_8.explainer_fn = "finite_difference"
 commands.experiment_8._args_pattern_state = {
     # "key": ["pattern", "compilation state"],
     "image": ["i", "dynamic"],
+    # "params": ["p", "dynamic"],
 }
 commands.experiment_8.baseline_mask_type = "static"
-commands.experiment_8.baseline_mask_value = "0.0"
+commands.experiment_8.baseline_mask_value = "0.0" # RISE gray color in the paper but black in the code?
 commands.experiment_8.projection_type = "prediction"
 commands.experiment_8.projection_top_k = "1"
 commands.experiment_8.q_baseline_masks = [
