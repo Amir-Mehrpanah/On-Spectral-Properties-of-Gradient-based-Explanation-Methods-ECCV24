@@ -1,4 +1,4 @@
-# On Spectral Properties of Gradient-based Explanation Methods (published in ECCV24)
+# On Spectral Properties of Gradient-based Explanation Methods (ECCV24)
 
 This repository is used to reproduce all experiments discussed in our paper.
 
