@@ -5,3 +5,6 @@ This repository is used to reproduce all experiments discussed in our paper.
 We are in the process of refactoring this code for our next work please use the Berzelius branch which is up to date. Also note that unfortunately on Berzelius branch we assume you are using Berzelius so you might have to change some parts of the code. 
 
 Please refer to the [paper](https://eccv.ecva.net/virtual/2024/poster/1585) for more details.
+
+---
+This codebase is old and, to some extent, spaghetti-like. I have improved it in our next paper ICCV25 on my github.
